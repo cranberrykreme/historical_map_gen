@@ -1,0 +1,11 @@
+# Python
+server/venv/
+server/__pycache__/
+*.pyc
+
+# React
+client/node_modules/
+client/build/
+
+# Mac
+.DS_Store
