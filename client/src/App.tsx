@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import MapCanvas from './components/MapCanvas';
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
@@ -14,6 +15,7 @@ function App() {
     <div>
       <h1>History Map Tool</h1>
       <p>Backend status: {backendStatus}</p>
+      <MapCanvas />
     </div>
   )
 }
