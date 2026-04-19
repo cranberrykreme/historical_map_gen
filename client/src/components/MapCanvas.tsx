@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import useMapFetch from '../hooks/useMapFetch';
 import useMapInteraction from '../hooks/useMapInteraction';
+import API_BASE_URL from '../config/api';
 
 function MapCanvas() {
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<HTMLDivElement>(null);
-    const svgContent = useMapFetch('http://localhost:5000/api/map');
+    const svgContent = useMapFetch(`${API_BASE_URL}/api/map`);
 
     useEffect(() => {
         if (mapRef.current && svgContent) {

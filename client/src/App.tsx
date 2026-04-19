@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import MapCanvas from './components/MapCanvas';
+import API_BASE_URL from './config/api';
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/health')
+    fetch(`${API_BASE_URL}/api/health`)
       .then(response => response.json())
       .then(data => setBackendStatus(data.message))
       .catch(() => setBackendStatus('Could not reach backend'));
