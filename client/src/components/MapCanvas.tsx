@@ -14,14 +14,17 @@ function MapCanvas({ placedUnits, onUnitMove }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
+  const scaleRef = useRef<number>(1) as React.RefObject<number>;
   const svgContent = useMapFetch(`${API_BASE_URL}/api/map`);
-  const { scaleRef } = useMapInteraction(containerRef, mapRef, !!svgContent);
+  const isDraggingUnit = useRef<boolean>(false);
 
   useEffect(() => {
     if (svgRef.current && svgContent) {
       svgRef.current.innerHTML = svgContent;
     }
   }, [svgContent]);
+
+  useMapInteraction(containerRef, mapRef, !!svgContent, scaleRef, isDraggingUnit);
 
   return (
     <div
@@ -37,7 +40,7 @@ function MapCanvas({ placedUnits, onUnitMove }: MapCanvasProps) {
         }}
       >
         <div ref={svgRef} />
-        <UnitLayer units={placedUnits} onUnitMove={onUnitMove} scaleRef={scaleRef} />
+        <UnitLayer units={placedUnits} onUnitMove={onUnitMove} scaleRef={scaleRef} isDraggingUnit={isDraggingUnit} />
       </div>
     </div>
   );

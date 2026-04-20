@@ -19,7 +19,6 @@ function App() {
   }, []);
 
   const handleUploadComplete = (filename: string, type: AssetType) => {
-    console.log('Upload complete called with:', filename, type);
     if (type === 'units') {
       refetchUnits();
       const newUnit: Unit = {
@@ -28,9 +27,7 @@ function App() {
         x: 100,
         y: 100,
       };
-      console.log('New unit created:', newUnit);
       setPlacedUnits(prev => {
-        console.log('Previous placed units:', prev);
         return [...prev, newUnit];
       });
     }
@@ -42,7 +39,6 @@ function App() {
     );
   };
 
-  console.log('Rendering with placedUnits:', placedUnits)
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '8px', flexShrink: 0 }}>
