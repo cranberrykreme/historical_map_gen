@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
 
 function useMapInteraction(
-    containerRef: React.RefObject<HTMLDivElement | null>,
-    mapRef: React.RefObject<HTMLDivElement | null>,
-    isReady: boolean
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  mapRef: React.RefObject<HTMLDivElement | null>,
+  isReady: boolean
 ) {
-    const scaleRef = useRef<number>(1);
+  const scaleRef = useRef<number>(1);
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const isPanningRef = useRef<boolean>(false);
-  const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isPanning = useRef<boolean>(false);
+  const panStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
     if (!isReady) return;
@@ -40,8 +40,8 @@ function useMapInteraction(
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      isPanningRef.current = true;
-      panStartRef.current = {
+      isPanning.current = true;
+      panStart.current = {
         x: e.clientX - positionRef.current.x,
         y: e.clientY - positionRef.current.y,
       };
@@ -49,16 +49,16 @@ function useMapInteraction(
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isPanningRef.current) return;
+      if (!isPanning.current) return;
       positionRef.current = {
-        x: e.clientX - panStartRef.current.x,
-        y: e.clientY - panStartRef.current.y,
+        x: e.clientX - panStart.current.x,
+        y: e.clientY - panStart.current.y,
       };
       applyTransform();
     };
 
     const handleMouseUp = () => {
-      isPanningRef.current = false;
+      isPanning.current = false;
       container.style.cursor = 'grab';
     };
 
@@ -76,6 +76,8 @@ function useMapInteraction(
       container.removeEventListener('mouseleave', handleMouseUp);
     };
   }, [isReady]);
+
+  return { scaleRef };
 }
 
 export default useMapInteraction;
