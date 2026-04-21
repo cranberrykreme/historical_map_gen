@@ -9,6 +9,7 @@ import useAssetList from './hooks/useAssetList';
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
   const [placedUnits, setPlacedUnits] = useState<Unit[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const { assets: units, refetch: refetchUnits } = useAssetList('units');
 
   useEffect(() => {
@@ -18,14 +19,31 @@ function App() {
       .catch(() => setBackendStatus('Could not reach backend'));
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedUnitId) {
+          setPlacedUnits(prev => prev.filter(unit => unit.id !== selectedUnitId));
+          setSelectedUnitId(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedUnitId]);
+
   const handleUploadComplete = (filename: string, type: AssetType) => {
-    if (type === 'units') {
+    if (type === 'units' || type === 'portraits') {
       refetchUnits();
       const newUnit: Unit = {
         id: `${filename}-${Date.now()}`,
         filename,
+        assetType: type,
         x: 100,
         y: 100,
+        rotation: 0,
+        scale: 1,
       };
       setPlacedUnits(prev => {
         return [...prev, newUnit];
@@ -39,6 +57,22 @@ function App() {
     );
   };
 
+  const handleUnitSelect = (id: string | null) => {
+    setSelectedUnitId(id);
+  };
+
+  const handleUnitRotate = (id: string, rotation: number) => {
+    setPlacedUnits(prev =>
+      prev.map(unit => unit.id === id ? { ...unit, rotation } : unit)
+    );
+  };
+  
+  const handleUnitScale = (id: string, scale: number) => {
+    setPlacedUnits(prev =>
+      prev.map(unit => unit.id === id ? { ...unit, scale } : unit)
+    );
+  };
+
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '8px', flexShrink: 0 }}>
@@ -47,7 +81,14 @@ function App() {
         <AssetImporter onUploadComplete={handleUploadComplete} />
       </div>
       <div style={{ position: 'relative', flex: 1 }}>
-        <MapCanvas placedUnits={placedUnits} onUnitMove={handleUnitMove} />
+        <MapCanvas 
+          placedUnits={placedUnits} 
+          onUnitMove={handleUnitMove} 
+          onUnitRotate={handleUnitRotate}
+          onUnitScale={handleUnitScale}
+          onUnitSelect={handleUnitSelect}
+          selectedUnitId={selectedUnitId}
+        />
       </div>
     </div>
   );

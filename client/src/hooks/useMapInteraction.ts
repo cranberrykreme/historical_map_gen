@@ -41,6 +41,7 @@ function useMapInteraction(
     };
 
     const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
       isPanning.current = true;
       panStart.current = {
         x: e.clientX - positionRef.current.x,
@@ -48,7 +49,7 @@ function useMapInteraction(
       };
       container.style.cursor = 'grabbing';
     };
-    
+
     const handleMouseMove = (e: MouseEvent) => {
       if (!isPanning.current) return;
       if (isDraggingUnit.current) {
@@ -68,11 +69,17 @@ function useMapInteraction(
       container.style.cursor = 'grab';
     };
 
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      isDraggingUnit.current = true;
+    };
+
     container.addEventListener('wheel', handleWheel, { passive: false });
     container.addEventListener('mousedown', handleMouseDown);
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseup', handleMouseUp);
     container.addEventListener('mouseleave', handleMouseUp);
+    container.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
       container.removeEventListener('wheel', handleWheel);
@@ -80,6 +87,7 @@ function useMapInteraction(
       container.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mouseup', handleMouseUp);
       container.removeEventListener('mouseleave', handleMouseUp);
+      container.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [isReady, scaleRef, isDraggingUnit]);
 }

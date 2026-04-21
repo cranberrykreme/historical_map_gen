@@ -8,15 +8,20 @@ import API_BASE_URL from '../config/api';
 interface MapCanvasProps {
   placedUnits: Unit[];
   onUnitMove: (id: string, x: number, y: number) => void;
+  onUnitRotate: (id: string, rotation: number) => void;
+  onUnitScale: (id: string, scale: number) => void;
+  onUnitSelect: (id: string | null) => void;
+  selectedUnitId: string | null;
 }
 
-function MapCanvas({ placedUnits, onUnitMove }: MapCanvasProps) {
+function MapCanvas({ placedUnits, onUnitMove, onUnitRotate, onUnitScale, onUnitSelect, selectedUnitId }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef<number>(1) as React.RefObject<number>;
+  const isDraggingUnit = useRef<boolean>(false) as React.RefObject<boolean>;
   const svgContent = useMapFetch(`${API_BASE_URL}/api/map`);
-  const isDraggingUnit = useRef<boolean>(false);
+
 
   useEffect(() => {
     if (svgRef.current && svgContent) {
@@ -30,6 +35,12 @@ function MapCanvas({ placedUnits, onUnitMove }: MapCanvasProps) {
     <div
       ref={containerRef}
       style={{ width: '100%', height: '100%', overflow: 'hidden', cursor: 'grab' }}
+      onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-unit')) {
+          onUnitSelect(null)
+        }
+      }}
     >
       {!svgContent && <p>Loading map...</p>}
       <div
@@ -40,8 +51,16 @@ function MapCanvas({ placedUnits, onUnitMove }: MapCanvasProps) {
         }}
       >
         <div ref={svgRef} />
-        <UnitLayer units={placedUnits} onUnitMove={onUnitMove} scaleRef={scaleRef} isDraggingUnit={isDraggingUnit} />
-      </div>
+          <UnitLayer 
+            units={placedUnits} 
+            onUnitMove={onUnitMove} 
+            onUnitRotate={onUnitRotate} 
+            onUnitScale={onUnitScale}
+            onUnitSelect={onUnitSelect}
+            selectedUnitId={selectedUnitId}
+            scaleRef={scaleRef} 
+            isDraggingUnit={isDraggingUnit} />      
+        </div>
     </div>
   );
 }
