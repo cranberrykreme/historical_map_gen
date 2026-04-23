@@ -5,13 +5,16 @@ import UnitLayer from './components/UnitLayer';
 import API_BASE_URL from './config/api';
 import { AssetType, Unit } from './types';
 import useAssetList from './hooks/useAssetList';
+import useProject from './hooks/useProject';
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
   const [placedUnits, setPlacedUnits] = useState<Unit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const { assets: units, refetch: refetchUnits } = useAssetList('units');
+  const { saveProject, loadProject } = useProject('default');
 
+  // useEffect for checking health of backend system.
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/health`)
       .then(response => response.json())
@@ -19,6 +22,7 @@ function App() {
       .catch(() => setBackendStatus('Could not reach backend'));
   }, []);
 
+  // useEffect for deleting units.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -32,6 +36,28 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedUnitId]);
+
+  // useEffect for placing units from a loaded project.
+  useEffect(() => {
+    loadProject().then(units => {
+      if (units.length > 0) {
+        setPlacedUnits(units);
+      }
+    });
+  }, []);
+
+  // useEffect for saving unit locations to project.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key == 's' && e.metaKey) { // cmd + s
+        e.preventDefault();
+        saveProject(placedUnits);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [placedUnits, saveProject]);
 
   const handleUploadComplete = (filename: string, type: AssetType) => {
     if (type === 'units' || type === 'portraits') {

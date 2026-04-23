@@ -9,3 +9,8 @@ export interface Unit {
   rotation: number;
   scale: number;
 }
+
+export interface ProjectData {
+  name: string;
+  units: Unit[];
+}
