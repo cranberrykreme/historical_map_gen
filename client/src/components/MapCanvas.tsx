@@ -7,15 +7,17 @@ import API_BASE_URL from '../config/api';
 
 interface MapCanvasProps {
   placedUnits: Unit[];
+  onUnitDrag: (id: string, x: number, y: number) => void;
   onUnitMove: (id: string, x: number, y: number) => void;
   onUnitRotate: (id: string, rotation: number) => void;
+  onUnitRotateCommit: (id: string, rotation: number) => void;
   onUnitScale: (id: string, scale: number) => void;
+  onUnitScaleCommit: (id: string, scale: number) => void;
   onUnitSelect: (id: string | null) => void;
   selectedUnitId: string | null;
 }
 
-function MapCanvas({ placedUnits, onUnitMove, onUnitRotate, onUnitScale, onUnitSelect, selectedUnitId }: MapCanvasProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRotateCommit, onUnitScale, onUnitScaleCommit, onUnitSelect, selectedUnitId }: MapCanvasProps) {  const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef<number>(1) as React.RefObject<number>;
@@ -37,7 +39,7 @@ function MapCanvas({ placedUnits, onUnitMove, onUnitRotate, onUnitScale, onUnitS
       style={{ width: '100%', height: '100%', overflow: 'hidden', cursor: 'grab' }}
       onMouseDown={(e) => {
         const target = e.target as HTMLElement;
-        if (!target.closest('[data-unit')) {
+        if (!target.closest('[data-unit]')) {
           onUnitSelect(null)
         }
       }}
@@ -51,15 +53,19 @@ function MapCanvas({ placedUnits, onUnitMove, onUnitRotate, onUnitScale, onUnitS
         }}
       >
         <div ref={svgRef} />
-          <UnitLayer 
-            units={placedUnits} 
-            onUnitMove={onUnitMove} 
-            onUnitRotate={onUnitRotate} 
+          <UnitLayer
+            units={placedUnits}
+            onUnitDrag={onUnitDrag}
+            onUnitMove={onUnitMove}
+            onUnitRotate={onUnitRotate}
+            onUnitRotateCommit={onUnitRotateCommit}
             onUnitScale={onUnitScale}
+            onUnitScaleCommit={onUnitScaleCommit}
             onUnitSelect={onUnitSelect}
             selectedUnitId={selectedUnitId}
-            scaleRef={scaleRef} 
-            isDraggingUnit={isDraggingUnit} />      
+            scaleRef={scaleRef}
+            isDraggingUnit={isDraggingUnit}
+          />     
         </div>
     </div>
   );

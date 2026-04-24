@@ -4,16 +4,19 @@ import { Unit } from '../types';
 
 interface UnitLayerProps {
     units: Unit[];
+    onUnitDrag: (id: string, x: number, y: number) => void;
     onUnitMove: (id: string, x: number, y: number) => void;
     onUnitRotate: (id: string, rotation: number) => void;
+    onUnitRotateCommit: (id: string, rotation: number) => void;
     onUnitScale: (id: string, scale: number) => void;
+    onUnitScaleCommit: (id: string, scale: number) => void;
     onUnitSelect: (id: string | null) => void;
     selectedUnitId: string | null;
     scaleRef: React.RefObject<number>;
     isDraggingUnit: React.RefObject<boolean>;
-  }
+}
   
-  function UnitLayer({ units, onUnitMove, onUnitRotate, onUnitScale, onUnitSelect, selectedUnitId, scaleRef, isDraggingUnit }: UnitLayerProps) {
+function UnitLayer({ units, onUnitDrag, onUnitMove, onUnitRotate, onUnitRotateCommit, onUnitScale, onUnitScaleCommit, onUnitSelect, selectedUnitId, scaleRef, isDraggingUnit }: UnitLayerProps) {
     const handleMouseDown = (e: React.MouseEvent, unitId: string) => {
         if (e.button !== 0) return;
         e.stopPropagation();
@@ -37,11 +40,12 @@ interface UnitLayerProps {
             lastY = moveEvent.clientY;
             currentX += dx;
             currentY += dy;
-            onUnitMove(unitId, currentX, currentY);
+            onUnitDrag(unitId, currentX, currentY);
         };
 
         const handleMouseUp = () => {
             isDraggingUnit.current = false;
+            onUnitMove(unitId, currentX, currentY);
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
@@ -54,26 +58,27 @@ interface UnitLayerProps {
         e.stopPropagation();
         e.preventDefault();
         isDraggingUnit.current = true;
-
+        
         const unit = units.find(u => u.id === unitId);
         if (!unit) return;
-
+        
         let currentRotation = unit.rotation;
         let lastX = e.clientX;
-
+        
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const dx = moveEvent.clientX - lastX;
             lastX = moveEvent.clientX;
             currentRotation += dx;
             onUnitRotate(unitId, currentRotation);
         };
-
+        
         const handleMouseUp = () => {
             isDraggingUnit.current = false;
+            onUnitRotateCommit(unitId, currentRotation);
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-
+        
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
     };
@@ -82,31 +87,32 @@ interface UnitLayerProps {
         e.stopPropagation();
         e.preventDefault();
         isDraggingUnit.current = true;
-
+        
         const unit = units.find(u => u.id === unitId);
         if (!unit) return;
-
+        
         let currentScale = unit.scale;
         let lastX = e.clientX;
-
+        
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const dx = moveEvent.clientX - lastX;
             lastX = moveEvent.clientX;
             currentScale = Math.min(Math.max(currentScale + (dx * 0.01), 0.1), 5);
             onUnitScale(unitId, currentScale);
         };
-
+        
         const handleMouseUp = () => {
             isDraggingUnit.current = false;
+            onUnitScaleCommit(unitId, currentScale);
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-
+        
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
     };
 
-  return (
+    return (
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
       {units.map(unit => {
         const isSelected = unit.id === selectedUnitId;
@@ -118,7 +124,7 @@ interface UnitLayerProps {
                     position: 'absolute',
                     left: unit.x,
                     top: unit.y,
-                    transform: `translate(50%,50%) rotate(${unit.rotation}deg) scale(${unit.scale})`,
+                    transform: `translate(-50%,-50%) rotate(${unit.rotation}deg) scale(${unit.scale})`,
                     transformOrigin: 'center center',
                     pointerEvents: 'all',
                     zIndex: isSelected ? 1000 : 1,
