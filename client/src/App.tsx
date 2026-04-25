@@ -9,7 +9,7 @@ import useHistory from './hooks/useHistory';
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>('Checking...');
-  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [selectedUnitIds, setSelectedUnitIds] = useState<Set<string>>(new Set());
   const [dragPosition, setDragPosition] = useState<{id: string, x: number, y: number} | null>(null);
   const [dragRotation, setDragRotation] = useState<{id: string, rotation: number} | null>(null);
   const [dragScale, setDragScale] = useState<{id: string, scale: number} | null>(null);
@@ -29,9 +29,9 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedUnitId) {
-          setPlacedUnits(placedUnits.filter(unit => unit.id !== selectedUnitId));
-          setSelectedUnitId(null);
+        if (selectedUnitIds.size > 0) {
+          setPlacedUnits(placedUnits.filter(unit => !selectedUnitIds.has(unit.id)));
+          setSelectedUnitIds(new Set());
         }
       }
 
@@ -46,7 +46,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedUnitId, placedUnits, undo, redo]);
+  }, [selectedUnitIds, placedUnits, undo, redo]);
 
   // useEffect for placing units from a loaded project.
   useEffect(() => {
@@ -96,8 +96,25 @@ function App() {
     setPlacedUnits(placedUnits.map(unit => unit.id === id ? { ...unit, x, y } : unit));
   };
 
-  const handleUnitSelect = (id: string | null) => {
-    setSelectedUnitId(id);
+  const handleUnitSelect = (id: string | null, addToSelection: boolean = false) => {
+    if (id === null) {
+      setSelectedUnitIds(new Set());
+      return;
+    }
+    if (addToSelection) {
+      setSelectedUnitIds(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id)
+        }
+        return next;
+      });
+    } else {
+      setSelectedUnitIds(new Set([id]));
+    }
+    
   };
 
   const handleUnitRotate = (id: string, rotation: number) => {
@@ -116,6 +133,10 @@ function App() {
   const handleUnitScaleCommit = (id: string, scale: number) => {
     setDragScale(null);
     setPlacedUnits(placedUnits.map(unit => unit.id === id ? { ...unit, scale } : unit));
+  };
+
+  const handleBoxSelect = (ids: string[]) => {
+    setSelectedUnitIds(new Set(ids));
   };
 
   const displayUnits = placedUnits.map(unit => {
@@ -150,7 +171,8 @@ function App() {
           onUnitScale={handleUnitScale}
           onUnitScaleCommit={handleUnitScaleCommit}
           onUnitSelect={handleUnitSelect}
-          selectedUnitId={selectedUnitId}
+          onBoxSelect={handleBoxSelect}
+          selectedUnitIds={selectedUnitIds}
         />
       </div>
     </div>

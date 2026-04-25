@@ -5,9 +5,9 @@ function useMapInteraction(
   mapRef: React.RefObject<HTMLDivElement | null>,
   isReady: boolean,
   scaleRef: React.RefObject<number>,
-  isDraggingUnit: React.RefObject<boolean>
+  isDraggingUnit: React.RefObject<boolean>,
+  positionRef: React.RefObject<{ x: number, y: number }>,
 ) {
-  const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isPanning = useRef<boolean>(false);
   const panStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -42,6 +42,7 @@ function useMapInteraction(
 
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
+      if (e.shiftKey) return;
       isPanning.current = true;
       panStart.current = {
         x: e.clientX - positionRef.current.x,

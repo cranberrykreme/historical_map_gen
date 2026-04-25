@@ -5,28 +5,37 @@
       "assetType": "units",
       "filename": "Army_Blue.png",
       "id": "Army_Blue.png-1776940430176",
-      "rotation": -179,
+      "rotation": -185,
       "scale": 0.96,
-      "x": 806,
+      "x": 800,
       "y": 419
     },
     {
       "assetType": "portraits",
       "filename": "WilliamTheConquerer.png",
       "id": "WilliamTheConquerer.png-1776940480777",
-      "rotation": 0,
-      "scale": 1,
-      "x": 780.5745554035605,
-      "y": 374.9658002735992
+      "rotation": 2,
+      "scale": 1.0800000000000012,
+      "x": 781.5745554035605,
+      "y": 363.96580027359914
     },
     {
-      "id": "Blue_Navy.png-1777033026564",
-      "filename": "Blue_Navy.png",
       "assetType": "units",
-      "x": 920,
-      "y": 801,
+      "filename": "Blue_Navy.png",
+      "id": "Blue_Navy.png-1777033026564",
       "rotation": 0,
-      "scale": 1
+      "scale": 1,
+      "x": 916,
+      "y": 802
+    },
+    {
+      "assetType": "units",
+      "filename": "Red_Navy.png",
+      "id": "Red_Navy.png-1777111616360",
+      "rotation": 0,
+      "scale": 1,
+      "x": 862,
+      "y": 796
     }
   ]
 }
