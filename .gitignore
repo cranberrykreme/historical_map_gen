@@ -9,3 +9,6 @@ client/build/
 
 # Mac
 .DS_Store
+
+# Assets
+server/assets/
