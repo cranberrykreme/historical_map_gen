@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
-import useMapFetch from '../hooks/useMapFetch';
-import useMapInteraction from '../hooks/useMapInteraction';
-import UnitLayer from './UnitLayer';
-import { Unit } from '../types';
-import API_BASE_URL from '../config/api';
+import React, { useEffect, useRef, useState } from "react";
+import useMapFetch from "../hooks/useMapFetch";
+import useMapInteraction from "../hooks/useMapInteraction";
+import UnitLayer from "./UnitLayer";
+import { Unit } from "../types";
+import API_BASE_URL from "../config/api";
 
 interface MapCanvasProps {
   placedUnits: Unit[];
@@ -15,19 +15,50 @@ interface MapCanvasProps {
   onUnitScaleCommit: (id: string, scale: number) => void;
   onUnitSelect: (id: string | null, addToSelection?: boolean) => void;
   onBoxSelect: (ids: string[]) => void;
+  onGroupDrag: (dx: number, dy: number) => void;
+  onGroupMove: (dx: number, dy: number) => void;
+  onGroupRotate: (delta: number) => void;
+  onGroupRotateCommit: (delta: number) => void;
+  onGroupScale: (delta: number) => void;
+  onGroupScaleCommit: (delta: number) => void;
   selectedUnitIds: Set<string>;
 }
 
-function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRotateCommit, onUnitScale, onUnitScaleCommit, onUnitSelect, onBoxSelect, selectedUnitIds }: MapCanvasProps) {
+function MapCanvas({
+  placedUnits,
+  onUnitDrag,
+  onUnitMove,
+  onUnitRotate,
+  onUnitRotateCommit,
+  onUnitScale,
+  onUnitScaleCommit,
+  onUnitSelect,
+  onBoxSelect,
+  onGroupDrag,
+  onGroupMove,
+  onGroupRotate,
+  onGroupRotateCommit,
+  onGroupScale,
+  onGroupScaleCommit,
+  selectedUnitIds,
+}: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef<number>(1) as React.RefObject<number>;
-  const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 }) as React.RefObject<{ x: number; y: number }>;
+  const positionRef = useRef<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  }) as React.RefObject<{ x: number; y: number }>;
   const isDraggingUnit = useRef<boolean>(false) as React.RefObject<boolean>;
-  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+  } | null>(null);
   const [isShiftHeld, setIsShiftHeld] = useState<boolean>(false);
-  const [activeCursor, setActiveCursor] = useState<string>('grab');
+  const [activeCursor, setActiveCursor] = useState<string>("grab");
   const svgContent = useMapFetch(`${API_BASE_URL}/api/map`);
 
   useEffect(() => {
@@ -38,24 +69,31 @@ function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRo
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') setIsShiftHeld(true);
+      if (e.key === "Shift") setIsShiftHeld(true);
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') setIsShiftHeld(false);
+      if (e.key === "Shift") setIsShiftHeld(false);
     };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
 
-  useMapInteraction(containerRef, mapRef, !!svgContent, scaleRef, isDraggingUnit, positionRef);
+  useMapInteraction(
+    containerRef,
+    mapRef,
+    !!svgContent,
+    scaleRef,
+    isDraggingUnit,
+    positionRef
+  );
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('[data-unit]')) return;
+    if (target.closest("[data-unit]")) return;
 
     if (e.shiftKey) {
       e.preventDefault();
@@ -68,15 +106,19 @@ function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRo
       const handleMouseMove = (moveEvent: MouseEvent) => {
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
-        setSelectionBox(prev => prev ? { 
-          ...prev, 
-          endX: moveEvent.clientX - rect.left, 
-          endY: moveEvent.clientY - rect.top 
-        } : null);
+        setSelectionBox((prev) =>
+          prev
+            ? {
+                ...prev,
+                endX: moveEvent.clientX - rect.left,
+                endY: moveEvent.clientY - rect.top,
+              }
+            : null
+        );
       };
 
       const handleMouseUp = () => {
-        setSelectionBox(prev => {
+        setSelectionBox((prev) => {
           if (!prev) return null;
 
           const scale = scaleRef.current ?? 1;
@@ -86,34 +128,43 @@ function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRo
           const left = (Math.min(prev.startX, prev.endX) - position.x) / scale;
           const right = (Math.max(prev.startX, prev.endX) - position.x) / scale;
           const top = (Math.min(prev.startY, prev.endY) - position.y) / scale;
-          const bottom = (Math.max(prev.startY, prev.endY) - position.y) / scale;
+          const bottom =
+            (Math.max(prev.startY, prev.endY) - position.y) / scale;
 
           const selectedIds = placedUnits
-            .filter(unit => unit.x >= left && unit.x <= right && unit.y >= top && unit.y <= bottom)
-            .map(unit => unit.id);
+            .filter(
+              (unit) =>
+                unit.x >= left &&
+                unit.x <= right &&
+                unit.y >= top &&
+                unit.y <= bottom
+            )
+            .map((unit) => unit.id);
 
           onBoxSelect(selectedIds);
           return null;
         });
 
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
       };
 
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
     } else {
       onUnitSelect(null);
     }
   };
 
   // Calculate selection box screen coordinates for rendering
-  const boxStyle = selectionBox ? {
-    left: Math.min(selectionBox.startX, selectionBox.endX),
-    top: Math.min(selectionBox.startY, selectionBox.endY),
-    width: Math.abs(selectionBox.endX - selectionBox.startX),
-    height: Math.abs(selectionBox.endY - selectionBox.startY),
-  } : null;
+  const boxStyle = selectionBox
+    ? {
+        left: Math.min(selectionBox.startX, selectionBox.endX),
+        top: Math.min(selectionBox.startY, selectionBox.endY),
+        width: Math.abs(selectionBox.endX - selectionBox.startX),
+        height: Math.abs(selectionBox.endY - selectionBox.startY),
+      }
+    : null;
 
   const setCursor = (cursor: string) => {
     setActiveCursor(cursor);
@@ -125,10 +176,15 @@ function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRo
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', overflow: 'hidden', cursor: isShiftHeld ? 'default' : activeCursor }}
+      style={{
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        cursor: isShiftHeld ? "default" : activeCursor,
+      }}
       onMouseDown={handleMouseDown}
     >
-      {(activeCursor === 'alias' || activeCursor === 'nwse-resize') && (
+      {(activeCursor === "alias" || activeCursor === "nwse-resize") && (
         <style>{`
           div, img { cursor: ${activeCursor} !important; }
         `}</style>
@@ -137,8 +193,8 @@ function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRo
       <div
         ref={mapRef}
         style={{
-          transformOrigin: '0 0',
-          willChange: 'transform',
+          transformOrigin: "0 0",
+          willChange: "transform",
         }}
       >
         <div ref={svgRef} />
@@ -156,6 +212,12 @@ function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRo
           isDraggingUnit={isDraggingUnit}
           isShiftHeld={isShiftHeld}
           setCursor={setCursor}
+          onGroupDrag={onGroupDrag}
+          onGroupMove={onGroupMove}
+          onGroupRotate={onGroupRotate}
+          onGroupRotateCommit={onGroupRotateCommit}
+          onGroupScale={onGroupScale}
+          onGroupScaleCommit={onGroupScaleCommit}
         />
       </div>
 
@@ -163,14 +225,14 @@ function MapCanvas({ placedUnits, onUnitDrag, onUnitMove, onUnitRotate, onUnitRo
       {boxStyle && (
         <div
           style={{
-            position: 'absolute',
+            position: "absolute",
             left: boxStyle.left,
             top: boxStyle.top,
             width: boxStyle.width,
             height: boxStyle.height,
-            border: '1px dashed #c8a84b',
-            background: 'rgba(200, 168, 75, 0.1)',
-            pointerEvents: 'none',
+            border: "1px dashed #c8a84b",
+            background: "rgba(200, 168, 75, 0.1)",
+            pointerEvents: "none",
           }}
         />
       )}

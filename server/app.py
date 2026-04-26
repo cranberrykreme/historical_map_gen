@@ -6,7 +6,7 @@ from routes.assets import assets_bp
 from routes.projects import projects_bp
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["http://localhost:3000"])
 
 app.register_blueprint(health_bp)
 app.register_blueprint(maps_bp)

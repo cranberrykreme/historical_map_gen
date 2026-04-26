@@ -5,19 +5,19 @@
       "assetType": "units",
       "filename": "Army_Blue.png",
       "id": "Army_Blue.png-1776940430176",
-      "rotation": -185,
+      "rotation": -188,
       "scale": 0.96,
-      "x": 800,
-      "y": 419
+      "x": 823.3739837398372,
+      "y": 405.78861788617894
     },
     {
       "assetType": "portraits",
       "filename": "WilliamTheConquerer.png",
       "id": "WilliamTheConquerer.png-1776940480777",
-      "rotation": 2,
+      "rotation": -1,
       "scale": 1.0800000000000012,
-      "x": 781.5745554035605,
-      "y": 363.96580027359914
+      "x": 805.1843115011217,
+      "y": 361.9170197857945
     },
     {
       "assetType": "units",
