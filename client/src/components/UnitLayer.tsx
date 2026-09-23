@@ -1,54 +1,42 @@
 import React from "react";
 import API_BASE_URL from "../config/api";
 import { Unit } from "../types";
+import { useMapStore } from "../store/useMapStore";
 
 interface UnitLayerProps {
   units: Unit[];
-  onUnitDrag: (id: string, x: number, y: number) => void;
-  onUnitMove: (id: string, x: number, y: number) => void;
-  onUnitRotate: (id: string, rotation: number) => void;
-  onUnitRotateCommit: (id: string, rotation: number) => void;
-  onUnitScale: (id: string, scale: number) => void;
-  onUnitScaleCommit: (id: string, scale: number) => void;
-  onUnitSelect: (id: string | null, addToSelection?: boolean) => void;
-  onGroupDrag: (dx: number, dy: number) => void;
-  onGroupMove: (dx: number, dy: number) => void;
-  onGroupRotate: (delta: number) => void;
-  onGroupRotateCommit: (delta: number) => void;
-  onGroupScale: (delta: number) => void;
-  onGroupScaleCommit: (delta: number) => void;
-  setCursor: (cursor: string) => void;
-  selectedUnitIds: Set<string>;
   scaleRef: React.RefObject<number>;
   isDraggingUnit: React.RefObject<boolean>;
   isShiftHeld: boolean;
+  setCursor: (cursor: string) => void;
 }
 
 function UnitLayer({
   units,
-  onUnitDrag,
-  onUnitMove,
-  onUnitRotate,
-  onUnitRotateCommit,
-  onUnitScale,
-  onUnitScaleCommit,
-  onUnitSelect,
-  onGroupDrag,
-  onGroupMove,
-  onGroupRotate,
-  onGroupRotateCommit,
-  onGroupScale,
-  onGroupScaleCommit,
-  selectedUnitIds,
   scaleRef,
   isDraggingUnit,
   isShiftHeld,
   setCursor,
 }: UnitLayerProps) {
+  const selectUnit = useMapStore((state) => state.selectUnit);
+  const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
+  const setDragPosition = useMapStore((state) => state.setDragPosition);
+  const setDragRotation = useMapStore((state) => state.setDragRotation);
+  const setDragScale = useMapStore((state) => state.setDragScale);
+  const setGroupDragDelta = useMapStore((state) => state.setGroupDragDelta);
+  const setGroupRotateDelta = useMapStore((state) => state.setGroupRotateDelta);
+  const setGroupScaleDelta = useMapStore((state) => state.setGroupScaleDelta);
+  const commitUnitMove = useMapStore((state) => state.commitUnitMove);
+  const commitUnitRotate = useMapStore((state) => state.commitUnitRotate);
+  const commitUnitScale = useMapStore((state) => state.commitUnitScale);
+  const commitGroupMove = useMapStore((state) => state.commitGroupMove);
+  const commitGroupRotate = useMapStore((state) => state.commitGroupRotate);
+  const commitGroupScale = useMapStore((state) => state.commitGroupScale);
+
   const handleMouseDown = (e: React.MouseEvent, unitId: string) => {
     if (e.button !== 0) return;
     if (e.shiftKey) {
-      onUnitSelect(unitId, true);
+      selectUnit(unitId, true);
       return;
     }
     e.stopPropagation();
@@ -56,7 +44,6 @@ function UnitLayer({
     isDraggingUnit.current = true;
 
     if (selectedUnitIds.size > 1 && selectedUnitIds.has(unitId)) {
-      // Group drag
       let lastX = e.clientX;
       let lastY = e.clientY;
       let totalDx = 0;
@@ -70,12 +57,12 @@ function UnitLayer({
         lastY = moveEvent.clientY;
         totalDx += dx;
         totalDy += dy;
-        onGroupDrag(totalDx, totalDy);
+        setGroupDragDelta({ dx: totalDx, dy: totalDy });
       };
 
       const handleMouseUp = () => {
         isDraggingUnit.current = false;
-        onGroupMove(totalDx, totalDy);
+        commitGroupMove(totalDx, totalDy);
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
       };
@@ -83,8 +70,7 @@ function UnitLayer({
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     } else {
-      // Single unit drag
-      onUnitSelect(unitId, false);
+      selectUnit(unitId, false);
       const unit = units.find((u) => u.id === unitId);
       if (!unit) return;
 
@@ -101,12 +87,12 @@ function UnitLayer({
         lastY = moveEvent.clientY;
         currentX += dx;
         currentY += dy;
-        onUnitDrag(unitId, currentX, currentY);
+        setDragPosition({ id: unitId, x: currentX, y: currentY });
       };
 
       const handleMouseUp = () => {
         isDraggingUnit.current = false;
-        onUnitMove(unitId, currentX, currentY);
+        commitUnitMove(unitId, currentX, currentY);
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
       };
@@ -136,10 +122,10 @@ function UnitLayer({
       lastX = moveEvent.clientX;
       if (isGroup) {
         cumulativeDelta += dx;
-        onGroupRotate(cumulativeDelta);
+        setGroupRotateDelta(cumulativeDelta);
       } else {
         currentRotation += dx;
-        onUnitRotate(unitId, currentRotation);
+        setDragRotation({ id: unitId, rotation: currentRotation });
       }
     };
 
@@ -147,9 +133,9 @@ function UnitLayer({
       isDraggingUnit.current = false;
       setCursor("grab");
       if (isGroup) {
-        onGroupRotateCommit(cumulativeDelta);
+        commitGroupRotate(cumulativeDelta);
       } else {
-        onUnitRotateCommit(unitId, currentRotation);
+        commitUnitRotate(unitId, currentRotation);
       }
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
@@ -179,10 +165,10 @@ function UnitLayer({
       lastX = moveEvent.clientX;
       if (isGroup) {
         cumulativeDelta += dx * 0.01;
-        onGroupScale(cumulativeDelta);
+        setGroupScaleDelta(cumulativeDelta);
       } else {
         currentScale = Math.min(Math.max(currentScale + dx * 0.01, 0.1), 5);
-        onUnitScale(unitId, currentScale);
+        setDragScale({ id: unitId, scale: currentScale });
       }
     };
 
@@ -190,9 +176,9 @@ function UnitLayer({
       isDraggingUnit.current = false;
       setCursor("grab");
       if (isGroup) {
-        onGroupScaleCommit(cumulativeDelta);
+        commitGroupScale(cumulativeDelta);
       } else {
-        onUnitScaleCommit(unitId, currentScale);
+        commitUnitScale(unitId, currentScale);
       }
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);

@@ -2,55 +2,16 @@ import React, { useEffect, useRef, useState } from "react";
 import useMapFetch from "../hooks/useMapFetch";
 import useMapInteraction from "../hooks/useMapInteraction";
 import UnitLayer from "./UnitLayer";
-import { Unit } from "../types";
 import API_BASE_URL from "../config/api";
+import { useMapStore } from "../store/useMapStore";
 
-interface MapCanvasProps {
-  placedUnits: Unit[];
-  onUnitDrag: (id: string, x: number, y: number) => void;
-  onUnitMove: (id: string, x: number, y: number) => void;
-  onUnitRotate: (id: string, rotation: number) => void;
-  onUnitRotateCommit: (id: string, rotation: number) => void;
-  onUnitScale: (id: string, scale: number) => void;
-  onUnitScaleCommit: (id: string, scale: number) => void;
-  onUnitSelect: (id: string | null, addToSelection?: boolean) => void;
-  onBoxSelect: (ids: string[]) => void;
-  onGroupDrag: (dx: number, dy: number) => void;
-  onGroupMove: (dx: number, dy: number) => void;
-  onGroupRotate: (delta: number) => void;
-  onGroupRotateCommit: (delta: number) => void;
-  onGroupScale: (delta: number) => void;
-  onGroupScaleCommit: (delta: number) => void;
-  selectedUnitIds: Set<string>;
-}
-
-function MapCanvas({
-  placedUnits,
-  onUnitDrag,
-  onUnitMove,
-  onUnitRotate,
-  onUnitRotateCommit,
-  onUnitScale,
-  onUnitScaleCommit,
-  onUnitSelect,
-  onBoxSelect,
-  onGroupDrag,
-  onGroupMove,
-  onGroupRotate,
-  onGroupRotateCommit,
-  onGroupScale,
-  onGroupScaleCommit,
-  selectedUnitIds,
-}: MapCanvasProps) {
+function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
-  const scaleRef = useRef<number>(1) as React.RefObject<number>;
-  const positionRef = useRef<{ x: number; y: number }>({
-    x: 0,
-    y: 0,
-  }) as React.RefObject<{ x: number; y: number }>;
-  const isDraggingUnit = useRef<boolean>(false) as React.RefObject<boolean>;
+  const scaleRef = useRef<number>(1);
+  const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isDraggingUnit = useRef<boolean>(false);
   const [selectionBox, setSelectionBox] = useState<{
     startX: number;
     startY: number;
@@ -59,7 +20,43 @@ function MapCanvas({
   } | null>(null);
   const [isShiftHeld, setIsShiftHeld] = useState<boolean>(false);
   const [activeCursor, setActiveCursor] = useState<string>("grab");
+
   const svgContent = useMapFetch(`${API_BASE_URL}/api/map`);
+  const boxSelect = useMapStore((state) => state.boxSelect);
+  const selectUnit = useMapStore((state) => state.selectUnit);
+  const placedUnits = useMapStore((state) => state.placedUnits);
+  const dragPosition = useMapStore((state) => state.dragPosition);
+  const dragRotation = useMapStore((state) => state.dragRotation);
+  const dragScale = useMapStore((state) => state.dragScale);
+  const groupDragDelta = useMapStore((state) => state.groupDragDelta);
+  const groupRotateDelta = useMapStore((state) => state.groupRotateDelta);
+  const groupScaleDelta = useMapStore((state) => state.groupScaleDelta);
+  const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
+
+  const displayUnits = placedUnits.map((unit) => {
+    let display = { ...unit };
+    if (dragPosition && dragPosition.id === unit.id) {
+      display.x = dragPosition.x;
+      display.y = dragPosition.y;
+    }
+    if (dragRotation && dragRotation.id === unit.id) {
+      display.rotation = dragRotation.rotation;
+    }
+    if (dragScale && dragScale.id === unit.id) {
+      display.scale = dragScale.scale;
+    }
+    if (groupDragDelta && selectedUnitIds.has(unit.id)) {
+      display.x = unit.x + groupDragDelta.dx;
+      display.y = unit.y + groupDragDelta.dy;
+    }
+    if (groupRotateDelta !== null && selectedUnitIds.has(unit.id)) {
+      display.rotation = unit.rotation + groupRotateDelta;
+    }
+    if (groupScaleDelta !== null && selectedUnitIds.has(unit.id)) {
+      display.scale = Math.min(Math.max(unit.scale + groupScaleDelta, 0.1), 5);
+    }
+    return display;
+  });
 
   useEffect(() => {
     if (svgRef.current && svgContent) {
@@ -91,6 +88,13 @@ function MapCanvas({
     positionRef
   );
 
+  const setCursor = (cursor: string) => {
+    setActiveCursor(cursor);
+    if (containerRef.current) {
+      containerRef.current.style.cursor = cursor;
+    }
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest("[data-unit]")) return;
@@ -120,18 +124,14 @@ function MapCanvas({
       const handleMouseUp = () => {
         setSelectionBox((prev) => {
           if (!prev) return null;
-
           const scale = scaleRef.current ?? 1;
           const position = positionRef.current ?? { x: 0, y: 0 };
-
-          // Convert screen space box to map space
           const left = (Math.min(prev.startX, prev.endX) - position.x) / scale;
           const right = (Math.max(prev.startX, prev.endX) - position.x) / scale;
           const top = (Math.min(prev.startY, prev.endY) - position.y) / scale;
           const bottom =
             (Math.max(prev.startY, prev.endY) - position.y) / scale;
-
-          const selectedIds = placedUnits
+          const selectedIds = displayUnits
             .filter(
               (unit) =>
                 unit.x >= left &&
@@ -140,11 +140,9 @@ function MapCanvas({
                 unit.y <= bottom
             )
             .map((unit) => unit.id);
-
-          onBoxSelect(selectedIds);
+          boxSelect(selectedIds);
           return null;
         });
-
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
       };
@@ -152,11 +150,10 @@ function MapCanvas({
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     } else {
-      onUnitSelect(null);
+      selectUnit(null);
     }
   };
 
-  // Calculate selection box screen coordinates for rendering
   const boxStyle = selectionBox
     ? {
         left: Math.min(selectionBox.startX, selectionBox.endX),
@@ -165,13 +162,6 @@ function MapCanvas({
         height: Math.abs(selectionBox.endY - selectionBox.startY),
       }
     : null;
-
-  const setCursor = (cursor: string) => {
-    setActiveCursor(cursor);
-    if (containerRef.current) {
-      containerRef.current.style.cursor = cursor;
-    }
-  };
 
   return (
     <div
@@ -185,43 +175,22 @@ function MapCanvas({
       onMouseDown={handleMouseDown}
     >
       {(activeCursor === "alias" || activeCursor === "nwse-resize") && (
-        <style>{`
-          div, img { cursor: ${activeCursor} !important; }
-        `}</style>
+        <style>{`div, img { cursor: ${activeCursor} !important; }`}</style>
       )}
       {!svgContent && <p>Loading map...</p>}
       <div
         ref={mapRef}
-        style={{
-          transformOrigin: "0 0",
-          willChange: "transform",
-        }}
+        style={{ transformOrigin: "0 0", willChange: "transform" }}
       >
         <div ref={svgRef} />
         <UnitLayer
-          units={placedUnits}
-          onUnitDrag={onUnitDrag}
-          onUnitMove={onUnitMove}
-          onUnitRotate={onUnitRotate}
-          onUnitRotateCommit={onUnitRotateCommit}
-          onUnitScale={onUnitScale}
-          onUnitScaleCommit={onUnitScaleCommit}
-          onUnitSelect={onUnitSelect}
-          selectedUnitIds={selectedUnitIds}
+          units={displayUnits}
           scaleRef={scaleRef}
           isDraggingUnit={isDraggingUnit}
           isShiftHeld={isShiftHeld}
           setCursor={setCursor}
-          onGroupDrag={onGroupDrag}
-          onGroupMove={onGroupMove}
-          onGroupRotate={onGroupRotate}
-          onGroupRotateCommit={onGroupRotateCommit}
-          onGroupScale={onGroupScale}
-          onGroupScaleCommit={onGroupScaleCommit}
         />
       </div>
-
-      {/* Selection box overlay — rendered in screen space outside mapRef */}
       {boxStyle && (
         <div
           style={{
