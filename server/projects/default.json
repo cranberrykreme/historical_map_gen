@@ -2,22 +2,49 @@
   "name": "default",
   "units": [
     {
-      "id": "Archers_Blue.png-1790204033777",
-      "filename": "Archers_Blue.png",
       "assetType": "units",
-      "x": 818,
-      "y": 503,
+      "filename": "Archers_Blue.png",
+      "id": "Archers_Blue.png-1790204033777",
       "rotation": 10,
-      "scale": 0.8799999999999999
+      "scale": 0.8699999999999999,
+      "x": 818,
+      "y": 503
     },
     {
-      "id": "Army_Red.png-1790204042073",
-      "filename": "Army_Red.png",
       "assetType": "units",
-      "x": 827,
-      "y": 426,
+      "filename": "Army_Red.png",
+      "id": "Army_Red.png-1790204042073",
       "rotation": 185,
-      "scale": 0.7099999999999997
+      "scale": 0.6999999999999997,
+      "x": 827,
+      "y": 426
+    },
+    {
+      "assetType": "units",
+      "filename": "cavalry_Green.png",
+      "id": "cavalry_Green.png-1790204529580",
+      "rotation": -40,
+      "scale": 0.8499999999999999,
+      "x": 885,
+      "y": 486
+    },
+    {
+      "assetType": "units",
+      "filename": "Red_Navy.png",
+      "id": "Red_Navy.png-1790238328491",
+      "rotation": -17,
+      "scale": 1,
+      "x": 913,
+      "y": 781
+    },
+    {
+      "id": "cavalry_Yellow.png-1790251525396",
+      "filename": "cavalry_Yellow.png",
+      "assetType": "units",
+      "x": 778,
+      "y": 577,
+      "rotation": 52,
+      "scale": 1
     }
   ]
 }

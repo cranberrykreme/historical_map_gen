@@ -1,0 +1,42 @@
+:root {
+    /* Primary palette — imperial purple */
+    --color-bg: #1a1225;
+    --color-surface: #231630;
+    --color-surface-raised: #2d1f3d;
+    --color-surface-hover: #3a2850;
+    --color-border: #4a3560;
+    --color-border-subtle: #362848;
+  
+    /* Accent — aged gold */
+    --color-gold: #c8a84b;
+    --color-gold-dim: #8a7235;
+    --color-gold-subtle: rgba(200, 168, 75, 0.15);
+  
+    /* Text */
+    --color-text-primary: #e8e0d0;
+    --color-text-secondary: #9a8fb0;
+    --color-text-dim: #5a5070;
+  
+    /* Toolbar */
+    --toolbar-width-collapsed: 48px;
+    --toolbar-width-expanded: 240px;
+    --toolbar-transition: 250ms ease;
+  
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+  
+    /* Border radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-full: 9999px;
+  
+    /* Typography */
+    --font-ui: 'Georgia', serif;
+    --font-size-sm: 11px;
+    --font-size-md: 13px;
+    --font-size-lg: 15px;
+  }
