@@ -1,12 +1,18 @@
 import React, { useState } from "react";
 import ToolbarButton from "./ToolbarButton";
+import UnitThumbnailList from "./UnitThumbnailList";
+import useAssetList from "../../hooks/useAssetList";
+import { AssetType } from "../../types";
 
 interface ToolbarProps {
   onAddAsset: () => void;
+  onPlaceUnit: (filename: string, assetType: AssetType) => void;
 }
 
-function Toolbar({ onAddAsset }: ToolbarProps) {
+function Toolbar({ onAddAsset, onPlaceUnit }: ToolbarProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const { assets: units } = useAssetList("units");
+  const { assets: portraits } = useAssetList("portraits");
 
   return (
     <div
@@ -24,14 +30,14 @@ function Toolbar({ onAddAsset }: ToolbarProps) {
         borderLeft: isExpanded
           ? "1px solid var(--color-border-subtle)"
           : "none",
-        transition: `width var(--toolbar-transition), background var(--toolbar-transition), border var(--toolbar-transition)`,
+        transition: `width var(--toolbar-transition), background var(--toolbar-transition), border var(--toolbar-transition), right var(--toolbar-transition)`,
         display: "flex",
         flexDirection: "column",
         padding: "var(--space-sm)",
-        paddingRight: isExpanded ? "var(--space-sm)" : "var(--space-xl)",
         gap: "var(--space-xs)",
         zIndex: 1000,
         boxSizing: "border-box",
+        overflow: "hidden",
       }}
     >
       <ToolbarButton
@@ -40,6 +46,14 @@ function Toolbar({ onAddAsset }: ToolbarProps) {
         onClick={onAddAsset}
         isExpanded={isExpanded}
       />
+
+      {isExpanded && (
+        <UnitThumbnailList
+          units={units}
+          portraits={portraits}
+          onPlaceUnit={onPlaceUnit}
+        />
+      )}
     </div>
   );
 }

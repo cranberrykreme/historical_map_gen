@@ -68,6 +68,10 @@ function App() {
     setPendingFile(file);
   };
 
+  const handlePlaceUnit = (filename: string, assetType: AssetType) => {
+    addUnit(filename, assetType);
+  };
+
   // Called when user clicks + in toolbar — opens file browser
   const handleAddAsset = () => {
     const input = document.createElement("input");
@@ -116,7 +120,7 @@ function App() {
       }}
     >
       <MapCanvas />
-      <Toolbar onAddAsset={handleAddAsset} />
+      <Toolbar onAddAsset={handleAddAsset} onPlaceUnit={handlePlaceUnit} />{" "}
       <DropZoneOverlay onFileDrop={handleFileSelected} />
       <AssetTypePopup
         file={pendingFile}

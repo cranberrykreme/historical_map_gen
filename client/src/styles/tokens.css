@@ -18,7 +18,7 @@
     --color-text-dim: #5a5070;
   
     /* Toolbar */
-    --toolbar-width-collapsed: 48px;
+    --toolbar-width-collapsed: 56px;
     --toolbar-width-expanded: 240px;
     --toolbar-transition: 250ms ease;
   
