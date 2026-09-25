@@ -15,7 +15,7 @@ function Toolbar({ onAddAsset }: ToolbarProps) {
       style={{
         position: "fixed",
         top: 0,
-        right: 0,
+        right: isExpanded ? 0 : "8px",
         height: "100vh",
         width: isExpanded
           ? "var(--toolbar-width-expanded)"
@@ -28,6 +28,7 @@ function Toolbar({ onAddAsset }: ToolbarProps) {
         display: "flex",
         flexDirection: "column",
         padding: "var(--space-sm)",
+        paddingRight: isExpanded ? "var(--space-sm)" : "var(--space-xl)",
         gap: "var(--space-xs)",
         zIndex: 1000,
         boxSizing: "border-box",

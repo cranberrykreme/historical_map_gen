@@ -61,7 +61,9 @@ function ToolbarButton({
             "border-color var(--toolbar-transition), color var(--toolbar-transition)",
         }}
       >
-        {icon}
+        <span style={{ display: "block", transform: "translateY(-1px)" }}>
+          {icon}
+        </span>
       </div>
 
       {/* Label — only visible when expanded */}

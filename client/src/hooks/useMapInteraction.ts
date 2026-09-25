@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 function useMapInteraction(
   containerRef: React.RefObject<HTMLDivElement | null>,
@@ -6,7 +6,7 @@ function useMapInteraction(
   isReady: boolean,
   scaleRef: React.RefObject<number>,
   isDraggingUnit: React.RefObject<boolean>,
-  positionRef: React.RefObject<{ x: number, y: number }>,
+  positionRef: React.RefObject<{ x: number; y: number }>
 ) {
   const isPanning = useRef<boolean>(false);
   const panStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -48,14 +48,14 @@ function useMapInteraction(
         x: e.clientX - positionRef.current.x,
         y: e.clientY - positionRef.current.y,
       };
-      container.style.cursor = 'grabbing';
+      container.style.cursor = "grabbing";
     };
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!isPanning.current) return;
       if (isDraggingUnit.current) {
         isPanning.current = false;
-        container.style.cursor = 'grab';
+        container.style.cursor = "grab";
         return;
       }
       positionRef.current = {
@@ -67,28 +67,21 @@ function useMapInteraction(
 
     const handleMouseUp = () => {
       isPanning.current = false;
-      container.style.cursor = 'grab';
+      container.style.cursor = "grab";
     };
 
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      isDraggingUnit.current = true;
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    container.addEventListener('mousedown', handleMouseDown);
-    container.addEventListener('mousemove', handleMouseMove);
-    container.addEventListener('mouseup', handleMouseUp);
-    container.addEventListener('mouseleave', handleMouseUp);
-    container.addEventListener('contextmenu', handleContextMenu);
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    container.addEventListener("mousedown", handleMouseDown);
+    container.addEventListener("mousemove", handleMouseMove);
+    container.addEventListener("mouseup", handleMouseUp);
+    container.addEventListener("mouseleave", handleMouseUp);
 
     return () => {
-      container.removeEventListener('wheel', handleWheel);
-      container.removeEventListener('mousedown', handleMouseDown);
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('mouseup', handleMouseUp);
-      container.removeEventListener('mouseleave', handleMouseUp);
-      container.removeEventListener('contextmenu', handleContextMenu);
+      container.removeEventListener("wheel", handleWheel);
+      container.removeEventListener("mousedown", handleMouseDown);
+      container.removeEventListener("mousemove", handleMouseMove);
+      container.removeEventListener("mouseup", handleMouseUp);
+      container.removeEventListener("mouseleave", handleMouseUp);
     };
   }, [isReady, scaleRef, isDraggingUnit]);
 }
