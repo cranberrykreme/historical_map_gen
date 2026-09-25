@@ -22,6 +22,10 @@ function App() {
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
+  // copy/paste
+  const copySelectedUnits = useMapStore((state) => state.copySelectedUnits);
+  const pasteUnits = useMapStore((state) => state.pasteUnits);
+
   // Load project on startup
   useEffect(() => {
     loadProject().then((units) => {
@@ -50,6 +54,15 @@ function App() {
         e.preventDefault();
         saveProject(placedUnits);
       }
+      // copy/paste
+      if (e.metaKey && e.key === "c") {
+        e.preventDefault();
+        copySelectedUnits();
+      }
+      if (e.metaKey && e.key === "v") {
+        e.preventDefault();
+        pasteUnits();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -61,8 +74,9 @@ function App() {
     redo,
     removeSelectedUnits,
     saveProject,
+    copySelectedUnits,
+    pasteUnits,
   ]);
-
   // Called when user clicks + in toolbar or drops a file
   const handleFileSelected = (file: File) => {
     setPendingFile(file);

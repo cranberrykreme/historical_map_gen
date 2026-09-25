@@ -45,6 +45,51 @@
       "scale": 0.5099999999999995,
       "x": 917.3828451882848,
       "y": 730.2426778242681
+    },
+    {
+      "assetType": "portraits",
+      "filename": "Edward_the_Confessor,_ruled_9th_June_1042_-_5th_January_1066.png",
+      "id": "Edward_the_Confessor,_ruled_9th_June_1042_-_5th_January_1066.png-1790308381418",
+      "rotation": 0,
+      "scale": 0.49999999999999956,
+      "x": 1011.007127480209,
+      "y": 773.7224314059531
+    },
+    {
+      "assetType": "units",
+      "filename": "Archers_Blue.png",
+      "id": "Archers_Blue.png-1790311408016",
+      "rotation": 164,
+      "scale": 0.36999999999999944,
+      "x": 938.2175226586108,
+      "y": 703.296072507554
+    },
+    {
+      "assetType": "units",
+      "filename": "Archers_Blue.png",
+      "id": "Archers_Blue.png-1790326210082-ph0af1e",
+      "rotation": 211,
+      "scale": 0.37999999999999967,
+      "x": 953.3317503200187,
+      "y": 708.5532313375103
+    },
+    {
+      "assetType": "units",
+      "filename": "Army_Red.png",
+      "id": "Army_Red.png-1790326210082-8at6cxv",
+      "rotation": 154,
+      "scale": 0.36999999999999944,
+      "x": 886.5959800493765,
+      "y": 729.0446044192843
+    },
+    {
+      "assetType": "units",
+      "filename": "cavalry_Yellow.png",
+      "id": "cavalry_Yellow.png-1790326210082-ilpbgv7",
+      "rotation": -18,
+      "scale": 0.5099999999999995,
+      "x": 945.00534972549,
+      "y": 728.4640934322534
     }
   ]
 }

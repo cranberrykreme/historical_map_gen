@@ -4,6 +4,7 @@ import useMapInteraction from "../hooks/useMapInteraction";
 import UnitLayer from "./UnitLayer";
 import API_BASE_URL from "../config/api";
 import { useMapStore } from "../store/useMapStore";
+import { AssetType } from "../types";
 
 function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,6 +33,7 @@ function MapCanvas() {
   const groupRotateDelta = useMapStore((state) => state.groupRotateDelta);
   const groupScaleDelta = useMapStore((state) => state.groupScaleDelta);
   const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
+  const addUnitAtPosition = useMapStore((state) => state.addUnitAtPosition);
 
   const displayUnits = placedUnits.map((unit) => {
     let display = { ...unit };
@@ -154,6 +156,37 @@ function MapCanvas() {
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const data = e.dataTransfer.getData("application/json");
+    if (!data) return;
+
+    try {
+      const { filename, assetType } = JSON.parse(data) as {
+        filename: string;
+        assetType: AssetType;
+      };
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      const scale = scaleRef.current ?? 1;
+      const position = positionRef.current ?? { x: 0, y: 0 };
+
+      const mapX = (screenX - position.x) / scale;
+      const mapY = (screenY - position.y) / scale;
+
+      addUnitAtPosition(filename, assetType, mapX, mapY);
+    } catch (error) {
+      console.error("Failed to parse drop data:", error);
+    }
+  };
+
   const boxStyle = selectionBox
     ? {
         left: Math.min(selectionBox.startX, selectionBox.endX),
@@ -173,6 +206,8 @@ function MapCanvas() {
         cursor: isShiftHeld ? "default" : activeCursor,
       }}
       onMouseDown={handleMouseDown}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       {(activeCursor === "alias" || activeCursor === "nwse-resize") && (
         <style>{`div, img { cursor: ${activeCursor} !important; }`}</style>
