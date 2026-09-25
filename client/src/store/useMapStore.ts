@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { Unit, AssetType } from "../types";
+import API_BASE_URL from "../config/api";
 
 interface DragPosition {
   id: string;
@@ -77,6 +78,16 @@ interface MapStore {
   clipboard: Unit[];
   copySelectedUnits: () => void;
   pasteUnits: () => void;
+
+  // Track Map files
+  selectedMapFilename: string | null;
+  setSelectedMap: (filename: string | null) => void;
+
+  // Available assets (shared across App and Toolbar)
+  availableUnits: string[];
+  availablePortraits: string[];
+  availableMaps: string[];
+  fetchAssetList: (type: AssetType) => Promise<void>;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -94,6 +105,12 @@ export const useMapStore = create<MapStore>((set, get) => ({
   groupDragDelta: null,
   groupRotateDelta: null,
   groupScaleDelta: null,
+  selectedMapFilename: null,
+
+  // Initial available assets
+  availableUnits: [],
+  availablePortraits: [],
+  availableMaps: [],
 
   // History actions
   set: (newUnits) => {
@@ -286,13 +303,13 @@ export const useMapStore = create<MapStore>((set, get) => ({
       future: [],
     });
   },
+
   copySelectedUnits: () => {
     const { placedUnits, selectedUnitIds } = get();
     const copied = placedUnits.filter((unit) => selectedUnitIds.has(unit.id));
     set({ clipboard: copied });
   },
 
-  // copy paste section.
   pasteUnits: () => {
     const { placedUnits, clipboard, past } = get();
     if (clipboard.length === 0) return;
@@ -312,5 +329,19 @@ export const useMapStore = create<MapStore>((set, get) => ({
       placedUnits: [...placedUnits, ...newUnits],
       selectedUnitIds: newIds,
     });
+  },
+
+  setSelectedMap: (filename) => set({ selectedMapFilename: filename }),
+
+  fetchAssetList: async (type) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/assets/${type}`);
+      const data = await response.json();
+      if (type === "units") set({ availableUnits: data.files || [] });
+      if (type === "portraits") set({ availablePortraits: data.files || [] });
+      if (type === "maps") set({ availableMaps: data.files || [] });
+    } catch (error) {
+      console.error(`Failed to fetch ${type} assets:`, error);
+    }
   },
 }));

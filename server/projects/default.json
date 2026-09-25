@@ -90,6 +90,43 @@
       "scale": 0.5099999999999995,
       "x": 945.00534972549,
       "y": 728.4640934322534
+    },
+    {
+      "assetType": "units",
+      "filename": "Green_Navy.png",
+      "id": "Green_Navy.png-1790338386174",
+      "rotation": 0,
+      "scale": 0.6399999999999997,
+      "x": 1046,
+      "y": 639
+    },
+    {
+      "id": "Army_Blue.png-1790340037787",
+      "filename": "Army_Blue.png",
+      "assetType": "units",
+      "x": 915,
+      "y": 687,
+      "rotation": 159,
+      "scale": 0.4099999999999995
+    },
+    {
+      "id": "Army_Green.png-1790340080697",
+      "filename": "Army_Green.png",
+      "assetType": "units",
+      "x": 1029.4520547945226,
+      "y": 753.4246575342485,
+      "rotation": -42,
+      "scale": 0.4099999999999997
+    },
+    {
+      "id": "Harald.png-1790340114012",
+      "filename": "Harald.png",
+      "assetType": "portraits",
+      "x": 933.9033417286097,
+      "y": 720.9226610971208,
+      "rotation": 0,
+      "scale": 0.26999999999999935
     }
-  ]
+  ],
+  "selectedMapFilename": "MasterMapV1.svg"
 }

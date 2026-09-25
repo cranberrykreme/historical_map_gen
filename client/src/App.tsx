@@ -7,7 +7,6 @@ import { AssetType } from "./types";
 import { useMapStore } from "./store/useMapStore";
 import useHistory from "./hooks/useHistory";
 import useProject from "./hooks/useProject";
-import useAssetList from "./hooks/useAssetList";
 import API_BASE_URL from "./config/api";
 
 function App() {
@@ -18,22 +17,27 @@ function App() {
   const addUnit = useMapStore((state) => state.addUnit);
   const removeSelectedUnits = useMapStore((state) => state.removeSelectedUnits);
   const setPlacedUnits = useMapStore((state) => state.setPlacedUnits);
-  const { refetch: refetchUnits } = useAssetList("units");
-
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const fetchAssetList = useMapStore((state) => state.fetchAssetList);
 
   // copy/paste
   const copySelectedUnits = useMapStore((state) => state.copySelectedUnits);
   const pasteUnits = useMapStore((state) => state.pasteUnits);
 
+  // Map selection
+  const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
+  const setSelectedMap = useMapStore((state) => state.setSelectedMap);
+
   // Load project on startup
   useEffect(() => {
-    loadProject().then((units) => {
+    loadProject().then(({ units, selectedMapFilename }) => {
       if (units.length > 0) {
         setPlacedUnits(units);
       }
+      if (selectedMapFilename) {
+        setSelectedMap(selectedMapFilename);
+      }
     });
-  }, [loadProject, setPlacedUnits]);
+  }, [loadProject, setPlacedUnits, setSelectedMap]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -52,7 +56,7 @@ function App() {
       }
       if (e.metaKey && e.key === "s") {
         e.preventDefault();
-        saveProject(placedUnits);
+        saveProject(placedUnits, selectedMapFilename);
       }
       // copy/paste
       if (e.metaKey && e.key === "c") {
@@ -112,8 +116,10 @@ function App() {
       });
       const data = await response.json();
       if (data.success) {
-        refetchUnits();
-        addUnit(data.filename, type);
+        fetchAssetList(type);
+        if (type === "units" || type === "portraits") {
+          addUnit(data.filename, type);
+        }
       }
     } catch (error) {
       console.error("Upload failed:", error);
@@ -123,6 +129,13 @@ function App() {
   const handleCancel = () => {
     setPendingFile(null);
   };
+
+  useEffect(() => {
+    fetchAssetList("units");
+    fetchAssetList("portraits");
+    fetchAssetList("maps");
+  }, [fetchAssetList]);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   return (
     <div
@@ -134,7 +147,12 @@ function App() {
       }}
     >
       <MapCanvas />
-      <Toolbar onAddAsset={handleAddAsset} onPlaceUnit={handlePlaceUnit} />{" "}
+      <Toolbar
+        onAddAsset={handleAddAsset}
+        onPlaceUnit={handlePlaceUnit}
+        selectedMapFilename={selectedMapFilename}
+        onSelectMap={setSelectedMap}
+      />{" "}
       <DropZoneOverlay onFileDrop={handleFileSelected} />
       <AssetTypePopup
         file={pendingFile}

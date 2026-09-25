@@ -22,7 +22,12 @@ function MapCanvas() {
   const [isShiftHeld, setIsShiftHeld] = useState<boolean>(false);
   const [activeCursor, setActiveCursor] = useState<string>("grab");
 
-  const svgContent = useMapFetch(`${API_BASE_URL}/api/map`);
+  const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
+  const svgContent = useMapFetch(
+    selectedMapFilename
+      ? `${API_BASE_URL}/api/map?filename=${selectedMapFilename}`
+      : null
+  );
   const boxSelect = useMapStore((state) => state.boxSelect);
   const selectUnit = useMapStore((state) => state.selectUnit);
   const placedUnits = useMapStore((state) => state.placedUnits);
@@ -61,8 +66,8 @@ function MapCanvas() {
   });
 
   useEffect(() => {
-    if (svgRef.current && svgContent) {
-      svgRef.current.innerHTML = svgContent;
+    if (svgRef.current) {
+      svgRef.current.innerHTML = svgContent ?? "";
     }
   }, [svgContent]);
 
@@ -84,7 +89,7 @@ function MapCanvas() {
   useMapInteraction(
     containerRef,
     mapRef,
-    !!svgContent,
+    true,
     scaleRef,
     isDraggingUnit,
     positionRef
@@ -204,6 +209,7 @@ function MapCanvas() {
         height: "100%",
         overflow: "hidden",
         cursor: isShiftHeld ? "default" : activeCursor,
+        background: selectedMapFilename ? "transparent" : "#3a3a3a",
       }}
       onMouseDown={handleMouseDown}
       onDragOver={handleDragOver}
@@ -212,7 +218,7 @@ function MapCanvas() {
       {(activeCursor === "alias" || activeCursor === "nwse-resize") && (
         <style>{`div, img { cursor: ${activeCursor} !important; }`}</style>
       )}
-      {!svgContent && <p>Loading map...</p>}
+      {selectedMapFilename && !svgContent && <p>Loading map...</p>}
       <div
         ref={mapRef}
         style={{ transformOrigin: "0 0", willChange: "transform" }}

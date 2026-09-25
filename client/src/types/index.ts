@@ -1,4 +1,4 @@
-export type AssetType = 'units' | 'portraits' | 'maps';
+export type AssetType = "units" | "portraits" | "maps";
 
 export interface Unit {
   id: string;
@@ -13,4 +13,5 @@ export interface Unit {
 export interface ProjectData {
   name: string;
   units: Unit[];
+  selectedMapFilename?: string | null;
 }

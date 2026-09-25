@@ -1,18 +1,26 @@
 import React, { useState } from "react";
 import ToolbarButton from "./ToolbarButton";
 import UnitThumbnailList from "./UnitThumbnailList";
-import useAssetList from "../../hooks/useAssetList";
+import { useMapStore } from "../../store/useMapStore";
 import { AssetType } from "../../types";
 
 interface ToolbarProps {
   onAddAsset: () => void;
   onPlaceUnit: (filename: string, assetType: AssetType) => void;
+  selectedMapFilename: string | null;
+  onSelectMap: (filename: string | null) => void;
 }
 
-function Toolbar({ onAddAsset, onPlaceUnit }: ToolbarProps) {
+function Toolbar({
+  onAddAsset,
+  onPlaceUnit,
+  selectedMapFilename,
+  onSelectMap,
+}: ToolbarProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const { assets: units } = useAssetList("units");
-  const { assets: portraits } = useAssetList("portraits");
+  const units = useMapStore((state) => state.availableUnits);
+  const portraits = useMapStore((state) => state.availablePortraits);
+  const maps = useMapStore((state) => state.availableMaps);
 
   return (
     <div
@@ -51,7 +59,10 @@ function Toolbar({ onAddAsset, onPlaceUnit }: ToolbarProps) {
         <UnitThumbnailList
           units={units}
           portraits={portraits}
+          maps={maps}
+          selectedMapFilename={selectedMapFilename}
           onPlaceUnit={onPlaceUnit}
+          onSelectMap={onSelectMap}
         />
       )}
     </div>
