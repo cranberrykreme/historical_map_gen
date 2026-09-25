@@ -1,4 +1,5 @@
 import React from "react";
+import styles from "./ToolbarButton.module.css";
 
 interface ToolbarButtonProps {
   icon: string;
@@ -19,65 +20,17 @@ function ToolbarButton({
     <button
       onClick={onClick}
       title={label}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "var(--space-sm)",
-        width: "100%",
-        padding: "var(--space-sm)",
-        background: isActive ? "var(--color-gold-subtle)" : "transparent",
-        border: "none",
-        borderRadius: "var(--radius-sm)",
-        cursor: "pointer",
-        transition: "background var(--toolbar-transition)",
-      }}
-      onMouseEnter={(e) => {
-        if (!isActive) {
-          (e.currentTarget as HTMLButtonElement).style.background =
-            "var(--color-surface-hover)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!isActive) {
-          (e.currentTarget as HTMLButtonElement).style.background =
-            "transparent";
-        }
-      }}
+      className={`${styles.button} ${isActive ? styles.buttonActive : ""}`}
     >
-      {/* Icon container — always visible */}
       <div
-        style={{
-          width: "32px",
-          height: "32px",
-          borderRadius: "var(--radius-full)",
-          border: `1px solid ${isActive ? "var(--color-gold)" : "var(--color-border)"}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          color: isActive ? "var(--color-gold)" : "var(--color-text-dim)",
-          fontSize: "16px",
-          transition:
-            "border-color var(--toolbar-transition), color var(--toolbar-transition)",
-        }}
+        className={`${styles.iconCircle} ${isActive ? styles.iconCircleActive : ""}`}
       >
-        <span style={{ display: "block", transform: "translateY(-1px)" }}>
-          {icon}
-        </span>
+        <span className={styles.iconInner}>{icon}</span>
       </div>
 
-      {/* Label — only visible when expanded */}
       {isExpanded && (
         <span
-          style={{
-            color: isActive
-              ? "var(--color-gold)"
-              : "var(--color-text-secondary)",
-            fontSize: "var(--font-size-md)",
-            fontFamily: "var(--font-ui)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-          }}
+          className={`${styles.label} ${isActive ? styles.labelActive : ""}`}
         >
           {label}
         </span>
