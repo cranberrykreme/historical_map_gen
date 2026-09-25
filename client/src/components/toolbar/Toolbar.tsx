@@ -9,6 +9,7 @@ interface ToolbarProps {
   onPlaceUnit: (filename: string, assetType: AssetType) => void;
   selectedMapFilename: string | null;
   onSelectMap: (filename: string | null) => void;
+  onDeleteAsset: (filename: string, assetType: AssetType) => void;
 }
 
 function Toolbar({
@@ -16,6 +17,7 @@ function Toolbar({
   onPlaceUnit,
   selectedMapFilename,
   onSelectMap,
+  onDeleteAsset,
 }: ToolbarProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const units = useMapStore((state) => state.availableUnits);
@@ -63,6 +65,7 @@ function Toolbar({
           selectedMapFilename={selectedMapFilename}
           onPlaceUnit={onPlaceUnit}
           onSelectMap={onSelectMap}
+          onDeleteAsset={onDeleteAsset}
         />
       )}
     </div>

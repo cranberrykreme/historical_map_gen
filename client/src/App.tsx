@@ -27,6 +27,9 @@ function App() {
   const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
   const setSelectedMap = useMapStore((state) => state.setSelectedMap);
 
+  // delete asset
+  const deleteAsset = useMapStore((state) => state.deleteAsset);
+
   // Load project on startup
   useEffect(() => {
     loadProject().then(({ units, selectedMapFilename }) => {
@@ -152,6 +155,7 @@ function App() {
         onPlaceUnit={handlePlaceUnit}
         selectedMapFilename={selectedMapFilename}
         onSelectMap={setSelectedMap}
+        onDeleteAsset={deleteAsset}
       />{" "}
       <DropZoneOverlay onFileDrop={handleFileSelected} />
       <AssetTypePopup

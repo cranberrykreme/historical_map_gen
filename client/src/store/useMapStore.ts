@@ -58,6 +58,9 @@ interface MapStore {
   selectUnit: (id: string | null, addToSelection?: boolean) => void;
   boxSelect: (ids: string[]) => void;
 
+  // delete actions
+  deleteAsset: (filename: string, assetType: AssetType) => Promise<void>;
+
   // Drag actions
   setDragPosition: (drag: DragPosition | null) => void;
   setDragRotation: (drag: DragRotation | null) => void;
@@ -342,6 +345,41 @@ export const useMapStore = create<MapStore>((set, get) => ({
       if (type === "maps") set({ availableMaps: data.files || [] });
     } catch (error) {
       console.error(`Failed to fetch ${type} assets:`, error);
+    }
+  },
+  deleteAsset: async (filename, assetType) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/assets/${assetType}/${filename}`,
+        {
+          method: "DELETE",
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        // Remove any placed units using this asset
+        const { placedUnits, past } = get();
+        const remainingUnits = placedUnits.filter(
+          (unit) =>
+            !(unit.filename === filename && unit.assetType === assetType)
+        );
+        if (remainingUnits.length !== placedUnits.length) {
+          set({
+            past: [...past, placedUnits],
+            placedUnits: remainingUnits,
+            future: [],
+          });
+        }
+        // Refresh the asset list
+        get().fetchAssetList(assetType);
+
+        // If this was the selected map, clear it
+        if (assetType === "maps" && get().selectedMapFilename === filename) {
+          set({ selectedMapFilename: null });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete asset:", error);
     }
   },
 }));

@@ -45,3 +45,12 @@ def get_asset(asset_type: str, filename: str):
     if not os.path.exists(file_path):
         return jsonify({"error": "File not found"}), 404
     return send_file(file_path)
+
+@assets_bp.route('/api/assets/<asset_type>/<filename>', methods=['DELETE'])
+def delete_asset(asset_type: str, filename: str):
+    asset_dir = os.path.join(ASSETS_DIR, asset_type)
+    file_path = os.path.join(asset_dir, filename)
+    if not os.path.exists(file_path):
+        return jsonify({"error": "File not found"}), 404
+    os.remove(file_path)
+    return jsonify({"success": True})
