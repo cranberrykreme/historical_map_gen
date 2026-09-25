@@ -108,15 +108,6 @@
       "scale": 0.4099999999999997,
       "x": 1029.4520547945226,
       "y": 753.4246575342485
-    },
-    {
-      "assetType": "portraits",
-      "filename": "Harald.png",
-      "id": "Harald.png-1790340114012",
-      "rotation": 0,
-      "scale": 0.26999999999999935,
-      "x": 933.9033417286097,
-      "y": 720.9226610971208
     }
   ],
   "selectedMapFilename": "MasterMapV1.svg"
