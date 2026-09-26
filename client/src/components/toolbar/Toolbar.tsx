@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import ToolbarButton from "./ToolbarButton";
-import UnitThumbnailList from "./UnitThumbnailList";
-import { useMapStore } from "../../store/useMapStore";
+import AssetSection from "./AssetSection";
+import MapSection from "./MapSection";
 import { AssetType } from "../../types";
+import { useMapStore } from "../../store/useMapStore";
 
 interface ToolbarProps {
   onAddAsset: () => void;
@@ -44,6 +45,7 @@ function Toolbar({
         display: "flex",
         flexDirection: "column",
         padding: "var(--space-sm)",
+        paddingRight: isExpanded ? "var(--space-sm)" : "var(--space-xl)",
         gap: "var(--space-xs)",
         zIndex: 1000,
         boxSizing: "border-box",
@@ -58,15 +60,36 @@ function Toolbar({
       />
 
       {isExpanded && (
-        <UnitThumbnailList
-          units={units}
-          portraits={portraits}
-          maps={maps}
-          selectedMapFilename={selectedMapFilename}
-          onPlaceUnit={onPlaceUnit}
-          onSelectMap={onSelectMap}
-          onDeleteAsset={onDeleteAsset}
-        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "var(--space-md)",
+            overflowY: "auto",
+            marginTop: "var(--space-md)",
+          }}
+        >
+          <AssetSection
+            title="Units"
+            assetType="units"
+            files={units}
+            onPlaceUnit={onPlaceUnit}
+            onDeleteAsset={onDeleteAsset}
+          />
+          <AssetSection
+            title="Portraits"
+            assetType="portraits"
+            files={portraits}
+            onPlaceUnit={onPlaceUnit}
+            onDeleteAsset={onDeleteAsset}
+          />
+          <MapSection
+            maps={maps}
+            selectedMapFilename={selectedMapFilename}
+            onSelectMap={onSelectMap}
+            onDeleteAsset={onDeleteAsset}
+          />
+        </div>
       )}
     </div>
   );
