@@ -8,6 +8,7 @@ import { useMapStore } from "./store/useMapStore";
 import useHistory from "./hooks/useHistory";
 import useProject from "./hooks/useProject";
 import API_BASE_URL from "./config/api";
+import styles from "./App.module.css";
 
 function App() {
   const { undo, redo } = useHistory();
@@ -141,14 +142,7 @@ function App() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        background: "var(--color-bg)",
-        overflow: "hidden",
-      }}
-    >
+    <div className={styles.app}>
       <MapCanvas />
       <Toolbar
         onAddAsset={handleAddAsset}
