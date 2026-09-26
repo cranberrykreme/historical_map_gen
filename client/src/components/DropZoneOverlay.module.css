@@ -1,0 +1,48 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 500;
+    pointer-events: none;
+  }
+  
+  .dragOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(200, 168, 75, 0.08);
+    border: 2px dashed var(--color-gold);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  
+  .dragMessage {
+    color: var(--color-gold);
+    font-family: var(--font-ui);
+    font-size: 18px;
+    background: var(--color-surface);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+  }
+  
+  .errorMessage {
+    position: absolute;
+    bottom: var(--space-lg);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-surface);
+    border: 1px solid #6a3030;
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    color: #e07070;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-md);
+  }

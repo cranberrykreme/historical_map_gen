@@ -126,6 +126,24 @@
       "y": 713.4969325153378,
       "rotation": 0,
       "scale": 0.6299999999999997
+    },
+    {
+      "id": "cavalry_Yellow.png-1790427222464",
+      "filename": "cavalry_Yellow.png",
+      "assetType": "units",
+      "x": 965.808891146627,
+      "y": 719.3391065969712,
+      "rotation": -41,
+      "scale": 0.47999999999999954
+    },
+    {
+      "id": "battle_swords.png-1790427261809",
+      "filename": "battle_swords.png",
+      "assetType": "units",
+      "x": 932.9250367466941,
+      "y": 715.384615384616,
+      "rotation": 0,
+      "scale": 0.47999999999999954
     }
   ],
   "selectedMapFilename": "MasterMapV1.svg"

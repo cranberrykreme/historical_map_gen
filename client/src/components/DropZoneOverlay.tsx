@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import styles from "./DropZoneOverlay.module.css";
 
 interface DropZoneOverlayProps {
   onFileDrop: (file: File) => void;
@@ -65,69 +66,14 @@ function DropZoneOverlay({ onFileDrop }: DropZoneOverlayProps) {
   }, [onFileDrop]);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        zIndex: 500,
-        pointerEvents: "none",
-      }}
-    >
+    <div className={styles.overlay}>
       {isDragging && (
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            background: "rgba(200, 168, 75, 0.08)",
-            border: "2px dashed var(--color-gold)",
-            boxSizing: "border-box",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            pointerEvents: "none",
-          }}
-        >
-          <p
-            style={{
-              color: "var(--color-gold)",
-              fontFamily: "var(--font-ui)",
-              fontSize: "18px",
-              background: "var(--color-surface)",
-              padding: "var(--space-md) var(--space-lg)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border)",
-            }}
-          >
-            Drop to add asset
-          </p>
+        <div className={styles.dragOverlay}>
+          <p className={styles.dragMessage}>Drop to add asset</p>
         </div>
       )}
 
-      {error && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "var(--space-lg)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "var(--color-surface)",
-            border: "1px solid #6a3030",
-            borderRadius: "var(--radius-md)",
-            padding: "var(--space-sm) var(--space-md)",
-            color: "#e07070",
-            fontFamily: "var(--font-ui)",
-            fontSize: "var(--font-size-md)",
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <div className={styles.errorMessage}>{error}</div>}
     </div>
   );
 }
