@@ -164,13 +164,31 @@
       "y": 694.0992343407186
     },
     {
-      "id": "Godwinson.png-1790428432067",
-      "filename": "Godwinson.png",
       "assetType": "portraits",
-      "x": 861.2249877989349,
-      "y": 711.5352436728788,
+      "filename": "Godwinson.png",
+      "id": "Godwinson.png-1790428432067",
       "rotation": 0,
-      "scale": 0.5899999999999996
+      "scale": 0.5899999999999996,
+      "x": 861.2249877989349,
+      "y": 711.5352436728788
+    },
+    {
+      "id": "Green_Navy.png-1790428773567",
+      "filename": "Green_Navy.png",
+      "assetType": "units",
+      "x": 1005.0060100200124,
+      "y": 733.3245327344026,
+      "rotation": 13,
+      "scale": 0.4399999999999995
+    },
+    {
+      "id": "Red_Navy.png-1790428797101",
+      "filename": "Red_Navy.png",
+      "assetType": "units",
+      "x": 933.488372093024,
+      "y": 761.3953488372098,
+      "rotation": 0,
+      "scale": 0.46999999999999975
     }
   ],
   "selectedMapFilename": "MasterMapV1.svg"

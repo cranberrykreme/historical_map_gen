@@ -123,9 +123,6 @@ function App() {
       const data = await response.json();
       if (data.success) {
         fetchAssetList(type);
-        if (type === "units" || type === "portraits") {
-          addUnit(data.filename, type);
-        }
       }
     } catch (error) {
       console.error("Upload failed:", error);
