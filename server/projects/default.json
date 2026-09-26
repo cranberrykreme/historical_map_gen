@@ -24,9 +24,9 @@
       "filename": "cavalry_Green.png",
       "id": "cavalry_Green.png-1790204529580",
       "rotation": -44,
-      "scale": 0.42000000000000015,
-      "x": 993.5251046025103,
-      "y": 759.5355648535573
+      "scale": 0.5000000000000002,
+      "x": 989.5267039627656,
+      "y": 762.3344453013785
     },
     {
       "assetType": "units",
@@ -119,15 +119,6 @@
       "y": 681.3151585899267
     },
     {
-      "assetType": "portraits",
-      "filename": "Godwinson.png",
-      "id": "Godwinson.png-1790427100590",
-      "rotation": 0,
-      "scale": 0.6299999999999997,
-      "x": 859.4322242722346,
-      "y": 713.1620363331542
-    },
-    {
       "assetType": "units",
       "filename": "cavalry_Yellow.png",
       "id": "cavalry_Yellow.png-1790427222464",
@@ -146,22 +137,22 @@
       "y": 715.0497192024325
     },
     {
-      "id": "Army_Green.png-1790427776475",
-      "filename": "Army_Green.png",
       "assetType": "units",
-      "x": 1011.0327305601427,
-      "y": 752.9705292991898,
+      "filename": "Army_Green.png",
+      "id": "Army_Green.png-1790427776475",
       "rotation": -10,
-      "scale": 0.38
+      "scale": 0.38,
+      "x": 1011.0327305601427,
+      "y": 752.9705292991898
     },
     {
-      "id": "Red_Navy.png-1790427803324",
-      "filename": "Red_Navy.png",
       "assetType": "units",
-      "x": 914.2592578573722,
-      "y": 772.8459123933413,
+      "filename": "Red_Navy.png",
+      "id": "Red_Navy.png-1790427803324",
       "rotation": 8,
-      "scale": 0.4499999999999995
+      "scale": 0.4499999999999995,
+      "x": 914.2592578573722,
+      "y": 772.8459123933413
     },
     {
       "assetType": "units",
@@ -171,6 +162,15 @@
       "scale": 0.4099999999999995,
       "x": 888.278520950762,
       "y": 694.0992343407186
+    },
+    {
+      "id": "Godwinson.png-1790428432067",
+      "filename": "Godwinson.png",
+      "assetType": "portraits",
+      "x": 861.2249877989349,
+      "y": 711.5352436728788,
+      "rotation": 0,
+      "scale": 0.5899999999999996
     }
   ],
   "selectedMapFilename": "MasterMapV1.svg"

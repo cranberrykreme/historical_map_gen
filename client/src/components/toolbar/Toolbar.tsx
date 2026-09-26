@@ -3,8 +3,8 @@ import ToolbarButton from "./ToolbarButton";
 import AssetSection from "./AssetSection";
 import MapSection from "./MapSection";
 import { AssetType } from "../../types";
-import { useMapStore } from "../../store/useMapStore";
 import styles from "./Toolbar.module.css";
+import { useAssetStore } from "../../store/useAssetStore";
 
 interface ToolbarProps {
   onAddAsset: () => void;
@@ -22,9 +22,9 @@ function Toolbar({
   onDeleteAsset,
 }: ToolbarProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const units = useMapStore((state) => state.availableUnits);
-  const portraits = useMapStore((state) => state.availablePortraits);
-  const maps = useMapStore((state) => state.availableMaps);
+  const units = useAssetStore((state) => state.availableUnits);
+  const portraits = useAssetStore((state) => state.availablePortraits);
+  const maps = useAssetStore((state) => state.availableMaps);
 
   return (
     <div

@@ -9,6 +9,7 @@ import useHistory from "./hooks/useHistory";
 import useProject from "./hooks/useProject";
 import API_BASE_URL from "./config/api";
 import styles from "./App.module.css";
+import { useAssetStore } from "./store/useAssetStore";
 
 function App() {
   const { undo, redo } = useHistory();
@@ -18,7 +19,7 @@ function App() {
   const addUnit = useMapStore((state) => state.addUnit);
   const removeSelectedUnits = useMapStore((state) => state.removeSelectedUnits);
   const setPlacedUnits = useMapStore((state) => state.setPlacedUnits);
-  const fetchAssetList = useMapStore((state) => state.fetchAssetList);
+  const fetchAssetList = useAssetStore((state) => state.fetchAssetList);
 
   // copy/paste
   const copySelectedUnits = useMapStore((state) => state.copySelectedUnits);
@@ -29,7 +30,8 @@ function App() {
   const setSelectedMap = useMapStore((state) => state.setSelectedMap);
 
   // delete asset
-  const deleteAsset = useMapStore((state) => state.deleteAsset);
+  const deleteAsset = useAssetStore((state) => state.deleteAsset);
+  const cleanupDeletedAsset = useMapStore((state) => state.cleanupDeletedAsset);
 
   // Load project on startup
   useEffect(() => {
@@ -149,7 +151,9 @@ function App() {
         onPlaceUnit={handlePlaceUnit}
         selectedMapFilename={selectedMapFilename}
         onSelectMap={setSelectedMap}
-        onDeleteAsset={deleteAsset}
+        onDeleteAsset={(filename, assetType) =>
+          deleteAsset(filename, assetType, cleanupDeletedAsset)
+        }
       />{" "}
       <DropZoneOverlay onFileDrop={handleFileSelected} />
       <AssetTypePopup

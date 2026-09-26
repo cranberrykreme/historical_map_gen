@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { Unit, AssetType } from "../types";
-import API_BASE_URL from "../config/api";
 
 interface DragPosition {
   id: string;
@@ -58,8 +57,8 @@ interface MapStore {
   selectUnit: (id: string | null, addToSelection?: boolean) => void;
   boxSelect: (ids: string[]) => void;
 
-  // delete actions
-  deleteAsset: (filename: string, assetType: AssetType) => Promise<void>;
+  // Cleanup when an asset is deleted elsewhere (called via useAssetStore's onDeleted callback)
+  cleanupDeletedAsset: (filename: string, assetType: AssetType) => void;
 
   // Drag actions
   setDragPosition: (drag: DragPosition | null) => void;
@@ -85,12 +84,6 @@ interface MapStore {
   // Track Map files
   selectedMapFilename: string | null;
   setSelectedMap: (filename: string | null) => void;
-
-  // Available assets (shared across App and Toolbar)
-  availableUnits: string[];
-  availablePortraits: string[];
-  availableMaps: string[];
-  fetchAssetList: (type: AssetType) => Promise<void>;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -109,11 +102,6 @@ export const useMapStore = create<MapStore>((set, get) => ({
   groupRotateDelta: null,
   groupScaleDelta: null,
   selectedMapFilename: null,
-
-  // Initial available assets
-  availableUnits: [],
-  availablePortraits: [],
-  availableMaps: [],
 
   // History actions
   set: (newUnits) => {
@@ -201,6 +189,25 @@ export const useMapStore = create<MapStore>((set, get) => ({
   },
 
   boxSelect: (ids) => set({ selectedUnitIds: new Set(ids) }),
+
+  // Cleanup when an asset is deleted elsewhere
+  cleanupDeletedAsset: (filename, assetType) => {
+    const { placedUnits, past } = get();
+    const remainingUnits = placedUnits.filter(
+      (unit) => !(unit.filename === filename && unit.assetType === assetType)
+    );
+    if (remainingUnits.length !== placedUnits.length) {
+      set({
+        past: [...past, placedUnits],
+        placedUnits: remainingUnits,
+        future: [],
+      });
+    }
+
+    if (assetType === "maps" && get().selectedMapFilename === filename) {
+      set({ selectedMapFilename: null });
+    }
+  },
 
   // Drag actions
   setDragPosition: (drag) => set({ dragPosition: drag }),
@@ -335,51 +342,4 @@ export const useMapStore = create<MapStore>((set, get) => ({
   },
 
   setSelectedMap: (filename) => set({ selectedMapFilename: filename }),
-
-  fetchAssetList: async (type) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/assets/${type}`);
-      const data = await response.json();
-      if (type === "units") set({ availableUnits: data.files || [] });
-      if (type === "portraits") set({ availablePortraits: data.files || [] });
-      if (type === "maps") set({ availableMaps: data.files || [] });
-    } catch (error) {
-      console.error(`Failed to fetch ${type} assets:`, error);
-    }
-  },
-  deleteAsset: async (filename, assetType) => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/assets/${assetType}/${filename}`,
-        {
-          method: "DELETE",
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
-        // Remove any placed units using this asset
-        const { placedUnits, past } = get();
-        const remainingUnits = placedUnits.filter(
-          (unit) =>
-            !(unit.filename === filename && unit.assetType === assetType)
-        );
-        if (remainingUnits.length !== placedUnits.length) {
-          set({
-            past: [...past, placedUnits],
-            placedUnits: remainingUnits,
-            future: [],
-          });
-        }
-        // Refresh the asset list
-        get().fetchAssetList(assetType);
-
-        // If this was the selected map, clear it
-        if (assetType === "maps" && get().selectedMapFilename === filename) {
-          set({ selectedMapFilename: null });
-        }
-      }
-    } catch (error) {
-      console.error("Failed to delete asset:", error);
-    }
-  },
 }));
