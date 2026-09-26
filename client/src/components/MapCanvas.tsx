@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import useMapFetch from "../hooks/useMapFetch";
 import useMapInteraction from "../hooks/useMapInteraction";
+import useSelectionBox from "../hooks/useSelectionBox";
+import useAssetDrop from "../hooks/useAssetDrop";
 import UnitLayer from "./UnitLayer";
 import API_BASE_URL from "../config/api";
 import { useMapStore } from "../store/useMapStore";
-import { AssetType } from "../types";
 
 function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -13,12 +14,6 @@ function MapCanvas() {
   const scaleRef = useRef<number>(1);
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isDraggingUnit = useRef<boolean>(false);
-  const [selectionBox, setSelectionBox] = useState<{
-    startX: number;
-    startY: number;
-    endX: number;
-    endY: number;
-  } | null>(null);
   const [isShiftHeld, setIsShiftHeld] = useState<boolean>(false);
   const [activeCursor, setActiveCursor] = useState<string>("grab");
 
@@ -95,6 +90,21 @@ function MapCanvas() {
     positionRef
   );
 
+  const { startSelection, boxStyle } = useSelectionBox({
+    containerRef,
+    scaleRef,
+    positionRef,
+    displayUnits,
+    boxSelect,
+  });
+
+  const { handleDragOver, handleDrop } = useAssetDrop({
+    containerRef,
+    scaleRef,
+    positionRef,
+    addUnitAtPosition,
+  });
+
   const setCursor = (cursor: string) => {
     setActiveCursor(cursor);
     if (containerRef.current) {
@@ -107,99 +117,11 @@ function MapCanvas() {
     if (target.closest("[data-unit]")) return;
 
     if (e.shiftKey) {
-      e.preventDefault();
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const startX = e.clientX - rect.left;
-      const startY = e.clientY - rect.top;
-      setSelectionBox({ startX, startY, endX: startX, endY: startY });
-
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const rect = containerRef.current?.getBoundingClientRect();
-        if (!rect) return;
-        setSelectionBox((prev) =>
-          prev
-            ? {
-                ...prev,
-                endX: moveEvent.clientX - rect.left,
-                endY: moveEvent.clientY - rect.top,
-              }
-            : null
-        );
-      };
-
-      const handleMouseUp = () => {
-        setSelectionBox((prev) => {
-          if (!prev) return null;
-          const scale = scaleRef.current ?? 1;
-          const position = positionRef.current ?? { x: 0, y: 0 };
-          const left = (Math.min(prev.startX, prev.endX) - position.x) / scale;
-          const right = (Math.max(prev.startX, prev.endX) - position.x) / scale;
-          const top = (Math.min(prev.startY, prev.endY) - position.y) / scale;
-          const bottom =
-            (Math.max(prev.startY, prev.endY) - position.y) / scale;
-          const selectedIds = displayUnits
-            .filter(
-              (unit) =>
-                unit.x >= left &&
-                unit.x <= right &&
-                unit.y >= top &&
-                unit.y <= bottom
-            )
-            .map((unit) => unit.id);
-          boxSelect(selectedIds);
-          return null;
-        });
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      startSelection(e);
     } else {
       selectUnit(null);
     }
   };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const data = e.dataTransfer.getData("application/json");
-    if (!data) return;
-
-    try {
-      const { filename, assetType } = JSON.parse(data) as {
-        filename: string;
-        assetType: AssetType;
-      };
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      const scale = scaleRef.current ?? 1;
-      const position = positionRef.current ?? { x: 0, y: 0 };
-
-      const mapX = (screenX - position.x) / scale;
-      const mapY = (screenY - position.y) / scale;
-
-      addUnitAtPosition(filename, assetType, mapX, mapY);
-    } catch (error) {
-      console.error("Failed to parse drop data:", error);
-    }
-  };
-
-  const boxStyle = selectionBox
-    ? {
-        left: Math.min(selectionBox.startX, selectionBox.endX),
-        top: Math.min(selectionBox.startY, selectionBox.endY),
-        width: Math.abs(selectionBox.endX - selectionBox.startX),
-        height: Math.abs(selectionBox.endY - selectionBox.startY),
-      }
-    : null;
 
   return (
     <div
