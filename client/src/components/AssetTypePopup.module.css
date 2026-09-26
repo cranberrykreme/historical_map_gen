@@ -1,0 +1,73 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  
+  .modal {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+  
+  .title {
+    color: var(--color-gold);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-lg);
+    margin: 0;
+  }
+  
+  .text {
+    color: var(--color-text-secondary);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-md);
+    margin: 0;
+  }
+  
+  .optionList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+  
+  .optionButton {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+    text-align: left;
+    text-transform: capitalize;
+    transition: border-color var(--toolbar-transition), background var(--toolbar-transition);
+  }
+  
+  .optionButton:hover {
+    border-color: var(--color-gold);
+    background: var(--color-gold-subtle);
+  }
+  
+  .cancelButton {
+    padding: var(--space-sm) var(--space-md);
+    background: transparent;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-dim);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+  }

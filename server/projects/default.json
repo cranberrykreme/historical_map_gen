@@ -32,10 +32,10 @@
       "assetType": "units",
       "filename": "Red_Navy.png",
       "id": "Red_Navy.png-1790238328491",
-      "rotation": -17,
+      "rotation": -7,
       "scale": 0.45000000000000007,
-      "x": 913,
-      "y": 781
+      "x": 880.6629103380695,
+      "y": 758.951984321411
     },
     {
       "assetType": "units",
@@ -110,13 +110,22 @@
       "y": 753.4246575342485
     },
     {
-      "id": "WilliamTheConquerer.png-1790413579865",
-      "filename": "WilliamTheConquerer.png",
       "assetType": "portraits",
-      "x": 938.9034712118598,
-      "y": 677.9615082215398,
+      "filename": "WilliamTheConquerer.png",
+      "id": "WilliamTheConquerer.png-1790413579865",
       "rotation": 0,
-      "scale": 0.49999999999999956
+      "scale": 0.49999999999999956,
+      "x": 938.9034712118598,
+      "y": 677.9615082215398
+    },
+    {
+      "id": "Godwinson.png-1790427100590",
+      "filename": "Godwinson.png",
+      "assetType": "portraits",
+      "x": 862.7811860940699,
+      "y": 713.4969325153378,
+      "rotation": 0,
+      "scale": 0.6299999999999997
     }
   ],
   "selectedMapFilename": "MasterMapV1.svg"
