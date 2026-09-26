@@ -4,6 +4,7 @@ import AssetSection from "./AssetSection";
 import MapSection from "./MapSection";
 import { AssetType } from "../../types";
 import { useMapStore } from "../../store/useMapStore";
+import styles from "./Toolbar.module.css";
 
 interface ToolbarProps {
   onAddAsset: () => void;
@@ -29,28 +30,7 @@ function Toolbar({
     <div
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
-      style={{
-        position: "fixed",
-        top: 0,
-        right: isExpanded ? 0 : "8px",
-        height: "100vh",
-        width: isExpanded
-          ? "var(--toolbar-width-expanded)"
-          : "var(--toolbar-width-collapsed)",
-        background: isExpanded ? "var(--color-surface)" : "transparent",
-        borderLeft: isExpanded
-          ? "1px solid var(--color-border-subtle)"
-          : "none",
-        transition: `width var(--toolbar-transition), background var(--toolbar-transition), border var(--toolbar-transition), right var(--toolbar-transition)`,
-        display: "flex",
-        flexDirection: "column",
-        padding: "var(--space-sm)",
-        paddingRight: isExpanded ? "var(--space-sm)" : "var(--space-xl)",
-        gap: "var(--space-xs)",
-        zIndex: 1000,
-        boxSizing: "border-box",
-        overflow: "hidden",
-      }}
+      className={`${styles.toolbar} ${isExpanded ? styles.toolbarExpanded : ""}`}
     >
       <ToolbarButton
         icon="+"
@@ -60,15 +40,7 @@ function Toolbar({
       />
 
       {isExpanded && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "var(--space-md)",
-            overflowY: "auto",
-            marginTop: "var(--space-md)",
-          }}
-        >
+        <div className={styles.sectionList}>
           <AssetSection
             title="Units"
             assetType="units"

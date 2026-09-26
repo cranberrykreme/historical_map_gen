@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import API_BASE_URL from "../../config/api";
 import { AssetType } from "../../types";
 import styles from "./UnitThumbnail.module.css";
+import deleteStyles from "./DeleteButton.module.css";
 
 interface UnitThumbnailProps {
   filename: string;
@@ -16,6 +17,8 @@ function UnitThumbnail({
   onClick,
   onDelete,
 }: UnitThumbnailProps) {
+  const [isHovered, setIsHovered] = useState<boolean>(false);
+
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData(
       "application/json",
@@ -34,6 +37,8 @@ function UnitThumbnail({
       draggable
       onDragStart={handleDragStart}
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={styles.thumbnail}
     >
       <img
@@ -46,9 +51,9 @@ function UnitThumbnail({
       <button
         onClick={handleDeleteClick}
         title="Delete asset"
-        className={styles.deleteButton}
+        className={`${deleteStyles.deleteButton} ${isHovered ? "" : deleteStyles.hidden}`}
       >
-        <span className={styles.deleteIconInner}>×</span>
+        ×
       </button>
     </div>
   );

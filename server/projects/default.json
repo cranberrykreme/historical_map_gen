@@ -108,6 +108,15 @@
       "scale": 0.4099999999999997,
       "x": 1029.4520547945226,
       "y": 753.4246575342485
+    },
+    {
+      "id": "WilliamTheConquerer.png-1790413579865",
+      "filename": "WilliamTheConquerer.png",
+      "assetType": "portraits",
+      "x": 938.9034712118598,
+      "y": 677.9615082215398,
+      "rotation": 0,
+      "scale": 0.49999999999999956
     }
   ],
   "selectedMapFilename": "MasterMapV1.svg"

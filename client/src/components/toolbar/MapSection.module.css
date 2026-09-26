@@ -66,25 +66,7 @@
   .filenameActive {
     color: var(--color-gold);
   }
-  
-  .deleteButton {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    border-radius: var(--radius-full);
-    border: 1px solid #6a3030;
-    background: transparent;
-    color: #e07070;
-    font-size: 11px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    transition: background var(--toolbar-transition), border-color var(--toolbar-transition);
-  }
-  
-  .deleteButton:hover {
-    background: rgba(224, 112, 112, 0.15);
-    border-color: #e07070;
+
+  .mapRow:hover :global(.delete-button) {
+  opacity: 1;
   }

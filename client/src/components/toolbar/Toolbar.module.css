@@ -1,0 +1,52 @@
+.toolbar {
+    position: fixed;
+    top: 0;
+    right: 8px;
+    height: 100vh;
+    width: var(--toolbar-width-collapsed);
+    background: transparent;
+    border-left: none;
+    transition: width var(--toolbar-transition), background var(--toolbar-transition), border var(--toolbar-transition), right var(--toolbar-transition), padding-right var(--toolbar-transition);
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-sm);
+    padding-right: var(--space-xl);
+    gap: var(--space-xs);
+    z-index: 1000;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  
+  .toolbarExpanded {
+    right: 0;
+    width: var(--toolbar-width-expanded);
+    background: var(--color-surface);
+    border-left: 1px solid var(--color-border-subtle);
+    padding-right: var(--space-sm);
+  }
+  
+  .sectionList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    overflow-y: auto;
+    margin-top: var(--space-md);
+    scrollbar-width: none;
+  }
+  
+  .sectionList::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .sectionList::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .sectionList::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: var(--radius-full);
+  }
+  
+  .sectionList:hover::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+  }

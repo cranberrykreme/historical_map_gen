@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import styles from "./MapSection.module.css";
+import deleteStyles from "./DeleteButton.module.css";
 
 interface MapSectionProps {
   maps: string[];
@@ -15,6 +16,7 @@ function MapSection({
   onDeleteAsset,
 }: MapSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [hoveredFilename, setHoveredFilename] = useState<string | null>(null);
 
   if (maps.length === 0) return null;
 
@@ -34,10 +36,13 @@ function MapSection({
       {!isCollapsed &&
         maps.map((filename) => {
           const isActive = selectedMapFilename === filename;
+          const isHovered = hoveredFilename === filename;
           return (
             <div
               key={filename}
               onClick={() => onSelectMap(isActive ? null : filename)}
+              onMouseEnter={() => setHoveredFilename(filename)}
+              onMouseLeave={() => setHoveredFilename(null)}
               className={`${styles.mapRow} ${isActive ? styles.mapRowActive : ""}`}
             >
               <span
@@ -51,7 +56,7 @@ function MapSection({
                   onDeleteAsset(filename, "maps");
                 }}
                 title="Delete map"
-                className={styles.deleteButton}
+                className={`${deleteStyles.deleteButton} ${isHovered ? "" : deleteStyles.hidden}`}
               >
                 ×
               </button>
