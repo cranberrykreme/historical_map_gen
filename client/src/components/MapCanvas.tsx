@@ -6,6 +6,7 @@ import useAssetDrop from "../hooks/useAssetDrop";
 import UnitLayer from "./UnitLayer";
 import API_BASE_URL from "../config/api";
 import { useMapStore } from "../store/useMapStore";
+import { useAssetStore } from "../store/useAssetStore";
 
 function MapCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -18,9 +19,10 @@ function MapCanvas() {
   const [activeCursor, setActiveCursor] = useState<string>("grab");
 
   const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
+  const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const svgContent = useMapFetch(
-    selectedMapFilename
-      ? `${API_BASE_URL}/api/map?filename=${selectedMapFilename}`
+    selectedMapFilename && currentProjectName
+      ? `${API_BASE_URL}/api/projects/${currentProjectName}/map?filename=${selectedMapFilename}`
       : null
   );
   const boxSelect = useMapStore((state) => state.boxSelect);

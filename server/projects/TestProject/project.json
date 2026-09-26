@@ -1,0 +1,33 @@
+{
+  "name": "TestProject",
+  "units": [
+    {
+      "id": "Archers_Blue.png-1790459274727",
+      "filename": "Archers_Blue.png",
+      "assetType": "units",
+      "x": 832.6107106076212,
+      "y": 684.2461380020598,
+      "rotation": 0,
+      "scale": 1
+    },
+    {
+      "id": "Yellow_Navy.png-1790459278033",
+      "filename": "Yellow_Navy.png",
+      "assetType": "units",
+      "x": 1030.9804544558142,
+      "y": 686.6898527406228,
+      "rotation": 0,
+      "scale": 1
+    },
+    {
+      "id": "Edward_the_Confessor,_ruled_9th_June_1042_-_5th_January_1066.png-1790459289978",
+      "filename": "Edward_the_Confessor,_ruled_9th_June_1042_-_5th_January_1066.png",
+      "assetType": "portraits",
+      "x": 868.8730583058649,
+      "y": 638.057633895638,
+      "rotation": 0,
+      "scale": 1
+    }
+  ],
+  "selectedMapFilename": "MasterMapV1.svg"
+}

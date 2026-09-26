@@ -3,6 +3,7 @@ import API_BASE_URL from "../../config/api";
 import { AssetType } from "../../types";
 import styles from "./UnitThumbnail.module.css";
 import deleteStyles from "./DeleteButton.module.css";
+import { useAssetStore } from "../../store/useAssetStore";
 
 interface UnitThumbnailProps {
   filename: string;
@@ -17,6 +18,7 @@ function UnitThumbnail({
   onClick,
   onDelete,
 }: UnitThumbnailProps) {
+  const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -42,7 +44,7 @@ function UnitThumbnail({
       className={styles.thumbnail}
     >
       <img
-        src={`${API_BASE_URL}/api/assets/${assetType}/${filename}`}
+        src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${assetType}/${filename}`}
         alt={filename}
         className={styles.image}
         draggable={false}

@@ -2,6 +2,7 @@ import React from "react";
 import API_BASE_URL from "../config/api";
 import { Unit } from "../types";
 import { useMapStore } from "../store/useMapStore";
+import { useAssetStore } from "../store/useAssetStore";
 
 interface UnitLayerProps {
   units: Unit[];
@@ -18,6 +19,7 @@ function UnitLayer({
   isShiftHeld,
   setCursor,
 }: UnitLayerProps) {
+  const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const selectUnit = useMapStore((state) => state.selectUnit);
   const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
   const setDragPosition = useMapStore((state) => state.setDragPosition);
@@ -216,7 +218,7 @@ function UnitLayer({
             }}
           >
             <img
-              src={`${API_BASE_URL}/api/assets/${unit.assetType}/${unit.filename}`}
+              src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.filename}`}
               alt={unit.filename}
               style={{
                 width: "48px",
