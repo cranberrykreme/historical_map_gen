@@ -11,6 +11,7 @@ import useHistory from "../hooks/useHistory";
 import useProject from "../hooks/useProject";
 import API_BASE_URL from "../config/api";
 import styles from "../App.module.css";
+import ProjectHeader from "../components/ProjectHeader";
 
 function ProjectView() {
   const { projectName } = useParams<{ projectName: string }>();
@@ -149,6 +150,7 @@ function ProjectView() {
 
   return (
     <div className={styles.app}>
+      <ProjectHeader projectName={projectName} />
       <MapCanvas />
       <Toolbar
         onAddAsset={handleAddAsset}

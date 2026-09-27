@@ -1,0 +1,39 @@
+.header {
+    position: fixed;
+    top: var(--space-md);
+    left: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    z-index: 1000;
+  }
+  
+  .homeButton {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color var(--toolbar-transition), color var(--toolbar-transition), background var(--toolbar-transition);
+  }
+  
+  .homeButton:hover {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+    background: var(--color-surface-raised);
+  }
+  
+  .projectName {
+    color: var(--color-text-secondary);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-md);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--space-xs) var(--space-sm);
+  }
