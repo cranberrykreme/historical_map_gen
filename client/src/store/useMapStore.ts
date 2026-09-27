@@ -84,6 +84,9 @@ interface MapStore {
   // Track Map files
   selectedMapFilename: string | null;
   setSelectedMap: (filename: string | null) => void;
+
+  // reset map on new project load.
+  resetMapState: () => void;
 }
 
 export const useMapStore = create<MapStore>((set, get) => ({
@@ -340,6 +343,20 @@ export const useMapStore = create<MapStore>((set, get) => ({
       selectedUnitIds: newIds,
     });
   },
-
   setSelectedMap: (filename) => set({ selectedMapFilename: filename }),
+  resetMapState: () =>
+    set({
+      past: [],
+      future: [],
+      clipboard: [],
+      placedUnits: [],
+      selectedUnitIds: new Set(),
+      dragPosition: null,
+      dragRotation: null,
+      dragScale: null,
+      groupDragDelta: null,
+      groupRotateDelta: null,
+      groupScaleDelta: null,
+      selectedMapFilename: null,
+    }),
 }));

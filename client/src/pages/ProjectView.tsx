@@ -36,6 +36,20 @@ function ProjectView() {
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
+  const resetMapState = useMapStore((state) => state.resetMapState);
+
+  useEffect(() => {
+    if (!projectName) {
+      navigate("/");
+      return;
+    }
+    resetMapState();
+    setCurrentProject(projectName);
+    fetchAssetList("units");
+    fetchAssetList("portraits");
+    fetchAssetList("maps");
+  }, [projectName, fetchAssetList, navigate, setCurrentProject, resetMapState]);
+
   useEffect(() => {
     if (!projectName) {
       navigate("/");
