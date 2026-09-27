@@ -9,10 +9,24 @@ function useMapFetch(url: string | null) {
       return;
     }
 
+    let isCancelled = false;
+
     fetch(url)
       .then((response) => response.text())
-      .then((data) => setSvgContent(data))
-      .catch(() => console.error("Could not load map"));
+      .then((data) => {
+        if (!isCancelled) {
+          setSvgContent(data);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          console.error("Could not load map");
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [url]);
 
   return svgContent;

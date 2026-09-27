@@ -165,7 +165,7 @@ function ProjectView() {
   return (
     <div className={styles.app}>
       <ProjectHeader projectName={projectName} />
-      <MapCanvas />
+      <MapCanvas key={projectName} />
       <Toolbar
         onAddAsset={handleAddAsset}
         onPlaceUnit={handlePlaceUnit}
