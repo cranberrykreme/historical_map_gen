@@ -2,12 +2,12 @@ import React, { useState, useEffect } from "react";
 import styles from "./DropZoneOverlay.module.css";
 
 interface DropZoneOverlayProps {
-  onFileDrop: (file: File) => void;
+  onFilesDrop: (files: File[]) => void;
 }
 
 const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "svg"];
 
-function DropZoneOverlay({ onFileDrop }: DropZoneOverlayProps) {
+function DropZoneOverlay({ onFilesDrop }: DropZoneOverlayProps) {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,10 +38,13 @@ function DropZoneOverlay({ onFileDrop }: DropZoneOverlayProps) {
       e.preventDefault();
       setIsDragging(false);
 
-      const file = e.dataTransfer?.files?.[0];
-      if (!file) return;
+      const fileList = e.dataTransfer?.files;
+      if (!fileList || fileList.length === 0) return;
 
-      if (!isAllowedFile(file)) {
+      const files = Array.from(fileList);
+      const invalidFiles = files.filter((file) => !isAllowedFile(file));
+
+      if (invalidFiles.length > 0) {
         setError(
           `File type not supported. Please use: ${ALLOWED_EXTENSIONS.join(", ")}`
         );
@@ -49,7 +52,7 @@ function DropZoneOverlay({ onFileDrop }: DropZoneOverlayProps) {
         return;
       }
 
-      onFileDrop(file);
+      onFilesDrop(files);
     };
 
     window.addEventListener("dragenter", handleDragEnter);
@@ -63,7 +66,7 @@ function DropZoneOverlay({ onFileDrop }: DropZoneOverlayProps) {
       window.removeEventListener("dragover", handleDragOver);
       window.removeEventListener("drop", handleDrop);
     };
-  }, [onFileDrop]);
+  }, [onFilesDrop]);
 
   return (
     <div className={styles.overlay}>

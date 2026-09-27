@@ -34,7 +34,7 @@ function ProjectView() {
   const fetchAssetList = useAssetStore((state) => state.fetchAssetList);
   const deleteAsset = useAssetStore((state) => state.deleteAsset);
 
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const resetMapState = useMapStore((state) => state.resetMapState);
 
@@ -114,46 +114,50 @@ function ProjectView() {
     pasteUnits,
   ]);
 
-  const handleFileSelected = (file: File) => {
-    setPendingFile(file);
+  const handleFilesSelected = (files: File[]) => {
+    setPendingFiles(files);
   };
 
   const handleAddAsset = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".png,.jpg,.jpeg,.svg";
+    input.multiple = true;
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) handleFileSelected(file);
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        handleFilesSelected(Array.from(files));
+      }
     };
     input.click();
   };
 
-  const handleConfirm = async (file: File, type: AssetType) => {
-    setPendingFile(null);
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("type", type);
+  const handleConfirm = async (files: File[], type: AssetType) => {
+    setPendingFiles([]);
 
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/projects/${projectName}/assets/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
-        fetchAssetList(type);
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", type);
+
+      try {
+        await fetch(
+          `${API_BASE_URL}/api/projects/${projectName}/assets/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+      } catch (error) {
+        console.error(`Upload failed for ${file.name}:`, error);
       }
-    } catch (error) {
-      console.error("Upload failed:", error);
     }
+
+    fetchAssetList(type);
   };
 
   const handleCancel = () => {
-    setPendingFile(null);
+    setPendingFiles([]);
   };
 
   const handlePlaceUnit = (filename: string, assetType: AssetType) => {
@@ -175,9 +179,9 @@ function ProjectView() {
           deleteAsset(filename, assetType, cleanupDeletedAsset)
         }
       />
-      <DropZoneOverlay onFileDrop={handleFileSelected} />
+      <DropZoneOverlay onFilesDrop={handleFilesSelected} />{" "}
       <AssetTypePopup
-        file={pendingFile}
+        files={pendingFiles}
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
