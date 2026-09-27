@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./ProjectHeader.module.css";
 
@@ -8,9 +8,14 @@ interface ProjectHeaderProps {
 
 function ProjectHeader({ projectName }: ProjectHeaderProps) {
   const navigate = useNavigate();
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   return (
-    <div className={styles.header}>
+    <div
+      className={`${styles.header} ${isExpanded ? styles.headerExpanded : ""}`}
+      onMouseEnter={() => setIsExpanded(true)}
+      onMouseLeave={() => setIsExpanded(false)}
+    >
       <button
         className={styles.homeButton}
         onClick={() => navigate("/")}
@@ -18,7 +23,11 @@ function ProjectHeader({ projectName }: ProjectHeaderProps) {
       >
         ⌂
       </button>
-      <span className={styles.projectName}>{projectName}</span>
+      <span
+        className={`${styles.projectName} ${isExpanded ? styles.projectNameVisible : ""}`}
+      >
+        {projectName}
+      </span>
     </div>
   );
 }

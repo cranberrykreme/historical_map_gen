@@ -1,16 +1,29 @@
 .header {
     position: fixed;
     top: var(--space-md);
-    left: var(--space-md);
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
     gap: var(--space-sm);
     z-index: 1000;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-full);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: background var(--toolbar-transition), border-color var(--toolbar-transition), padding var(--toolbar-transition);
+    cursor: pointer;
+  }
+  
+  .headerExpanded {
+    background: var(--color-surface);
+    border-color: var(--color-border-subtle);
+    padding: var(--space-xs) var(--space-md);
   }
   
   .homeButton {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-full);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
@@ -19,21 +32,30 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color var(--toolbar-transition), color var(--toolbar-transition), background var(--toolbar-transition);
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: border-color var(--toolbar-transition), color var(--toolbar-transition), background var(--toolbar-transition), opacity var(--toolbar-transition);
   }
   
   .homeButton:hover {
     border-color: var(--color-gold);
     color: var(--color-gold);
     background: var(--color-surface-raised);
+    opacity: 1;
   }
   
   .projectName {
     color: var(--color-text-secondary);
     font-family: var(--font-ui);
     font-size: var(--font-size-md);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-sm);
-    padding: var(--space-xs) var(--space-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    transition: max-width var(--toolbar-transition), opacity var(--toolbar-transition);
+  }
+  
+  .projectNameVisible {
+    max-width: 240px;
+    opacity: 1;
   }
