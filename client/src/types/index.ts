@@ -15,3 +15,5 @@ export interface ProjectData {
   units: Unit[];
   selectedMapFilename?: string | null;
 }
+
+export type ToolbarTabId = "assets" | "psd";

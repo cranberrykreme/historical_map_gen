@@ -1,0 +1,9 @@
+.rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-xs);    
+    width: var(--toolbar-width-collapsed);
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }

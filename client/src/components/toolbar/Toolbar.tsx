@@ -1,10 +1,9 @@
 import React, { useState } from "react";
-import ToolbarButton from "./ToolbarButton";
-import AssetSection from "./AssetSection";
-import MapSection from "./MapSection";
-import { AssetType } from "../../types";
+import ToolbarTabRail, { ToolbarTab } from "./ToolbarTabRail";
+import AssetsPanel from "./AssetsPanel";
+import PsdPanel from "./PsdPanel";
+import { AssetType, ToolbarTabId } from "../../types";
 import styles from "./Toolbar.module.css";
-import { useAssetStore } from "../../store/useAssetStore";
 
 interface ToolbarProps {
   onAddAsset: () => void;
@@ -14,6 +13,11 @@ interface ToolbarProps {
   onDeleteAsset: (filename: string, assetType: AssetType) => void;
 }
 
+const TABS: ToolbarTab[] = [
+  { id: "assets", icon: "+", label: "Assets" },
+  { id: "psd", icon: "✎", label: "PSD Editor" },
+];
+
 function Toolbar({
   onAddAsset,
   onPlaceUnit,
@@ -22,9 +26,7 @@ function Toolbar({
   onDeleteAsset,
 }: ToolbarProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const units = useAssetStore((state) => state.availableUnits);
-  const portraits = useAssetStore((state) => state.availablePortraits);
-  const maps = useAssetStore((state) => state.availableMaps);
+  const [activeTab, setActiveTab] = useState<ToolbarTabId>("assets");
 
   return (
     <div
@@ -32,37 +34,26 @@ function Toolbar({
       onMouseLeave={() => setIsExpanded(false)}
       className={`${styles.toolbar} ${isExpanded ? styles.toolbarExpanded : ""}`}
     >
-      <ToolbarButton
-        icon="+"
-        label="Add Asset"
-        onClick={onAddAsset}
-        isExpanded={isExpanded}
-      />
-
       {isExpanded && (
-        <div className={styles.sectionList}>
-          <AssetSection
-            title="Units"
-            assetType="units"
-            files={units}
-            onPlaceUnit={onPlaceUnit}
-            onDeleteAsset={onDeleteAsset}
-          />
-          <AssetSection
-            title="Portraits"
-            assetType="portraits"
-            files={portraits}
-            onPlaceUnit={onPlaceUnit}
-            onDeleteAsset={onDeleteAsset}
-          />
-          <MapSection
-            maps={maps}
-            selectedMapFilename={selectedMapFilename}
-            onSelectMap={onSelectMap}
-            onDeleteAsset={onDeleteAsset}
-          />
+        <div className={styles.panelArea}>
+          {activeTab === "assets" && (
+            <AssetsPanel
+              onAddAsset={onAddAsset}
+              onPlaceUnit={onPlaceUnit}
+              selectedMapFilename={selectedMapFilename}
+              onSelectMap={onSelectMap}
+              onDeleteAsset={onDeleteAsset}
+            />
+          )}
+          {activeTab === "psd" && <PsdPanel />}
         </div>
       )}
+
+      <ToolbarTabRail
+        tabs={TABS}
+        activeTab={isExpanded ? activeTab : null}
+        onSelectTab={setActiveTab}
+      />
     </div>
   );
 }
