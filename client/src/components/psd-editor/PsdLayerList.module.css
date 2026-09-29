@@ -1,0 +1,73 @@
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+  
+  .compositeRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--toolbar-transition);
+  }
+  
+  .compositeRow:hover {
+    background: var(--color-surface-hover);
+  }
+  
+  .compositeRowActive {
+    background: var(--color-gold-subtle);
+  }
+  
+  .sectionLabel {
+    color: var(--color-gold-dim);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-ui);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: var(--space-sm) var(--space-sm) var(--space-xs);
+  }
+  
+  .layerRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--toolbar-transition);
+  }
+  
+  .layerRow:hover {
+    background: var(--color-surface-hover);
+  }
+  
+  .layerRowActive {
+    background: var(--color-gold-subtle);
+  }
+  
+  .thumbnail {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    flex-shrink: 0;
+    background: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%) 50% / 8px 8px;
+  }
+  
+  .layerName {
+    color: var(--color-text-secondary);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .layerNameActive {
+    color: var(--color-gold);
+  }

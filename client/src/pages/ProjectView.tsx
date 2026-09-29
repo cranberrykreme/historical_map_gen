@@ -12,6 +12,7 @@ import useProject from "../hooks/useProject";
 import API_BASE_URL from "../config/api";
 import styles from "../App.module.css";
 import ProjectHeader from "../components/ProjectHeader";
+import PsdEditor from "../components/psd-editor/PsdEditor";
 
 function ProjectView() {
   const { projectName } = useParams<{ projectName: string }>();
@@ -182,6 +183,9 @@ function ProjectView() {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
+      {editingPsd && (
+        <PsdEditor psdName={editingPsd} onClose={() => setEditingPsd(null)} />
+      )}
     </div>
   );
 }
