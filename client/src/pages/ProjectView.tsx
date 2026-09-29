@@ -37,6 +37,8 @@ function ProjectView() {
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
+  const [editingPsd, setEditingPsd] = useState<string | null>(null);
+
   useEffect(() => {
     if (!projectName) {
       navigate("/");
@@ -172,6 +174,7 @@ function ProjectView() {
           deleteAsset(path, assetType, cleanupDeletedAsset)
         }
         onAssetRenamed={handleAssetRenamed}
+        onSelectPsd={setEditingPsd}
       />
       <DropZoneOverlay onFilesDrop={handleFilesSelected} />
       <AssetTypePopup

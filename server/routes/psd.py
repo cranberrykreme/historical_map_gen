@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, send_file, request
 import os
 import re
+import shutil
 from psd_tools import PSDImage
 
 psd_bp = Blueprint('psd', __name__)
@@ -27,10 +28,14 @@ def unique_psd_dir(psd_root: str, base_name: str) -> str:
     return candidate
 
 
-def extract_layers(psd_path: str, layers_dir: str):
+def extract_layers(psd_path: str, layers_dir: str, psd_dir: str):
     os.makedirs(layers_dir, exist_ok=True)
     psd = PSDImage.open(psd_path)
     layer_meta = []
+
+    preview = psd.composite()
+    if preview is not None:
+        preview.save(os.path.join(psd_dir, 'preview.png'))
 
     for i, layer in enumerate(psd.descendants()):
         if layer.width == 0 or layer.height == 0:
@@ -70,8 +75,10 @@ def upload_psd(project_name: str):
     file.save(source_path)
 
     try:
-        layer_meta = extract_layers(source_path, os.path.join(psd_dir, 'layers'))
+        layer_meta = extract_layers(source_path, os.path.join(psd_dir, 'layers'), psd_dir)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": f"Failed to process PSD: {str(e)}"}), 500
 
     return jsonify({"success": True, "name": psd_dir_name, "layers": layer_meta})
@@ -117,9 +124,16 @@ def get_psd_layer_image(project_name: str, psd_name: str, filename: str):
     return send_file(file_path)
 
 
+@psd_bp.route('/api/projects/<project_name>/psd/<psd_name>/preview')
+def get_psd_preview(project_name: str, psd_name: str):
+    preview_path = os.path.join(get_psd_root(project_name), psd_name, 'preview.png')
+    if not os.path.exists(preview_path):
+        return jsonify({"error": "Preview not found"}), 404
+    return send_file(preview_path)
+
+
 @psd_bp.route('/api/projects/<project_name>/psd/<psd_name>', methods=['DELETE'])
 def delete_psd(project_name: str, psd_name: str):
-    import shutil
     psd_dir = os.path.join(get_psd_root(project_name), psd_name)
     if not os.path.exists(psd_dir):
         return jsonify({"error": "PSD not found"}), 404

@@ -38,6 +38,11 @@ interface AssetStore {
     updates: { filename?: string; folder?: string },
     onRenamed?: (oldPath: string, newPath: string, assetType: AssetType) => void
   ) => Promise<void>;
+
+  psds: string[];
+  fetchPsdList: () => Promise<void>;
+  uploadPsd: (file: File) => Promise<void>;
+  deletePsd: (name: string) => Promise<void>;
 }
 
 export const useAssetStore = create<AssetStore>((set, get) => ({
@@ -47,6 +52,7 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   units: emptyState,
   portraits: emptyState,
   maps: emptyState,
+  psds: [],
 
   fetchAssetList: async (type) => {
     const { currentProjectName } = get();
@@ -122,6 +128,61 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to rename/move asset:", error);
+    }
+  },
+
+  fetchPsdList: async () => {
+    const { currentProjectName } = get();
+    if (!currentProjectName) return;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${currentProjectName}/psd`
+      );
+      const data = await response.json();
+      set({ psds: data.psds || [] });
+    } catch (error) {
+      console.error("Failed to fetch PSD list:", error);
+    }
+  },
+
+  uploadPsd: async (file) => {
+    const { currentProjectName } = get();
+    if (!currentProjectName) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${currentProjectName}/psd/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        get().fetchPsdList();
+      }
+    } catch (error) {
+      console.error("Failed to upload PSD:", error);
+    }
+  },
+
+  deletePsd: async (name) => {
+    const { currentProjectName } = get();
+    if (!currentProjectName) return;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${currentProjectName}/psd/${name}`,
+        {
+          method: "DELETE",
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        get().fetchPsdList();
+      }
+    } catch (error) {
+      console.error("Failed to delete PSD:", error);
     }
   },
 }));

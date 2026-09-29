@@ -15,6 +15,7 @@ interface ToolbarProps {
     newPath: string,
     assetType: AssetType
   ) => void;
+  onSelectPsd: (name: string) => void;
 }
 
 const TABS: ToolbarTab[] = [
@@ -28,6 +29,7 @@ function Toolbar({
   onSelectMap,
   onDeleteAsset,
   onAssetRenamed,
+  onSelectPsd,
 }: ToolbarProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<ToolbarTabId>("assets");
@@ -49,7 +51,7 @@ function Toolbar({
               onAssetRenamed={onAssetRenamed}
             />
           )}
-          {activeTab === "psd" && <PsdPanel />}
+          {activeTab === "psd" && <PsdPanel onSelectPsd={onSelectPsd} />}
         </div>
       )}
 
