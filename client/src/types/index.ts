@@ -30,3 +30,16 @@ export interface RgbColor {
   g: number;
   b: number;
 }
+
+export interface PsdLayer {
+  index: number;
+  name: string;
+  filename: string;
+}
+
+export interface RecolourSpec {
+  interior: RgbColor;
+  border: RgbColor;
+  fill: RgbColor;
+  stroke: RgbColor;
+}

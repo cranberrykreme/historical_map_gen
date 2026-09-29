@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import PsdLayerList from "./PsdLayerList";
-import PsdEditorCanvas, { RecolourSpec } from "./PsdEditorCanvas";
+import PsdEditorCanvas from "./PsdEditorCanvas";
 import PsdColorPalette from "./PsdColorPalette";
 import useEditHistory from "../../hooks/useEditHistory";
+import usePsdLayers from "../../hooks/usePsdLayers";
 import { PALETTE } from "../../constants/palette";
 import { useAssetStore } from "../../store/useAssetStore";
 import API_BASE_URL from "../../config/api";
-import { RgbColor } from "../../types";
+import { RecolourSpec, RgbColor } from "../../types";
 import styles from "./PsdEditor.module.css";
 
 interface PsdEditorProps {
@@ -32,6 +33,7 @@ const toCss = (c: RgbColor | null) =>
 
 function PsdEditor({ psdName, onClose }: PsdEditorProps) {
   const currentProjectName = useAssetStore((state) => state.currentProjectName);
+  const layers = usePsdLayers(currentProjectName, psdName);
 
   const { present, commit, undo, redo, canUndo, canRedo } =
     useEditHistory<EditState>({
@@ -55,22 +57,30 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
   const appliedId = selectedLayerFilename
     ? (applied[selectedLayerFilename] ?? null)
     : null;
-  const paletteEntry = appliedId
-    ? PALETTE.find((p) => p.id === appliedId)
-    : undefined;
   const canRecolour = !!(currentSamples.interior && currentSamples.border);
   const hasUnsavedWork = Object.keys(applied).length > 0;
 
-  const recolour = useMemo<RecolourSpec | null>(() => {
-    if (!paletteEntry || !currentSamples.interior || !currentSamples.border)
-      return null;
-    return {
-      interior: currentSamples.interior,
-      border: currentSamples.border,
-      fill: paletteEntry.fill,
-      stroke: paletteEntry.stroke,
-    };
-  }, [paletteEntry, currentSamples.interior, currentSamples.border]);
+  // Every layer that currently has a colour applied and both samples set
+  const compositeEdits = useMemo<Record<string, RecolourSpec>>(() => {
+    const result: Record<string, RecolourSpec> = {};
+    Object.entries(applied).forEach(([filename, colourId]) => {
+      const entry = PALETTE.find((p) => p.id === colourId);
+      const layerSamples = samples[filename];
+      if (entry && layerSamples?.interior && layerSamples?.border) {
+        result[filename] = {
+          interior: layerSamples.interior,
+          border: layerSamples.border,
+          fill: entry.fill,
+          stroke: entry.stroke,
+        };
+      }
+    });
+    return result;
+  }, [applied, samples]);
+
+  const recolour = selectedLayerFilename
+    ? (compositeEdits[selectedLayerFilename] ?? null)
+    : null;
 
   // Editor-only undo/redo shortcuts (ProjectView's shortcuts are disabled while this is open)
   useEffect(() => {
@@ -190,6 +200,9 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
               <PsdEditorCanvas
                 layerUrl={layerUrl}
                 compositeUrl={`${baseUrl}/preview`}
+                layerBaseUrl={`${baseUrl}/layers`}
+                layers={layers}
+                compositeEdits={compositeEdits}
                 isSampling={sampleMode !== null}
                 onSample={handleSample}
                 recolour={recolour}
@@ -208,6 +221,7 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
           <div className={styles.sidebar}>
             <PsdLayerList
               psdName={psdName}
+              layers={layers}
               selectedLayerFilename={selectedLayerFilename}
               onSelectLayer={handleSelectLayer}
             />

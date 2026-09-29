@@ -1,19 +1,16 @@
 import React, { useEffect } from "react";
 import usePsdLayerColouring from "../../hooks/usePsdLayerColouring";
+import usePsdComposite from "../../hooks/usePsdComposite";
 import usePanZoom from "../../hooks/usePanZoom";
-import { RgbColor } from "../../types";
+import { PsdLayer, RecolourSpec, RgbColor } from "../../types";
 import styles from "./PsdEditorCanvas.module.css";
-
-export interface RecolourSpec {
-  interior: RgbColor;
-  border: RgbColor;
-  fill: RgbColor;
-  stroke: RgbColor;
-}
 
 interface PsdEditorCanvasProps {
   layerUrl: string | null;
   compositeUrl: string;
+  layerBaseUrl: string;
+  layers: PsdLayer[];
+  compositeEdits: Record<string, RecolourSpec>;
   isSampling: boolean;
   onSample: (color: RgbColor) => void;
   recolour: RecolourSpec | null;
@@ -22,6 +19,9 @@ interface PsdEditorCanvasProps {
 function PsdEditorCanvas({
   layerUrl,
   compositeUrl,
+  layerBaseUrl,
+  layers,
+  compositeEdits,
   isSampling,
   onSample,
   recolour,
@@ -34,6 +34,12 @@ function PsdEditorCanvas({
     applyRecolour,
     restoreOriginal,
   } = usePsdLayerColouring();
+  const { compositeCanvasRef, ready } = usePsdComposite({
+    layerBaseUrl,
+    layers,
+    edits: compositeEdits,
+    enabled: layerUrl === null,
+  });
   const {
     viewportRef,
     transform,
@@ -76,6 +82,33 @@ function PsdEditorCanvas({
 
   const pixelated = transform.scale >= 2 ? styles.pixelated : "";
 
+  const renderSurface = () => {
+    if (layerUrl) {
+      return (
+        <canvas
+          ref={canvasRef}
+          onClick={handleClick}
+          className={`${styles.surface} ${pixelated} ${isSampling ? styles.sampling : ""}`}
+        />
+      );
+    }
+    if (ready) {
+      return (
+        <canvas
+          ref={compositeCanvasRef}
+          className={`${styles.surface} ${pixelated}`}
+        />
+      );
+    }
+    return (
+      <img
+        src={compositeUrl}
+        alt="Composite preview"
+        className={`${styles.surface} ${pixelated}`}
+      />
+    );
+  };
+
   return (
     <div
       ref={viewportRef}
@@ -88,19 +121,7 @@ function PsdEditorCanvas({
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
         }}
       >
-        {layerUrl ? (
-          <canvas
-            ref={canvasRef}
-            onClick={handleClick}
-            className={`${styles.surface} ${pixelated} ${isSampling ? styles.sampling : ""}`}
-          />
-        ) : (
-          <img
-            src={compositeUrl}
-            alt="Composite preview"
-            className={`${styles.surface} ${pixelated}`}
-          />
-        )}
+        {renderSurface()}
       </div>
 
       <div className={styles.controls} onMouseDown={(e) => e.stopPropagation()}>
