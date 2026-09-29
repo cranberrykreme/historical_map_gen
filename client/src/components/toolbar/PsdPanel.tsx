@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import ToolbarButton from "./ToolbarButton";
 import { useAssetStore } from "../../store/useAssetStore";
+import API_BASE_URL from "../../config/api";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PsdPanel.module.css";
 
@@ -13,6 +14,7 @@ function PsdPanel({ onSelectPsd }: PsdPanelProps) {
   const fetchPsdList = useAssetStore((state) => state.fetchPsdList);
   const uploadPsd = useAssetStore((state) => state.uploadPsd);
   const deletePsd = useAssetStore((state) => state.deletePsd);
+  const currentProjectName = useAssetStore((state) => state.currentProjectName);
 
   useEffect(() => {
     fetchPsdList();
@@ -48,6 +50,11 @@ function PsdPanel({ onSelectPsd }: PsdPanelProps) {
             className={styles.psdRow}
             onClick={() => onSelectPsd(name)}
           >
+            <img
+              src={`${API_BASE_URL}/api/projects/${currentProjectName}/psd/${name}/preview`}
+              alt={name}
+              className={styles.thumbnail}
+            />
             <span className={styles.psdName}>{name}</span>
             <button
               onClick={(e) => {
