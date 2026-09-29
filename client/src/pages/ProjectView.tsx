@@ -13,6 +13,7 @@ import API_BASE_URL from "../config/api";
 import styles from "../App.module.css";
 import ProjectHeader from "../components/ProjectHeader";
 import PsdEditor from "../components/psd-editor/PsdEditor";
+import PortraitEditor from "../components/portrait-editor/PortraitEditor";
 
 function ProjectView() {
   const { projectName } = useParams<{ projectName: string }>();
@@ -39,6 +40,9 @@ function ProjectView() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const [editingPsd, setEditingPsd] = useState<string | null>(null);
+  const [editingPortraitSource, setEditingPortraitSource] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (!projectName) {
@@ -64,7 +68,7 @@ function ProjectView() {
   }, [loadProject, setPlacedUnits, setSelectedMap]);
 
   useEffect(() => {
-    if (editingPsd) return;
+    if (editingPsd || editingPortraitSource) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedUnitIds.size > 0) {
@@ -163,6 +167,13 @@ function ProjectView() {
     saveProject(updatedUnits, selectedMapFilename);
   };
 
+  const handleAssetDeleted = (path: string, assetType: AssetType) => {
+    cleanupDeletedAsset(path, assetType);
+    const { placedUnits: updatedUnits, selectedMapFilename: updatedMap } =
+      useMapStore.getState();
+    saveProject(updatedUnits, updatedMap);
+  };
+
   if (!projectName) return null;
 
   return (
@@ -174,10 +185,11 @@ function ProjectView() {
         selectedMapFilename={selectedMapFilename}
         onSelectMap={setSelectedMap}
         onDeleteAsset={(path, assetType) =>
-          deleteAsset(path, assetType, cleanupDeletedAsset)
+          deleteAsset(path, assetType, handleAssetDeleted)
         }
         onAssetRenamed={handleAssetRenamed}
         onSelectPsd={setEditingPsd}
+        onSelectPortraitSource={setEditingPortraitSource}
       />
       <DropZoneOverlay onFilesDrop={handleFilesSelected} />
       <AssetTypePopup
@@ -187,6 +199,12 @@ function ProjectView() {
       />
       {editingPsd && (
         <PsdEditor psdName={editingPsd} onClose={() => setEditingPsd(null)} />
+      )}
+      {editingPortraitSource && (
+        <PortraitEditor
+          sourceName={editingPortraitSource}
+          onClose={() => setEditingPortraitSource(null)}
+        />
       )}
     </div>
   );

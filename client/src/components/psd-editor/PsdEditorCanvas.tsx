@@ -1,16 +1,14 @@
 import React, { useEffect } from "react";
 import usePsdLayerColouring from "../../hooks/usePsdLayerColouring";
-import usePsdComposite from "../../hooks/usePsdComposite";
 import usePanZoom from "../../hooks/usePanZoom";
-import { PsdLayer, RecolourSpec, RgbColor } from "../../types";
+import { RecolourSpec, RgbColor } from "../../types";
 import styles from "./PsdEditorCanvas.module.css";
 
 interface PsdEditorCanvasProps {
   layerUrl: string | null;
   compositeUrl: string;
-  layerBaseUrl: string;
-  layers: PsdLayer[];
-  compositeEdits: Record<string, RecolourSpec>;
+  compositeCanvasRef: React.RefObject<HTMLCanvasElement | null>;
+  compositeReady: boolean;
   isSampling: boolean;
   onSample: (color: RgbColor) => void;
   recolour: RecolourSpec | null;
@@ -19,9 +17,8 @@ interface PsdEditorCanvasProps {
 function PsdEditorCanvas({
   layerUrl,
   compositeUrl,
-  layerBaseUrl,
-  layers,
-  compositeEdits,
+  compositeCanvasRef,
+  compositeReady,
   isSampling,
   onSample,
   recolour,
@@ -34,12 +31,6 @@ function PsdEditorCanvas({
     applyRecolour,
     restoreOriginal,
   } = usePsdLayerColouring();
-  const { compositeCanvasRef, ready } = usePsdComposite({
-    layerBaseUrl,
-    layers,
-    edits: compositeEdits,
-    enabled: layerUrl === null,
-  });
   const {
     viewportRef,
     transform,
@@ -92,7 +83,7 @@ function PsdEditorCanvas({
         />
       );
     }
-    if (ready) {
+    if (compositeReady) {
       return (
         <canvas
           ref={compositeCanvasRef}

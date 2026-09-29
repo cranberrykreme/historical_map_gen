@@ -6,13 +6,23 @@ interface AssetTypePopupProps {
   files: File[];
   onConfirm: (files: File[], type: AssetType) => void;
   onCancel: () => void;
+  zIndex?: number;
 }
 
-function AssetTypePopup({ files, onConfirm, onCancel }: AssetTypePopupProps) {
+function AssetTypePopup({
+  files,
+  onConfirm,
+  onCancel,
+  zIndex,
+}: AssetTypePopupProps) {
   if (files.length === 0) return null;
 
   return (
-    <div className={styles.overlay} onClick={onCancel}>
+    <div
+      className={styles.overlay}
+      style={zIndex ? { zIndex } : undefined}
+      onClick={onCancel}
+    >
       <div onClick={(e) => e.stopPropagation()} className={styles.modal}>
         <h2 className={styles.title}>Add Asset{files.length > 1 ? "s" : ""}</h2>
         <p className={styles.text}>

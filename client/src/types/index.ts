@@ -17,7 +17,7 @@ export interface ProjectData {
   selectedMapFilename?: string | null;
 }
 
-export type ToolbarTabId = "assets" | "psd";
+export type ToolbarTabId = "assets" | "psd" | "portrait";
 
 export interface AssetFile {
   path: string;

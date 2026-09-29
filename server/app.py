@@ -5,6 +5,7 @@ from routes.maps import maps_bp
 from routes.assets import assets_bp
 from routes.projects import projects_bp
 from routes.psd import psd_bp
+from routes.portrait_sources import portrait_sources_bp
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
@@ -14,6 +15,7 @@ app.register_blueprint(maps_bp)
 app.register_blueprint(assets_bp)
 app.register_blueprint(projects_bp)
 app.register_blueprint(psd_bp)
+app.register_blueprint(portrait_sources_bp)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

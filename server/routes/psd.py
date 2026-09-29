@@ -121,7 +121,9 @@ def get_psd_layer_image(project_name: str, psd_name: str, filename: str):
     file_path = os.path.join(get_psd_root(project_name), psd_name, 'layers', filename)
     if not os.path.exists(file_path):
         return jsonify({"error": "Layer not found"}), 404
-    return send_file(file_path)
+    response = send_file(file_path)
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
 
 
 @psd_bp.route('/api/projects/<project_name>/psd/<psd_name>/preview')
@@ -129,7 +131,9 @@ def get_psd_preview(project_name: str, psd_name: str):
     preview_path = os.path.join(get_psd_root(project_name), psd_name, 'preview.png')
     if not os.path.exists(preview_path):
         return jsonify({"error": "Preview not found"}), 404
-    return send_file(preview_path)
+    response = send_file(preview_path)
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
 
 
 @psd_bp.route('/api/projects/<project_name>/psd/<psd_name>', methods=['DELETE'])

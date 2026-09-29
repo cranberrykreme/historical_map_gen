@@ -43,6 +43,11 @@ interface AssetStore {
   fetchPsdList: () => Promise<void>;
   uploadPsd: (file: File) => Promise<void>;
   deletePsd: (name: string) => Promise<void>;
+
+  portraitSources: string[];
+  fetchPortraitSources: () => Promise<void>;
+  uploadPortraitSource: (file: File) => Promise<void>;
+  deletePortraitSource: (name: string) => Promise<void>;
 }
 
 export const useAssetStore = create<AssetStore>((set, get) => ({
@@ -53,6 +58,7 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
   portraits: emptyState,
   maps: emptyState,
   psds: [],
+  portraitSources: [],
 
   fetchAssetList: async (type) => {
     const { currentProjectName } = get();
@@ -183,6 +189,56 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to delete PSD:", error);
+    }
+  },
+
+  fetchPortraitSources: async () => {
+    const { currentProjectName } = get();
+    if (!currentProjectName) return;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${currentProjectName}/portrait-sources`
+      );
+      const data = await response.json();
+      set({ portraitSources: data.sources || [] });
+    } catch (error) {
+      console.error("Failed to fetch portrait sources:", error);
+    }
+  },
+
+  uploadPortraitSource: async (file) => {
+    const { currentProjectName } = get();
+    if (!currentProjectName) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${currentProjectName}/portrait-sources/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await response.json();
+      if (data.success) {
+        get().fetchPortraitSources();
+      }
+    } catch (error) {
+      console.error("Failed to upload portrait source:", error);
+    }
+  },
+
+  deletePortraitSource: async (name) => {
+    const { currentProjectName } = get();
+    if (!currentProjectName) return;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${currentProjectName}/portrait-sources/${name}`,
+        { method: "DELETE" }
+      );
+      const data = await response.json();
+      if (data.success) {
+        get().fetchPortraitSources();
+      }
+    } catch (error) {
+      console.error("Failed to delete portrait source:", error);
     }
   },
 }));

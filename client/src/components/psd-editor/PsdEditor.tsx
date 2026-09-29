@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import PsdLayerList from "./PsdLayerList";
 import PsdEditorCanvas from "./PsdEditorCanvas";
 import PsdColorPalette from "./PsdColorPalette";
+import AssetTypePopup from "../AssetTypePopup";
 import useEditHistory from "../../hooks/useEditHistory";
 import usePsdLayers from "../../hooks/usePsdLayers";
+import usePsdComposite from "../../hooks/usePsdComposite";
 import { PALETTE } from "../../constants/palette";
 import { useAssetStore } from "../../store/useAssetStore";
 import API_BASE_URL from "../../config/api";
-import { RecolourSpec, RgbColor } from "../../types";
+import { AssetType, RecolourSpec, RgbColor } from "../../types";
 import styles from "./PsdEditor.module.css";
 
 interface PsdEditorProps {
@@ -33,6 +35,7 @@ const toCss = (c: RgbColor | null) =>
 
 function PsdEditor({ psdName, onClose }: PsdEditorProps) {
   const currentProjectName = useAssetStore((state) => state.currentProjectName);
+  const fetchAssetList = useAssetStore((state) => state.fetchAssetList);
   const layers = usePsdLayers(currentProjectName, psdName);
 
   const { present, commit, undo, redo, canUndo, canRedo } =
@@ -47,6 +50,9 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
     string | null
   >(null);
   const [sampleMode, setSampleMode] = useState<SampleMode>(null);
+  const [pendingSaveFile, setPendingSaveFile] = useState<File | null>(null);
+  const [savedKey, setSavedKey] = useState<string>("");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const baseUrl = `${API_BASE_URL}/api/projects/${currentProjectName}/psd/${psdName}`;
   const layerUrl = selectedLayerFilename
@@ -58,7 +64,6 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
     ? (applied[selectedLayerFilename] ?? null)
     : null;
   const canRecolour = !!(currentSamples.interior && currentSamples.border);
-  const hasUnsavedWork = Object.keys(applied).length > 0;
 
   // Every layer that currently has a colour applied and both samples set
   const compositeEdits = useMemo<Record<string, RecolourSpec>>(() => {
@@ -82,6 +87,25 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
     ? (compositeEdits[selectedLayerFilename] ?? null)
     : null;
 
+  const {
+    compositeCanvasRef,
+    ready: compositeReady,
+    renderToBlob,
+  } = usePsdComposite({
+    layerBaseUrl: `${baseUrl}/layers`,
+    layers,
+    edits: compositeEdits,
+    enabled: selectedLayerFilename === null,
+  });
+
+  // Unsaved = something is coloured AND it differs from what was last saved
+  const appliedKey = useMemo(
+    () => JSON.stringify(Object.entries(applied).sort()),
+    [applied]
+  );
+  const hasUnsavedWork =
+    Object.keys(applied).length > 0 && appliedKey !== savedKey;
+
   // Editor-only undo/redo shortcuts (ProjectView's shortcuts are disabled while this is open)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -93,6 +117,78 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [undo, redo]);
+
+  const showStatus = (message: string) => {
+    setStatusMessage(message);
+    setTimeout(() => setStatusMessage(null), 3500);
+  };
+
+  // e.g. Army_Red.png, Army_Mixed.png, or Army.png if nothing is coloured
+  const buildOutputName = (): string => {
+    const usedIds = Array.from(new Set(Object.values(applied)));
+    let suffix = "";
+    if (usedIds.length === 1)
+      suffix = PALETTE.find((p) => p.id === usedIds[0])?.label ?? "";
+    else if (usedIds.length > 1) suffix = "Mixed";
+    return `${psdName}${suffix ? `_${suffix}` : ""}.png`;
+  };
+
+  const handleExport = async () => {
+    const blob = await renderToBlob();
+    if (!blob) {
+      showStatus("Layers are still loading");
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = buildOutputName();
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showStatus(`Exported ${link.download}`);
+  };
+
+  const handleSaveClick = async () => {
+    const blob = await renderToBlob();
+    if (!blob) {
+      showStatus("Layers are still loading");
+      return;
+    }
+    setPendingSaveFile(
+      new File([blob], buildOutputName(), { type: "image/png" })
+    );
+  };
+
+  const handleConfirmSave = async (files: File[], type: AssetType) => {
+    setPendingSaveFile(null);
+    const file = files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    formData.append("unique", "true");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/projects/${currentProjectName}/assets/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await response.json();
+      if (data.success) {
+        fetchAssetList(type);
+        setSavedKey(appliedKey);
+        showStatus(`Saved as ${data.filename}`);
+      } else {
+        showStatus(data.error || "Save failed");
+      }
+    } catch (error) {
+      console.error("Failed to save composite:", error);
+      showStatus("Save failed");
+    }
+  };
 
   const handleSelectLayer = (filename: string | null) => {
     setSampleMode(null);
@@ -143,6 +239,25 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
         <div className={styles.header}>
           <h2 className={styles.title}>{psdName}</h2>
           <div className={styles.headerActions}>
+            {statusMessage && (
+              <span className={styles.statusMessage}>{statusMessage}</span>
+            )}
+            <button
+              className={`${styles.actionButton} ${styles.actionButtonPrimary}`}
+              onClick={handleSaveClick}
+              disabled={!compositeReady}
+              title="Save the composite into this project's assets"
+            >
+              Save to assets
+            </button>
+            <button
+              className={styles.actionButton}
+              onClick={handleExport}
+              disabled={!compositeReady}
+              title="Download the composite as a PNG"
+            >
+              Export PNG
+            </button>
             <button
               className={styles.closeButton}
               onClick={undo}
@@ -200,9 +315,8 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
               <PsdEditorCanvas
                 layerUrl={layerUrl}
                 compositeUrl={`${baseUrl}/preview`}
-                layerBaseUrl={`${baseUrl}/layers`}
-                layers={layers}
-                compositeEdits={compositeEdits}
+                compositeCanvasRef={compositeCanvasRef}
+                compositeReady={compositeReady}
                 isSampling={sampleMode !== null}
                 onSample={handleSample}
                 recolour={recolour}
@@ -228,6 +342,13 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
           </div>
         </div>
       </div>
+
+      <AssetTypePopup
+        files={pendingSaveFile ? [pendingSaveFile] : []}
+        onConfirm={handleConfirmSave}
+        onCancel={() => setPendingSaveFile(null)}
+        zIndex={3200}
+      />
 
       {showCloseConfirm && (
         <div

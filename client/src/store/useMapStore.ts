@@ -63,7 +63,7 @@ interface MapStore {
   boxSelect: (ids: string[]) => void;
 
   // Cleanup when an asset is deleted elsewhere (called via useAssetStore's onDeleted callback)
-  cleanupDeletedAsset: (filename: string, assetType: AssetType) => void;
+  cleanupDeletedAsset: (path: string, assetType: AssetType) => void;
 
   // Drag actions
   setDragPosition: (drag: DragPosition | null) => void;
@@ -201,20 +201,25 @@ export const useMapStore = create<MapStore>((set, get) => ({
   boxSelect: (ids) => set({ selectedUnitIds: new Set(ids) }),
 
   // Cleanup when an asset is deleted elsewhere
-  cleanupDeletedAsset: (filename, assetType) => {
-    const { placedUnits, past } = get();
-    const remainingUnits = placedUnits.filter(
-      (unit) => !(unit.filename === filename && unit.assetType === assetType)
-    );
-    if (remainingUnits.length !== placedUnits.length) {
-      set({
-        past: [...past, placedUnits],
-        placedUnits: remainingUnits,
-        future: [],
-      });
-    }
+  cleanupDeletedAsset: (path, assetType) => {
+    const { placedUnits, past, future, selectedUnitIds } = get();
+    const usesAsset = (unit: Unit) =>
+      unit.assetType === assetType && (unit.path ?? unit.filename) === path;
+    const strip = (units: Unit[]) => units.filter((unit) => !usesAsset(unit));
 
-    if (assetType === "maps" && get().selectedMapFilename === filename) {
+    const remaining = strip(placedUnits);
+    const remainingIds = new Set(remaining.map((unit) => unit.id));
+
+    set({
+      placedUnits: remaining,
+      past: past.map(strip),
+      future: future.map(strip),
+      selectedUnitIds: new Set(
+        Array.from(selectedUnitIds).filter((id) => remainingIds.has(id))
+      ),
+    });
+
+    if (assetType === "maps" && get().selectedMapFilename === path) {
       set({ selectedMapFilename: null });
     }
   },

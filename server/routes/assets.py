@@ -35,6 +35,7 @@ def upload_asset(project_name: str):
     file = request.files['file']
     asset_type = request.form.get('type', 'units')
     folder = request.form.get('folder', '').strip()
+    unique = request.form.get('unique') == 'true'
 
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
@@ -48,11 +49,22 @@ def upload_asset(project_name: str):
     save_dir = os.path.join(get_assets_dir(project_name), asset_type, folder) if folder \
         else os.path.join(get_assets_dir(project_name), asset_type)
     os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, file.filename)
+
+    filename = file.filename
+    save_path = os.path.join(save_dir, filename)
+
+    if unique:
+        stem, ext = os.path.splitext(filename)
+        counter = 1
+        while os.path.exists(save_path):
+            filename = f"{stem}{counter}{ext}"
+            save_path = os.path.join(save_dir, filename)
+            counter += 1
+
     file.save(save_path)
 
-    relpath = f"{folder}/{file.filename}" if folder else file.filename
-    return jsonify({"success": True, "path": relpath, "type": asset_type})
+    relpath = f"{folder}/{filename}" if folder else filename
+    return jsonify({"success": True, "path": relpath, "filename": filename, "type": asset_type})
 
 
 @assets_bp.route('/api/projects/<project_name>/assets/<asset_type>')

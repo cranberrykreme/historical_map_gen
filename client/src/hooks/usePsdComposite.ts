@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PsdLayer, RecolourSpec } from "../types";
 import { recolourImageData } from "../utils/recolour";
 
@@ -63,49 +63,73 @@ function usePsdComposite({
 
   const ready = layers.length > 0 && loaded >= layers.length;
 
-  // Redraw the stack whenever the edits change
+  // Draws the full recoloured stack onto any canvas
+  const drawStack = useCallback(
+    (canvas: HTMLCanvasElement): boolean => {
+      const ordered = [...layers].sort((a, b) => a.index - b.index);
+      const reference = ordered
+        .map((l) => dataRef.current.get(l.filename))
+        .find(Boolean);
+      if (!reference) return false;
+
+      canvas.width = reference.width;
+      canvas.height = reference.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = reference.width;
+      offscreen.height = reference.height;
+      const offCtx = offscreen.getContext("2d");
+      if (!offCtx) return false;
+
+      ordered.forEach((layer) => {
+        const data = dataRef.current.get(layer.filename);
+        if (!data) return;
+        const spec = edits[layer.filename];
+        const pixels = spec
+          ? recolourImageData(
+              data,
+              spec.interior,
+              spec.border,
+              spec.fill,
+              spec.stroke
+            )
+          : data;
+        offCtx.putImageData(pixels, 0, 0);
+        ctx.drawImage(offscreen, 0, 0);
+      });
+      return true;
+    },
+    [layers, edits]
+  );
+
+  // Redraw the visible composite whenever the edits change
   useEffect(() => {
     if (!enabled || !ready) return;
     const canvas = compositeCanvasRef.current;
     if (!canvas) return;
+    drawStack(canvas);
+  }, [enabled, ready, drawStack]);
 
-    const ordered = [...layers].sort((a, b) => a.index - b.index);
-    const reference = ordered
-      .map((l) => dataRef.current.get(l.filename))
-      .find(Boolean);
-    if (!reference) return;
-
-    canvas.width = reference.width;
-    canvas.height = reference.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const offscreen = document.createElement("canvas");
-    offscreen.width = reference.width;
-    offscreen.height = reference.height;
-    const offCtx = offscreen.getContext("2d");
-    if (!offCtx) return;
-
-    ordered.forEach((layer) => {
-      const data = dataRef.current.get(layer.filename);
-      if (!data) return;
-      const spec = edits[layer.filename];
-      const pixels = spec
-        ? recolourImageData(
-            data,
-            spec.interior,
-            spec.border,
-            spec.fill,
-            spec.stroke
-          )
-        : data;
-      offCtx.putImageData(pixels, 0, 0);
-      ctx.drawImage(offscreen, 0, 0);
+  // Render the composite to a PNG on demand, whichever view is showing
+  const renderToBlob = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (!ready) {
+        resolve(null);
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      if (!drawStack(canvas)) {
+        resolve(null);
+        return;
+      }
+      canvas.toBlob((blob) => resolve(blob), "image/png");
     });
-  }, [enabled, ready, layers, edits]);
+  }, [ready, drawStack]);
 
-  return { compositeCanvasRef, ready };
+  return { compositeCanvasRef, ready, renderToBlob };
 }
 
 export default usePsdComposite;
