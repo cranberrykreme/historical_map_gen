@@ -22,7 +22,6 @@ function ProjectView() {
   const { saveProject, loadProject } = useProject(projectName ?? "default");
   const placedUnits = useMapStore((state) => state.placedUnits);
   const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
-  const addUnit = useMapStore((state) => state.addUnit);
   const removeSelectedUnits = useMapStore((state) => state.removeSelectedUnits);
   const setPlacedUnits = useMapStore((state) => state.setPlacedUnits);
   const copySelectedUnits = useMapStore((state) => state.copySelectedUnits);
@@ -30,13 +29,13 @@ function ProjectView() {
   const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
   const setSelectedMap = useMapStore((state) => state.setSelectedMap);
   const cleanupDeletedAsset = useMapStore((state) => state.cleanupDeletedAsset);
+  const cleanupRenamedAsset = useMapStore((state) => state.cleanupRenamedAsset);
+  const resetMapState = useMapStore((state) => state.resetMapState);
 
   const fetchAssetList = useAssetStore((state) => state.fetchAssetList);
   const deleteAsset = useAssetStore((state) => state.deleteAsset);
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-
-  const resetMapState = useMapStore((state) => state.resetMapState);
 
   useEffect(() => {
     if (!projectName) {
@@ -49,17 +48,6 @@ function ProjectView() {
     fetchAssetList("portraits");
     fetchAssetList("maps");
   }, [projectName, fetchAssetList, navigate, setCurrentProject, resetMapState]);
-
-  useEffect(() => {
-    if (!projectName) {
-      navigate("/");
-      return;
-    }
-    setCurrentProject(projectName);
-    fetchAssetList("units");
-    fetchAssetList("portraits");
-    fetchAssetList("maps");
-  }, [projectName, fetchAssetList, navigate, setCurrentProject]);
 
   useEffect(() => {
     loadProject().then(({ units, selectedMapFilename: loadedMap }) => {
@@ -160,8 +148,14 @@ function ProjectView() {
     setPendingFiles([]);
   };
 
-  const handlePlaceUnit = (filename: string, assetType: AssetType) => {
-    addUnit(filename, assetType);
+  const handleAssetRenamed = (
+    oldPath: string,
+    newPath: string,
+    assetType: AssetType
+  ) => {
+    cleanupRenamedAsset(oldPath, newPath, assetType);
+    const updatedUnits = useMapStore.getState().placedUnits;
+    saveProject(updatedUnits, selectedMapFilename);
   };
 
   if (!projectName) return null;
@@ -172,14 +166,14 @@ function ProjectView() {
       <MapCanvas key={projectName} />
       <Toolbar
         onAddAsset={handleAddAsset}
-        onPlaceUnit={handlePlaceUnit}
         selectedMapFilename={selectedMapFilename}
         onSelectMap={setSelectedMap}
-        onDeleteAsset={(filename, assetType) =>
-          deleteAsset(filename, assetType, cleanupDeletedAsset)
+        onDeleteAsset={(path, assetType) =>
+          deleteAsset(path, assetType, cleanupDeletedAsset)
         }
+        onAssetRenamed={handleAssetRenamed}
       />
-      <DropZoneOverlay onFilesDrop={handleFilesSelected} />{" "}
+      <DropZoneOverlay onFilesDrop={handleFilesSelected} />
       <AssetTypePopup
         files={pendingFiles}
         onConfirm={handleConfirm}

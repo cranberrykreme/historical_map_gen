@@ -8,22 +8,28 @@ import styles from "./AssetsPanel.module.css";
 
 interface AssetsPanelProps {
   onAddAsset: () => void;
-  onPlaceUnit: (filename: string, assetType: AssetType) => void;
   selectedMapFilename: string | null;
   onSelectMap: (filename: string | null) => void;
-  onDeleteAsset: (filename: string, assetType: AssetType) => void;
+  onDeleteAsset: (path: string, assetType: AssetType) => void;
+  onAssetRenamed: (
+    oldPath: string,
+    newPath: string,
+    assetType: AssetType
+  ) => void;
 }
 
 function AssetsPanel({
   onAddAsset,
-  onPlaceUnit,
   selectedMapFilename,
   onSelectMap,
   onDeleteAsset,
+  onAssetRenamed,
 }: AssetsPanelProps) {
-  const units = useAssetStore((state) => state.availableUnits);
-  const portraits = useAssetStore((state) => state.availablePortraits);
-  const maps = useAssetStore((state) => state.availableMaps);
+  const units = useAssetStore((state) => state.units);
+  const portraits = useAssetStore((state) => state.portraits);
+  const maps = useAssetStore((state) => state.maps);
+  const createFolder = useAssetStore((state) => state.createFolder);
+  const renameOrMoveAsset = useAssetStore((state) => state.renameOrMoveAsset);
 
   return (
     <div className={styles.panel}>
@@ -38,19 +44,43 @@ function AssetsPanel({
         <AssetSection
           title="Units"
           assetType="units"
-          files={units}
-          onPlaceUnit={onPlaceUnit}
+          files={units.files}
+          folders={units.folders}
           onDeleteAsset={onDeleteAsset}
+          onCreateFolder={(name) => createFolder("units", name)}
+          onMoveAsset={(path, folder) =>
+            renameOrMoveAsset(path, "units", { folder }, onAssetRenamed)
+          }
+          onRenameAsset={(path, filename, folder) =>
+            renameOrMoveAsset(
+              path,
+              "units",
+              { filename, folder: folder ?? "" },
+              onAssetRenamed
+            )
+          }
         />
         <AssetSection
           title="Portraits"
           assetType="portraits"
-          files={portraits}
-          onPlaceUnit={onPlaceUnit}
+          files={portraits.files}
+          folders={portraits.folders}
           onDeleteAsset={onDeleteAsset}
+          onCreateFolder={(name) => createFolder("portraits", name)}
+          onMoveAsset={(path, folder) =>
+            renameOrMoveAsset(path, "portraits", { folder }, onAssetRenamed)
+          }
+          onRenameAsset={(path, filename, folder) =>
+            renameOrMoveAsset(
+              path,
+              "portraits",
+              { filename, folder: folder ?? "" },
+              onAssetRenamed
+            )
+          }
         />
         <MapSection
-          maps={maps}
+          maps={maps.files}
           selectedMapFilename={selectedMapFilename}
           onSelectMap={onSelectMap}
           onDeleteAsset={onDeleteAsset}

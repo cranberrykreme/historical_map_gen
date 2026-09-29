@@ -218,7 +218,7 @@ function UnitLayer({
             }}
           >
             <img
-              src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.filename}`}
+              src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.path ?? unit.filename}`}
               alt={unit.filename}
               style={{
                 width: "48px",

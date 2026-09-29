@@ -44,13 +44,18 @@ interface MapStore {
 
   // Unit actions
   setPlacedUnits: (units: Unit[]) => void;
-  addUnit: (filename: string, assetType: AssetType) => void;
+  addUnit: (path: string, assetType: AssetType) => void;
   removeSelectedUnits: () => void;
   addUnitAtPosition: (
-    filename: string,
+    path: string,
     assetType: AssetType,
     x: number,
     y: number
+  ) => void;
+  cleanupRenamedAsset: (
+    oldPath: string,
+    newPath: string,
+    assetType: AssetType
   ) => void;
 
   // Selection actions
@@ -141,11 +146,13 @@ export const useMapStore = create<MapStore>((set, get) => ({
   // Unit actions — setPlacedUnits bypasses history (for loading)
   setPlacedUnits: (units) => set({ placedUnits: units }),
 
-  addUnit: (filename, assetType) => {
+  addUnit: (path, assetType) => {
     const { placedUnits, past } = get();
+    const filename = path.split("/").pop() ?? path;
     const newUnit: Unit = {
       id: `${filename}-${Date.now()}`,
       filename,
+      path,
       assetType,
       x: 100,
       y: 100,
@@ -299,11 +306,13 @@ export const useMapStore = create<MapStore>((set, get) => ({
     });
   },
 
-  addUnitAtPosition: (filename, assetType, x, y) => {
+  addUnitAtPosition: (path, assetType, x, y) => {
     const { placedUnits, past } = get();
+    const filename = path.split("/").pop() ?? path;
     const newUnit: Unit = {
       id: `${filename}-${Date.now()}`,
       filename,
+      path,
       assetType,
       x,
       y,
@@ -359,4 +368,15 @@ export const useMapStore = create<MapStore>((set, get) => ({
       groupScaleDelta: null,
       selectedMapFilename: null,
     }),
+
+  cleanupRenamedAsset: (oldPath, newPath, assetType) => {
+    const { placedUnits } = get();
+    const newFilename = newPath.split("/").pop() ?? newPath;
+    const updatedUnits = placedUnits.map((unit) =>
+      unit.path === oldPath && unit.assetType === assetType
+        ? { ...unit, path: newPath, filename: newFilename }
+        : unit
+    );
+    set({ placedUnits: updatedUnits });
+  },
 }));

@@ -7,10 +7,14 @@ import styles from "./Toolbar.module.css";
 
 interface ToolbarProps {
   onAddAsset: () => void;
-  onPlaceUnit: (filename: string, assetType: AssetType) => void;
   selectedMapFilename: string | null;
   onSelectMap: (filename: string | null) => void;
-  onDeleteAsset: (filename: string, assetType: AssetType) => void;
+  onDeleteAsset: (path: string, assetType: AssetType) => void;
+  onAssetRenamed: (
+    oldPath: string,
+    newPath: string,
+    assetType: AssetType
+  ) => void;
 }
 
 const TABS: ToolbarTab[] = [
@@ -20,10 +24,10 @@ const TABS: ToolbarTab[] = [
 
 function Toolbar({
   onAddAsset,
-  onPlaceUnit,
   selectedMapFilename,
   onSelectMap,
   onDeleteAsset,
+  onAssetRenamed,
 }: ToolbarProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<ToolbarTabId>("assets");
@@ -39,10 +43,10 @@ function Toolbar({
           {activeTab === "assets" && (
             <AssetsPanel
               onAddAsset={onAddAsset}
-              onPlaceUnit={onPlaceUnit}
               selectedMapFilename={selectedMapFilename}
               onSelectMap={onSelectMap}
               onDeleteAsset={onDeleteAsset}
+              onAssetRenamed={onAssetRenamed}
             />
           )}
           {activeTab === "psd" && <PsdPanel />}

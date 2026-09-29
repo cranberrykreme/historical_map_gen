@@ -3,6 +3,7 @@ export type AssetType = "units" | "portraits" | "maps";
 export interface Unit {
   id: string;
   filename: string;
+  path: string;
   assetType: AssetType;
   x: number;
   y: number;
@@ -17,3 +18,9 @@ export interface ProjectData {
 }
 
 export type ToolbarTabId = "assets" | "psd";
+
+export interface AssetFile {
+  path: string;
+  filename: string;
+  folder: string | null;
+}

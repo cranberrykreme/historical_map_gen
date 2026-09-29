@@ -1,12 +1,13 @@
 import React, { useState } from "react";
+import { AssetFile } from "../../types";
 import styles from "./MapSection.module.css";
 import deleteStyles from "./DeleteButton.module.css";
 
 interface MapSectionProps {
-  maps: string[];
+  maps: AssetFile[];
   selectedMapFilename: string | null;
   onSelectMap: (filename: string | null) => void;
-  onDeleteAsset: (filename: string, assetType: "maps") => void;
+  onDeleteAsset: (path: string, assetType: "maps") => void;
 }
 
 function MapSection({
@@ -16,7 +17,7 @@ function MapSection({
   onDeleteAsset,
 }: MapSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
-  const [hoveredFilename, setHoveredFilename] = useState<string | null>(null);
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
   if (maps.length === 0) return null;
 
@@ -34,26 +35,26 @@ function MapSection({
         </span>
       </div>
       {!isCollapsed &&
-        maps.map((filename) => {
-          const isActive = selectedMapFilename === filename;
-          const isHovered = hoveredFilename === filename;
+        maps.map((map) => {
+          const isActive = selectedMapFilename === map.filename;
+          const isHovered = hoveredPath === map.path;
           return (
             <div
-              key={filename}
-              onClick={() => onSelectMap(isActive ? null : filename)}
-              onMouseEnter={() => setHoveredFilename(filename)}
-              onMouseLeave={() => setHoveredFilename(null)}
+              key={map.path}
+              onClick={() => onSelectMap(isActive ? null : map.filename)}
+              onMouseEnter={() => setHoveredPath(map.path)}
+              onMouseLeave={() => setHoveredPath(null)}
               className={`${styles.mapRow} ${isActive ? styles.mapRowActive : ""}`}
             >
               <span
                 className={`${styles.filename} ${isActive ? styles.filenameActive : ""}`}
               >
-                {filename}
+                {map.filename}
               </span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDeleteAsset(filename, "maps");
+                  onDeleteAsset(map.path, "maps");
                 }}
                 title="Delete map"
                 className={`${deleteStyles.deleteButton} ${isHovered ? "" : deleteStyles.hidden}`}

@@ -6,7 +6,7 @@ interface UseAssetDropParams {
   scaleRef: React.RefObject<number>;
   positionRef: React.RefObject<{ x: number; y: number }>;
   addUnitAtPosition: (
-    filename: string,
+    path: string,
     assetType: AssetType,
     x: number,
     y: number
@@ -30,8 +30,8 @@ function useAssetDrop({
       if (!data) return;
 
       try {
-        const { filename, assetType } = JSON.parse(data) as {
-          filename: string;
+        const { path, assetType } = JSON.parse(data) as {
+          path: string;
           assetType: AssetType;
         };
         const rect = containerRef.current?.getBoundingClientRect();
@@ -45,7 +45,7 @@ function useAssetDrop({
         const mapX = (screenX - position.x) / scale;
         const mapY = (screenY - position.y) / scale;
 
-        addUnitAtPosition(filename, assetType, mapX, mapY);
+        addUnitAtPosition(path, assetType, mapX, mapY);
       } catch (error) {
         console.error("Failed to parse drop data:", error);
       }

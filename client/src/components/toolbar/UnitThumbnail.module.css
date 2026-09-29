@@ -42,3 +42,15 @@
   .thumbnail:hover :global(.delete-button) {
     opacity: 1;
   }
+
+  .renameInput {
+    flex: 1;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-gold);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-sm);
+    padding: 2px var(--space-xs);
+    min-width: 0;
+  }
