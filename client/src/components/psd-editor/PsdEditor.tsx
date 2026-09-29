@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import PsdLayerList from "./PsdLayerList";
 import PsdEditorCanvas, { RecolourSpec } from "./PsdEditorCanvas";
 import PsdColorPalette from "./PsdColorPalette";
+import useEditHistory from "../../hooks/useEditHistory";
 import { PALETTE } from "../../constants/palette";
 import { useAssetStore } from "../../store/useAssetStore";
 import API_BASE_URL from "../../config/api";
@@ -20,29 +21,37 @@ interface LayerSamples {
   border: RgbColor | null;
 }
 
+interface EditState {
+  samples: Record<string, LayerSamples>;
+  applied: Record<string, string>;
+}
+
+const EMPTY_SAMPLES: LayerSamples = { interior: null, border: null };
 const toCss = (c: RgbColor | null) =>
   c ? `rgb(${c.r}, ${c.g}, ${c.b})` : "transparent";
 
 function PsdEditor({ psdName, onClose }: PsdEditorProps) {
   const currentProjectName = useAssetStore((state) => state.currentProjectName);
 
+  const { present, commit, undo, redo, canUndo, canRedo } =
+    useEditHistory<EditState>({
+      samples: {},
+      applied: {},
+    });
+  const { samples, applied } = present;
+
   const [showCloseConfirm, setShowCloseConfirm] = useState<boolean>(false);
   const [selectedLayerFilename, setSelectedLayerFilename] = useState<
     string | null
   >(null);
   const [sampleMode, setSampleMode] = useState<SampleMode>(null);
-  const [samples, setSamples] = useState<Record<string, LayerSamples>>({});
-  const [applied, setApplied] = useState<Record<string, string>>({});
 
   const baseUrl = `${API_BASE_URL}/api/projects/${currentProjectName}/psd/${psdName}`;
   const layerUrl = selectedLayerFilename
     ? `${baseUrl}/layers/${selectedLayerFilename}`
     : null;
-  const currentSamples: LayerSamples = (selectedLayerFilename &&
-    samples[selectedLayerFilename]) || {
-    interior: null,
-    border: null,
-  };
+  const currentSamples: LayerSamples =
+    (selectedLayerFilename && samples[selectedLayerFilename]) || EMPTY_SAMPLES;
   const appliedId = selectedLayerFilename
     ? (applied[selectedLayerFilename] ?? null)
     : null;
@@ -63,6 +72,18 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
     };
   }, [paletteEntry, currentSamples.interior, currentSamples.border]);
 
+  // Editor-only undo/redo shortcuts (ProjectView's shortcuts are disabled while this is open)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.metaKey || e.key.toLowerCase() !== "z") return;
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undo, redo]);
+
   const handleSelectLayer = (filename: string | null) => {
     setSampleMode(null);
     setSelectedLayerFilename(filename);
@@ -70,9 +91,14 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
 
   const handleSample = (color: RgbColor) => {
     if (!selectedLayerFilename || !sampleMode) return;
-    setSamples((prev) => ({
+    const layer = selectedLayerFilename;
+    const mode = sampleMode;
+    commit((prev) => ({
       ...prev,
-      [selectedLayerFilename]: { ...currentSamples, [sampleMode]: color },
+      samples: {
+        ...prev.samples,
+        [layer]: { ...(prev.samples[layer] ?? EMPTY_SAMPLES), [mode]: color },
+      },
     }));
     setSampleMode(null);
   };
@@ -84,12 +110,12 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
   // Picking a colour applies it; picking the active colour again removes it.
   const handlePickColour = (id: string) => {
     if (!selectedLayerFilename) return;
-    setApplied((prev) => {
-      const next = { ...prev };
-      if (next[selectedLayerFilename] === id)
-        delete next[selectedLayerFilename];
-      else next[selectedLayerFilename] = id;
-      return next;
+    const layer = selectedLayerFilename;
+    commit((prev) => {
+      const nextApplied = { ...prev.applied };
+      if (nextApplied[layer] === id) delete nextApplied[layer];
+      else nextApplied[layer] = id;
+      return { ...prev, applied: nextApplied };
     });
   };
 
@@ -106,13 +132,31 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
       <div className={styles.modal}>
         <div className={styles.header}>
           <h2 className={styles.title}>{psdName}</h2>
-          <button
-            className={styles.closeButton}
-            onClick={handleCloseClick}
-            title="Close"
-          >
-            ×
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              className={styles.closeButton}
+              onClick={undo}
+              disabled={!canUndo}
+              title="Undo (⌘Z)"
+            >
+              ↶
+            </button>
+            <button
+              className={styles.closeButton}
+              onClick={redo}
+              disabled={!canRedo}
+              title="Redo (⇧⌘Z)"
+            >
+              ↷
+            </button>
+            <button
+              className={styles.closeButton}
+              onClick={handleCloseClick}
+              title="Close"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div className={styles.body}>

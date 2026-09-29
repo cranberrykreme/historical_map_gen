@@ -64,6 +64,7 @@ function ProjectView() {
   }, [loadProject, setPlacedUnits, setSelectedMap]);
 
   useEffect(() => {
+    if (editingPsd) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedUnitIds.size > 0) {
@@ -103,6 +104,7 @@ function ProjectView() {
     selectedMapFilename,
     copySelectedUnits,
     pasteUnits,
+    editingPsd,
   ]);
 
   const handleFilesSelected = (files: File[]) => {
