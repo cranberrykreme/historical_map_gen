@@ -226,6 +226,7 @@ function UnitLayer({
                 cursor: isShiftHeld ? "default" : "move",
                 userSelect: "none",
                 display: "block",
+                transform: unit.flipped ? "scaleX(-1)" : undefined,
                 outline: isSelected ? "2px solid #c8a84b" : "none",
               }}
               onMouseDown={(e) => handleMouseDown(e, unit.id)}

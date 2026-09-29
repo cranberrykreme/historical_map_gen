@@ -30,6 +30,17 @@ def save_project():
     ensure_project_structure(project_name)
     project_path = os.path.join(get_project_dir(project_name), 'project.json')
 
+    # Saves that don't carry a viewport (e.g. the auto-saves after a rename or delete)
+    # keep the viewport from the last save that did.
+    if not data.get('viewport') and os.path.exists(project_path):
+        try:
+            with open(project_path, 'r') as f:
+                existing_viewport = json.load(f).get('viewport')
+            if existing_viewport:
+                data['viewport'] = existing_viewport
+        except (OSError, ValueError):
+            pass
+
     with open(project_path, 'w') as f:
         json.dump(data, f, indent=2)
 

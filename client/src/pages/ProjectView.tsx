@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MapCanvas from "../components/MapCanvas";
 import Toolbar from "../components/toolbar/Toolbar";
 import AssetTypePopup from "../components/AssetTypePopup";
 import DropZoneOverlay from "../components/DropZoneOverlay";
-import { AssetType } from "../types";
+import PsdEditor from "../components/psd-editor/PsdEditor";
+import PortraitEditor from "../components/portrait-editor/PortraitEditor";
+import { AssetType, ViewportApi } from "../types";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
 import useHistory from "../hooks/useHistory";
@@ -12,13 +14,12 @@ import useProject from "../hooks/useProject";
 import API_BASE_URL from "../config/api";
 import styles from "../App.module.css";
 import ProjectHeader from "../components/ProjectHeader";
-import PsdEditor from "../components/psd-editor/PsdEditor";
-import PortraitEditor from "../components/portrait-editor/PortraitEditor";
 
 function ProjectView() {
   const { projectName } = useParams<{ projectName: string }>();
   const setCurrentProject = useAssetStore((state) => state.setCurrentProject);
   const navigate = useNavigate();
+  const viewportApiRef = useRef<ViewportApi | null>(null);
 
   const { undo, redo } = useHistory();
   const { saveProject, loadProject } = useProject(projectName ?? "default");
@@ -28,6 +29,7 @@ function ProjectView() {
   const setPlacedUnits = useMapStore((state) => state.setPlacedUnits);
   const copySelectedUnits = useMapStore((state) => state.copySelectedUnits);
   const pasteUnits = useMapStore((state) => state.pasteUnits);
+  const flipSelectedUnits = useMapStore((state) => state.flipSelectedUnits);
   const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
   const setSelectedMap = useMapStore((state) => state.setSelectedMap);
   const cleanupDeletedAsset = useMapStore((state) => state.cleanupDeletedAsset);
@@ -38,7 +40,6 @@ function ProjectView() {
   const deleteAsset = useAssetStore((state) => state.deleteAsset);
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-
   const [editingPsd, setEditingPsd] = useState<string | null>(null);
   const [editingPortraitSource, setEditingPortraitSource] = useState<
     string | null
@@ -57,19 +58,36 @@ function ProjectView() {
   }, [projectName, fetchAssetList, navigate, setCurrentProject, resetMapState]);
 
   useEffect(() => {
-    loadProject().then(({ units, selectedMapFilename: loadedMap }) => {
-      if (units.length > 0) {
-        setPlacedUnits(units);
+    loadProject().then(
+      ({ units, selectedMapFilename: loadedMap, viewport }) => {
+        if (units.length > 0) {
+          setPlacedUnits(units);
+        }
+        if (loadedMap) {
+          setSelectedMap(loadedMap);
+        }
+        if (viewport) {
+          viewportApiRef.current?.apply(viewport);
+        }
       }
-      if (loadedMap) {
-        setSelectedMap(loadedMap);
-      }
-    });
+    );
   }, [loadProject, setPlacedUnits, setSelectedMap]);
 
   useEffect(() => {
-    if (editingPsd || editingPortraitSource) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (editingPsd || editingPortraitSource) return;
+
+      // Don't hijack keys while typing in a text field (rename, new folder, ...)
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedUnitIds.size > 0) {
           removeSelectedUnits();
@@ -84,7 +102,11 @@ function ProjectView() {
       }
       if (e.metaKey && e.key === "s") {
         e.preventDefault();
-        saveProject(placedUnits, selectedMapFilename);
+        saveProject(
+          placedUnits,
+          selectedMapFilename,
+          viewportApiRef.current?.get()
+        );
       }
       if (e.metaKey && e.key === "c") {
         e.preventDefault();
@@ -94,11 +116,23 @@ function ProjectView() {
         e.preventDefault();
         pasteUnits();
       }
+      // M = mirror the selected units
+      if (
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "m"
+      ) {
+        flipSelectedUnits();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    editingPsd,
+    editingPortraitSource,
     selectedUnitIds,
     placedUnits,
     undo,
@@ -108,7 +142,7 @@ function ProjectView() {
     selectedMapFilename,
     copySelectedUnits,
     pasteUnits,
-    editingPsd,
+    flipSelectedUnits,
   ]);
 
   const handleFilesSelected = (files: File[]) => {
@@ -179,7 +213,7 @@ function ProjectView() {
   return (
     <div className={styles.app}>
       <ProjectHeader projectName={projectName} />
-      <MapCanvas key={projectName} />
+      <MapCanvas key={projectName} viewportApiRef={viewportApiRef} />
       <Toolbar
         onAddAsset={handleAddAsset}
         selectedMapFilename={selectedMapFilename}

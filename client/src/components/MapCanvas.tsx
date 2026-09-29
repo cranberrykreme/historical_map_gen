@@ -7,8 +7,13 @@ import UnitLayer from "./UnitLayer";
 import API_BASE_URL from "../config/api";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
+import { ViewportApi } from "../types";
 
-function MapCanvas() {
+function MapCanvas({
+  viewportApiRef,
+}: {
+  viewportApiRef: React.RefObject<ViewportApi | null>;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
@@ -91,6 +96,38 @@ function MapCanvas() {
     isDraggingUnit,
     positionRef
   );
+
+  // Lets ProjectView read the current view (for saving) and apply a saved one (on load)
+  useEffect(() => {
+    const api: ViewportApi = {
+      get: () => {
+        const container = containerRef.current;
+        if (!container || container.clientWidth === 0) return null;
+        const scale = scaleRef.current;
+        return {
+          centerX: (container.clientWidth / 2 - positionRef.current.x) / scale,
+          centerY: (container.clientHeight / 2 - positionRef.current.y) / scale,
+          scale,
+        };
+      },
+      apply: (viewport) => {
+        const container = containerRef.current;
+        if (!container || container.clientWidth === 0) return;
+        const x = container.clientWidth / 2 - viewport.centerX * viewport.scale;
+        const y =
+          container.clientHeight / 2 - viewport.centerY * viewport.scale;
+        positionRef.current = { x, y };
+        scaleRef.current = viewport.scale;
+        if (mapRef.current) {
+          mapRef.current.style.transform = `translate(${x}px, ${y}px) scale(${viewport.scale})`;
+        }
+      },
+    };
+    viewportApiRef.current = api;
+    return () => {
+      if (viewportApiRef.current === api) viewportApiRef.current = null;
+    };
+  }, [viewportApiRef]);
 
   const { startSelection, boxStyle } = useSelectionBox({
     containerRef,

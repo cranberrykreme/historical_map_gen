@@ -86,6 +86,9 @@ interface MapStore {
   copySelectedUnits: () => void;
   pasteUnits: () => void;
 
+  // flip items
+  flipSelectedUnits: () => void;
+
   // Track Map files
   selectedMapFilename: string | null;
   setSelectedMap: (filename: string | null) => void;
@@ -355,6 +358,19 @@ export const useMapStore = create<MapStore>((set, get) => ({
       future: [],
       placedUnits: [...placedUnits, ...newUnits],
       selectedUnitIds: newIds,
+    });
+  },
+  flipSelectedUnits: () => {
+    const { placedUnits, selectedUnitIds, past } = get();
+    if (selectedUnitIds.size === 0) return;
+    set({
+      past: [...past, placedUnits],
+      future: [],
+      placedUnits: placedUnits.map((unit) =>
+        selectedUnitIds.has(unit.id)
+          ? { ...unit, flipped: !unit.flipped }
+          : unit
+      ),
     });
   },
   setSelectedMap: (filename) => set({ selectedMapFilename: filename }),
