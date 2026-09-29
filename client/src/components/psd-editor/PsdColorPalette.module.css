@@ -1,0 +1,43 @@
+.palette {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+  }
+  
+  .grid {
+    display: flex;
+    gap: var(--space-sm);
+  }
+  
+  .swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    border-width: 4px;
+    border-style: solid;
+    cursor: pointer;
+    padding: 0;
+    transition: transform var(--toolbar-transition), box-shadow var(--toolbar-transition);
+  }
+  
+  .swatch:hover:not(:disabled) {
+    transform: scale(1.12);
+  }
+  
+  .swatchActive {
+    box-shadow: 0 0 0 2px var(--color-gold);
+  }
+  
+  .swatch:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  
+  .hint {
+    color: var(--color-text-dim);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }

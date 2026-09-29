@@ -24,3 +24,9 @@ export interface AssetFile {
   filename: string;
   folder: string | null;
 }
+
+export interface RgbColor {
+  r: number;
+  g: number;
+  b: number;
+}

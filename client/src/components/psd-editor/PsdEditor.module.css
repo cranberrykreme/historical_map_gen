@@ -66,12 +66,62 @@
   .canvasArea {
     flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    gap: var(--space-md);
     background: var(--color-bg);
     min-width: 0;
+    min-height: 0;
     padding: var(--space-lg);
     box-sizing: border-box;
+  }
+  
+  .canvasWrap {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .toolRow {
+    display: flex;
+    gap: var(--space-md);
+    flex-shrink: 0;
+  }
+  
+  .toolButton {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-md);
+    cursor: pointer;
+    transition: border-color var(--toolbar-transition), background var(--toolbar-transition);
+  }
+  
+  .toolButton:hover {
+    border-color: var(--color-gold);
+  }
+  
+  .toolButtonArmed {
+    border-color: var(--color-gold);
+    background: var(--color-gold-subtle);
+    color: var(--color-gold);
+  }
+  
+  .swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: transparent;
   }
   
   .sidebar {
