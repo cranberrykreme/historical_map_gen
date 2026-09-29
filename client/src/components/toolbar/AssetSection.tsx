@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import UnitThumbnail from "./UnitThumbnail";
 import { AssetType, AssetFile } from "../../types";
+import { useAssetStore } from "../../store/useAssetStore";
+import usePersistedCollapse from "../../hooks/usePersistedCollapse";
 import styles from "./AssetSection.module.css";
 
 interface AssetSectionProps {
@@ -28,10 +30,15 @@ function AssetSection({
   onMoveAsset,
   onRenameAsset,
 }: AssetSectionProps) {
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(
-    new Set()
-  );
+  const currentProjectName = useAssetStore((state) => state.currentProjectName);
+
+  const { collapsed: topLevelCollapsed, toggle: toggleTopLevel } =
+    usePersistedCollapse(`${currentProjectName}-sections`);
+  const isCollapsed = topLevelCollapsed.has(assetType);
+
+  const { collapsed: collapsedFolders, toggle: toggleFolder } =
+    usePersistedCollapse(`${currentProjectName}-${assetType}-folders`);
+
   const [isCreatingFolder, setIsCreatingFolder] = useState<boolean>(false);
   const [newFolderName, setNewFolderName] = useState<string>("");
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
@@ -41,15 +48,6 @@ function AssetSection({
   const topLevelFiles = files.filter((f) => f.folder === null);
   const filesByFolder = (folder: string) =>
     files.filter((f) => f.folder === folder);
-
-  const toggleFolder = (folder: string) => {
-    setCollapsedFolders((prev) => {
-      const next = new Set(prev);
-      if (next.has(folder)) next.delete(folder);
-      else next.add(folder);
-      return next;
-    });
-  };
 
   const commitNewFolder = () => {
     const trimmed = newFolderName.trim();
@@ -80,10 +78,7 @@ function AssetSection({
 
   return (
     <div className={styles.section}>
-      <div
-        onClick={() => setIsCollapsed((prev) => !prev)}
-        className={styles.header}
-      >
+      <div onClick={() => toggleTopLevel(assetType)} className={styles.header}>
         <span>{title}</span>
         <span
           className={`${styles.chevron} ${isCollapsed ? styles.chevronCollapsed : ""}`}
