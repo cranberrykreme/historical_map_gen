@@ -1,13 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import useMapFetch from "../hooks/useMapFetch";
 import useMapInteraction from "../hooks/useMapInteraction";
 import useSelectionBox from "../hooks/useSelectionBox";
 import useAssetDrop from "../hooks/useAssetDrop";
 import UnitLayer from "./UnitLayer";
+import PathLayer from "./PathLayer";
+import PathDrawOverlay from "./PathDrawOverlay";
 import API_BASE_URL from "../config/api";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
+import { usePathToolStore } from "../store/usePathToolStore";
 import { ViewportApi } from "../types";
+import { createPlayback } from "../utils/pathPlayback";
 
 function MapCanvas({
   viewportApiRef,
@@ -41,9 +45,33 @@ function MapCanvas({
   const groupScaleDelta = useMapStore((state) => state.groupScaleDelta);
   const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
   const addUnitAtPosition = useMapStore((state) => state.addUnitAtPosition);
+  const isDrawingPath = usePathToolStore(
+    (state) => state.drawingPoints !== null
+  );
+  const paths = useMapStore((state) => state.paths);
+  const preview = usePathToolStore((state) => state.preview);
+
+  // While previewing a path, its attached units are shown along the path (display only).
+  // The plan (sampling, pivot, mirroring) is worked out once, not on every frame.
+  const previewPath = preview
+    ? paths.find((path) => path.id === preview.pathId)
+    : undefined;
+  const playbackPlan = useMemo(
+    () => (previewPath ? createPlayback(previewPath, placedUnits) : null),
+    [previewPath, placedUnits]
+  );
+  const playback =
+    preview && playbackPlan ? playbackPlan.stateAt(preview.progress) : null;
 
   const displayUnits = placedUnits.map((unit) => {
     let display = { ...unit };
+    const onPath = playback?.get(unit.id);
+    if (onPath) {
+      display.x = onPath.x;
+      display.y = onPath.y;
+      display.rotation = onPath.rotation;
+      display.flipped = onPath.flipped;
+    }
     if (dragPosition && dragPosition.id === unit.id) {
       display.x = dragPosition.x;
       display.y = dragPosition.y;
@@ -67,10 +95,13 @@ function MapCanvas({
     return display;
   });
 
+  // The map is placed in a shadow root so the styles inside the SVG file can't leak out
+  // and restyle the rest of the app (path lines, portrait editor, ...)
   useEffect(() => {
-    if (svgRef.current) {
-      svgRef.current.innerHTML = svgContent ?? "";
-    }
+    const host = svgRef.current;
+    if (!host) return;
+    const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
+    root.innerHTML = svgContent ?? "";
   }, [svgContent]);
 
   useEffect(() => {
@@ -86,6 +117,11 @@ function MapCanvas({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
+  }, []);
+
+  // Leaving the project (or switching projects) abandons any path being drawn
+  useEffect(() => {
+    return () => usePathToolStore.getState().cancelDrawing();
   }, []);
 
   useMapInteraction(
@@ -155,7 +191,7 @@ function MapCanvas({
     const target = e.target as HTMLElement;
     if (target.closest("[data-unit]")) return;
 
-    if (e.shiftKey) {
+    if (e.shiftKey && !isDrawingPath) {
       startSelection(e);
     } else {
       selectUnit(null);
@@ -166,6 +202,7 @@ function MapCanvas({
     <div
       ref={containerRef}
       style={{
+        position: "relative",
         width: "100%",
         height: "100%",
         overflow: "hidden",
@@ -185,6 +222,13 @@ function MapCanvas({
         style={{ transformOrigin: "0 0", willChange: "transform" }}
       >
         <div ref={svgRef} />
+        <PathLayer
+          mode="lines"
+          scaleRef={scaleRef}
+          positionRef={positionRef}
+          containerRef={containerRef}
+          isDraggingUnit={isDraggingUnit}
+        />
         <UnitLayer
           units={displayUnits}
           scaleRef={scaleRef}
@@ -192,7 +236,21 @@ function MapCanvas({
           isShiftHeld={isShiftHeld}
           setCursor={setCursor}
         />
+        <PathLayer
+          mode="markers"
+          scaleRef={scaleRef}
+          positionRef={positionRef}
+          containerRef={containerRef}
+          isDraggingUnit={isDraggingUnit}
+        />
       </div>
+      {isDrawingPath && (
+        <PathDrawOverlay
+          containerRef={containerRef}
+          scaleRef={scaleRef}
+          positionRef={positionRef}
+        />
+      )}
       {boxStyle && (
         <div
           style={{

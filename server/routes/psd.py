@@ -1,14 +1,11 @@
 from flask import Blueprint, jsonify, send_file, request
 import os
-import re
 import shutil
 from psd_tools import PSDImage
 
 psd_bp = Blueprint('psd', __name__)
 
 PROJECTS_DIR = os.path.join(os.path.dirname(__file__), '..', 'projects')
-NAME_PATTERN = re.compile(r'^[A-Za-z0-9_-]+$')
-
 
 def get_psd_root(project_name: str) -> str:
     return os.path.join(PROJECTS_DIR, project_name, 'psd')

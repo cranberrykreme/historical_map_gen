@@ -14,6 +14,7 @@ import useProject from "../hooks/useProject";
 import API_BASE_URL from "../config/api";
 import styles from "../App.module.css";
 import ProjectHeader from "../components/ProjectHeader";
+import { usePathToolStore } from "../store/usePathToolStore";
 
 function ProjectView() {
   const { projectName } = useParams<{ projectName: string }>();
@@ -24,9 +25,14 @@ function ProjectView() {
   const { undo, redo } = useHistory();
   const { saveProject, loadProject } = useProject(projectName ?? "default");
   const placedUnits = useMapStore((state) => state.placedUnits);
+  const paths = useMapStore((state) => state.paths);
+  const isDrawingPath = usePathToolStore(
+    (state) => state.drawingPoints !== null
+  );
   const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
   const removeSelectedUnits = useMapStore((state) => state.removeSelectedUnits);
   const setPlacedUnits = useMapStore((state) => state.setPlacedUnits);
+  const setPaths = useMapStore((state) => state.setPaths);
   const copySelectedUnits = useMapStore((state) => state.copySelectedUnits);
   const pasteUnits = useMapStore((state) => state.pasteUnits);
   const flipSelectedUnits = useMapStore((state) => state.flipSelectedUnits);
@@ -59,9 +65,17 @@ function ProjectView() {
 
   useEffect(() => {
     loadProject().then(
-      ({ units, selectedMapFilename: loadedMap, viewport }) => {
+      ({
+        units,
+        paths: loadedPaths,
+        selectedMapFilename: loadedMap,
+        viewport,
+      }) => {
         if (units.length > 0) {
           setPlacedUnits(units);
+        }
+        if (loadedPaths.length > 0) {
+          setPaths(loadedPaths);
         }
         if (loadedMap) {
           setSelectedMap(loadedMap);
@@ -71,11 +85,11 @@ function ProjectView() {
         }
       }
     );
-  }, [loadProject, setPlacedUnits, setSelectedMap]);
+  }, [loadProject, setPlacedUnits, setPaths, setSelectedMap]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (editingPsd || editingPortraitSource) return;
+      if (editingPsd || editingPortraitSource || isDrawingPath) return;
 
       // Don't hijack keys while typing in a text field (rename, new folder, ...)
       const target = e.target as HTMLElement | null;
@@ -85,6 +99,28 @@ function ProjectView() {
           target.tagName === "TEXTAREA" ||
           target.isContentEditable)
       ) {
+        return;
+      }
+
+      // Path editing: Escape deselects, Backspace/Delete removes the selected waypoint
+      const pathTool = usePathToolStore.getState();
+      if (e.key === "Escape") {
+        // Only stop the browser's own Escape (leaving fullscreen) when it deselected something
+        if (pathTool.selectedWaypoint) {
+          e.preventDefault();
+          pathTool.clearWaypoint();
+        } else if (useMapStore.getState().selectedPathId) {
+          e.preventDefault();
+          useMapStore.getState().selectPath(null);
+        }
+        return;
+      }
+      if (
+        (e.key === "Backspace" || e.key === "Delete") &&
+        pathTool.selectedWaypoint
+      ) {
+        e.preventDefault();
+        pathTool.deleteSelectedWaypoint();
         return;
       }
 
@@ -102,11 +138,12 @@ function ProjectView() {
       }
       if (e.metaKey && e.key === "s") {
         e.preventDefault();
-        saveProject(
-          placedUnits,
+        saveProject({
+          units: placedUnits,
+          paths,
           selectedMapFilename,
-          viewportApiRef.current?.get()
-        );
+          viewport: viewportApiRef.current?.get(),
+        });
       }
       if (e.metaKey && e.key === "c") {
         e.preventDefault();
@@ -135,6 +172,7 @@ function ProjectView() {
     editingPortraitSource,
     selectedUnitIds,
     placedUnits,
+    paths,
     undo,
     redo,
     removeSelectedUnits,
@@ -191,21 +229,29 @@ function ProjectView() {
     setPendingFiles([]);
   };
 
+  // Rename and delete change files on disk, so they auto-save the project.
+  // The viewport is left out on purpose: Flask keeps the last saved view.
+  const autoSaveFromStore = () => {
+    const state = useMapStore.getState();
+    saveProject({
+      units: state.placedUnits,
+      paths: state.paths,
+      selectedMapFilename: state.selectedMapFilename,
+    });
+  };
+
   const handleAssetRenamed = (
     oldPath: string,
     newPath: string,
     assetType: AssetType
   ) => {
     cleanupRenamedAsset(oldPath, newPath, assetType);
-    const updatedUnits = useMapStore.getState().placedUnits;
-    saveProject(updatedUnits, selectedMapFilename);
+    autoSaveFromStore();
   };
 
   const handleAssetDeleted = (path: string, assetType: AssetType) => {
     cleanupDeletedAsset(path, assetType);
-    const { placedUnits: updatedUnits, selectedMapFilename: updatedMap } =
-      useMapStore.getState();
-    saveProject(updatedUnits, updatedMap);
+    autoSaveFromStore();
   };
 
   if (!projectName) return null;

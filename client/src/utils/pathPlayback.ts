@@ -1,0 +1,170 @@
+import { MapPath, Unit } from "../types";
+import {
+  applyOffset,
+  buildTravelSides,
+  facingRotation,
+  headingAtDistance,
+  pointAtDistance,
+  samplePath,
+  travelSideAt,
+} from "./pathGeometry";
+import { normalizeDegrees, unitFacing } from "./unitFacing";
+
+export interface PlaybackState {
+  x: number;
+  y: number;
+  rotation: number;
+  flipped: boolean;
+}
+
+// How fast the group pivots on the spot before it sets off, in degrees of turn per map unit
+// of playback. 0.6 means a quarter turn takes 150 units (1.5 seconds at 1x). Lower is slower.
+export const PIVOT_DEGREES_PER_UNIT = 0.6;
+
+const RAD_TO_DEG = 180 / Math.PI;
+const DEG_TO_RAD = Math.PI / 180;
+
+// Whether the art's own front points right (rather than left) when unmirrored.
+// Art that faces straight up or down has no side and counts as facing right.
+export function artFacesRight(forwardAngleDeg: number): boolean {
+  return Math.cos((forwardAngleDeg * Math.PI) / 180) > -1e-9;
+}
+
+interface Pivot {
+  groupFacing: number; // degrees: the way the group faces at rest
+  frameTurn: number; // degrees the block must turn to face the path's start heading
+  unitTurns: Map<string, number>; // degrees each unit that turns to face travel must turn
+  length: number; // how long the pivot lasts, in map units of playback
+}
+
+// The turn the group makes on the spot before it sets off. Each turn-mode unit turns until it
+// faces the path's start heading, and a group that turns with its units rotates as a block
+// too. A group that keeps its formation as placed has no direction, so only the units turn.
+// The pivot lasts until the last of them has finished.
+function pivotFor(
+  path: MapPath,
+  units: Unit[],
+  startHeading: number,
+  rate: number
+): Pivot {
+  const startHeadingDeg = startHeading * RAD_TO_DEG;
+  const groupFacing = path.direction ?? startHeadingDeg;
+  const frameTurn = normalizeDegrees(startHeadingDeg - groupFacing);
+
+  const byId = new Map<string, Unit>(
+    units.map((unit): [string, Unit] => [unit.id, unit])
+  );
+  const unitTurns = new Map<string, number>();
+  let largest = Math.abs(frameTurn);
+
+  for (const slot of path.assignments) {
+    const unit = byId.get(slot.unitId);
+    if (!unit) continue;
+    const { forwardAngle, travelMode } = unitFacing(unit);
+    if (travelMode !== "rotate") continue;
+    const turn = normalizeDegrees(
+      facingRotation(startHeading, forwardAngle, !!unit.flipped) - unit.rotation
+    );
+    unitTurns.set(unit.id, turn);
+    largest = Math.max(largest, Math.abs(turn));
+  }
+
+  return {
+    groupFacing,
+    frameTurn,
+    unitTurns,
+    length: largest < 1e-6 ? 0 : largest / rate,
+  };
+}
+
+export interface Playback {
+  length: number; // the whole run, in map units of playback
+  stateAt: (progress: number) => Map<string, PlaybackState>;
+}
+
+// Does all the work that doesn't depend on how far through the run we are (sampling the path,
+// working out the pivot and which way the path heads) once, so showing a frame is cheap.
+// Build one per path and reuse it for every frame.
+//
+// A run is a pivot on the spot (the group does not move), then the journey, where the
+// formation and turning units follow the path's heading exactly.
+export function createPlayback(
+  path: MapPath,
+  units: Unit[],
+  pivotRate: number = PIVOT_DEGREES_PER_UNIT
+): Playback {
+  const sampled = samplePath(path.points);
+  if (sampled.samples.length === 0)
+    return { length: 0, stateAt: () => new Map() };
+
+  const startHeading = headingAtDistance(sampled, 0);
+  const pivot = pivotFor(path, units, startHeading, pivotRate);
+  const travelSides = buildTravelSides(sampled);
+  const total = pivot.length + sampled.length;
+
+  const byId = new Map<string, Unit>(
+    units.map((unit): [string, Unit] => [unit.id, unit])
+  );
+  const members = path.assignments.flatMap((slot) => {
+    const unit = byId.get(slot.unitId);
+    return unit ? [{ slot, unit, ...unitFacing(unit) }] : [];
+  });
+
+  const stateAt = (progress: number): Map<string, PlaybackState> => {
+    const result = new Map<string, PlaybackState>();
+    const elapsed = Math.min(Math.max(progress, 0), 1) * total;
+
+    const isPivoting = elapsed < pivot.length;
+    const distance = isPivoting ? 0 : elapsed - pivot.length;
+    const turnedSoFar = isPivoting ? elapsed * pivotRate : Infinity; // degrees
+    const turnBy = (needed: number) =>
+      Math.sign(needed) * Math.min(Math.abs(needed), turnedSoFar);
+
+    const centre = pointAtDistance(sampled, distance);
+    const heading = headingAtDistance(sampled, distance);
+    const travellingRight = travelSideAt(travelSides, distance);
+
+    // The formation turns on the spot, then follows the path's heading exactly
+    const frame = isPivoting
+      ? (pivot.groupFacing + turnBy(pivot.frameTurn)) * DEG_TO_RAD
+      : heading;
+
+    for (const { slot, unit, forwardAngle, travelMode } of members) {
+      const position = applyOffset(centre, slot, frame);
+
+      let rotation = unit.rotation;
+      let flipped = !!unit.flipped;
+      if (travelMode === "rotate") {
+        rotation = isPivoting
+          ? unit.rotation + turnBy(pivot.unitTurns.get(unit.id) ?? 0)
+          : facingRotation(heading, forwardAngle, flipped);
+      } else if (travelMode === "upright") {
+        flipped = artFacesRight(forwardAngle) !== travellingRight;
+      }
+
+      result.set(unit.id, { x: position.x, y: position.y, rotation, flipped });
+    }
+    return result;
+  };
+
+  return { length: total, stateAt };
+}
+
+// How long a whole run takes, in map units of playback
+export function playbackLength(
+  path: MapPath,
+  units: Unit[],
+  pivotRate: number = PIVOT_DEGREES_PER_UNIT
+): number {
+  return createPlayback(path, units, pivotRate).length;
+}
+
+// One-off version of createPlayback(...).stateAt(...), for tests and one-time use
+export function playbackState(
+  path: MapPath,
+  units: Unit[],
+  progress: number,
+  pivotRate: number = PIVOT_DEGREES_PER_UNIT
+): Map<string, PlaybackState> {
+  return createPlayback(path, units, pivotRate).stateAt(progress);
+}

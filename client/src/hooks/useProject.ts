@@ -1,25 +1,31 @@
 import { useCallback } from "react";
 import API_BASE_URL from "../config/api";
-import { Unit, ProjectData, SavedViewport } from "../types";
+import { Unit, MapPath, ProjectData, SavedViewport } from "../types";
+
+export interface ProjectSnapshot {
+  units: Unit[];
+  paths: MapPath[];
+  selectedMapFilename: string | null;
+  // Left out (undefined) for auto-saves; Flask then keeps the last saved view
+  viewport?: SavedViewport | null;
+}
 
 interface LoadedProject {
   units: Unit[];
+  paths: MapPath[];
   selectedMapFilename: string | null;
   viewport: SavedViewport | null;
 }
 
 function useProject(projectName: string = "default") {
   const saveProject = useCallback(
-    async (
-      units: Unit[],
-      selectedMapFilename: string | null,
-      viewport?: SavedViewport | null
-    ) => {
+    async (snapshot: ProjectSnapshot) => {
       const projectData: ProjectData = {
         name: projectName,
-        units,
-        selectedMapFilename,
-        viewport,
+        units: snapshot.units,
+        paths: snapshot.paths,
+        selectedMapFilename: snapshot.selectedMapFilename,
+        viewport: snapshot.viewport,
       };
 
       try {
@@ -43,6 +49,7 @@ function useProject(projectName: string = "default") {
   const loadProject = useCallback(async (): Promise<LoadedProject> => {
     const empty: LoadedProject = {
       units: [],
+      paths: [],
       selectedMapFilename: null,
       viewport: null,
     };
@@ -59,8 +66,22 @@ function useProject(projectName: string = "default") {
           ? { centerX: raw.centerX, centerY: raw.centerY, scale: raw.scale }
           : null;
 
+      const paths: MapPath[] = Array.isArray(data.paths)
+        ? data.paths.map((path: MapPath) => ({
+            id: path.id,
+            name: path.name,
+            points: Array.isArray(path.points) ? path.points : [],
+            assignments: Array.isArray(path.assignments)
+              ? path.assignments
+              : [],
+            direction:
+              typeof path.direction === "number" ? path.direction : undefined,
+          }))
+        : [];
+
       return {
         units: data.units || [],
+        paths,
         selectedMapFilename: data.selectedMapFilename ?? null,
         viewport,
       };

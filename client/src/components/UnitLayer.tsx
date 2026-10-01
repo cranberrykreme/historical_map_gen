@@ -1,8 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import API_BASE_URL from "../config/api";
 import { Unit } from "../types";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
+import {
+  effectiveForward,
+  forwardFromPointer,
+  unitFacing,
+} from "../utils/unitFacing";
 
 interface UnitLayerProps {
   units: Unit[];
@@ -11,6 +16,8 @@ interface UnitLayerProps {
   isShiftHeld: boolean;
   setCursor: (cursor: string) => void;
 }
+
+const ARROW_LENGTH = 64; // in the unit's own space, so it scales with the unit
 
 function UnitLayer({
   units,
@@ -34,6 +41,13 @@ function UnitLayer({
   const commitGroupMove = useMapStore((state) => state.commitGroupMove);
   const commitGroupRotate = useMapStore((state) => state.commitGroupRotate);
   const commitGroupScale = useMapStore((state) => state.commitGroupScale);
+  const setUnitForward = useMapStore((state) => state.setUnitForward);
+
+  // The arrow shows the angle being dragged before it is committed
+  const [forwardDraft, setForwardDraft] = useState<{
+    id: string;
+    angle: number;
+  } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent, unitId: string) => {
     if (e.button !== 0) return;
@@ -190,6 +204,44 @@ function UnitLayer({
     window.addEventListener("mouseup", handleMouseUp);
   };
 
+  const handleForwardHandleMouseDown = (e: React.MouseEvent, unit: Unit) => {
+    if (e.button !== 0 || e.shiftKey) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    // The unit's centre on screen: the arrow angle is measured from here
+    const wrapper = (e.currentTarget as HTMLElement).closest("[data-unit]");
+    if (!wrapper) return;
+    const rect = wrapper.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    isDraggingUnit.current = true; // stops the map from panning under the drag
+    const start = unitFacing(unit).forwardAngle;
+    let latest = start;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      latest = forwardFromPointer(
+        moveEvent.clientX - centerX,
+        moveEvent.clientY - centerY,
+        unit.rotation,
+        !!unit.flipped
+      );
+      setForwardDraft({ id: unit.id, angle: latest });
+    };
+
+    const handleMouseUp = () => {
+      isDraggingUnit.current = false;
+      setForwardDraft(null);
+      if (latest !== start) setUnitForward(unit.id, latest);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
   return (
     <div
       style={{
@@ -203,15 +255,21 @@ function UnitLayer({
     >
       {units.map((unit) => {
         const isSelected = selectedUnitIds.has(unit.id);
+        const showForward = isSelected && selectedUnitIds.size === 1;
+        const forwardAngle =
+          forwardDraft && forwardDraft.id === unit.id
+            ? forwardDraft.angle
+            : unitFacing(unit).forwardAngle;
+        const arrowAngle = effectiveForward(forwardAngle, !!unit.flipped);
         return (
           <div
             key={unit.id}
             data-unit="true"
             style={{
               position: "absolute",
-              left: unit.x,
-              top: unit.y,
-              transform: `translate(-50%, -50%) rotate(${unit.rotation}deg) scale(${unit.scale})`,
+              left: 0,
+              top: 0,
+              transform: `translate(${unit.x}px, ${unit.y}px) translate(-50%, -50%) rotate(${unit.rotation}deg) scale(${unit.scale})`,
               transformOrigin: "center center",
               pointerEvents: "all",
               zIndex: isSelected ? 1000 : 1,
@@ -232,6 +290,62 @@ function UnitLayer({
               onMouseDown={(e) => handleMouseDown(e, unit.id)}
               draggable={false}
             />
+
+            {/* Forwards arrow (drawn before the other handles so they stay on top) */}
+            {showForward && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: 0,
+                  height: 0,
+                  transform: `rotate(${arrowAngle}deg)`,
+                  pointerEvents: "none",
+                  filter: "drop-shadow(0 0 1px rgba(26, 18, 37, 0.9))",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: -1,
+                    width: ARROW_LENGTH,
+                    height: 2,
+                    background: "#c8a84b",
+                    pointerEvents: "none",
+                  }}
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    left: ARROW_LENGTH - 2,
+                    top: -6,
+                    width: 0,
+                    height: 0,
+                    borderTop: "6px solid transparent",
+                    borderBottom: "6px solid transparent",
+                    borderLeft: "10px solid #c8a84b",
+                    pointerEvents: "none",
+                  }}
+                />
+                <div
+                  title="Drag to set which way this unit faces"
+                  onMouseDown={(e) => handleForwardHandleMouseDown(e, unit)}
+                  style={{
+                    position: "absolute",
+                    left: ARROW_LENGTH - 9,
+                    top: -12,
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    cursor: isShiftHeld ? "default" : "grab",
+                    pointerEvents: "all",
+                  }}
+                />
+              </div>
+            )}
+
             {isSelected && (
               <>
                 <div
