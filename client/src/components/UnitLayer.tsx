@@ -15,6 +15,7 @@ interface UnitLayerProps {
   isDraggingUnit: React.RefObject<boolean>;
   isShiftHeld: boolean;
   setCursor: (cursor: string) => void;
+  locked: boolean;
 }
 
 const ARROW_LENGTH = 64; // in the unit's own space, so it scales with the unit
@@ -25,6 +26,7 @@ function UnitLayer({
   isDraggingUnit,
   isShiftHeld,
   setCursor,
+  locked,
 }: UnitLayerProps) {
   const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const selectUnit = useMapStore((state) => state.selectUnit);
@@ -50,7 +52,7 @@ function UnitLayer({
   } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent, unitId: string) => {
-    if (e.button !== 0) return;
+    if (locked || e.button !== 0) return;
     if (e.shiftKey) {
       selectUnit(unitId, true);
       return;
@@ -255,7 +257,7 @@ function UnitLayer({
     >
       {units.map((unit) => {
         const isSelected = selectedUnitIds.has(unit.id);
-        const showForward = isSelected && selectedUnitIds.size === 1;
+        const showForward = isSelected && selectedUnitIds.size === 1 && !locked;
         const forwardAngle =
           forwardDraft && forwardDraft.id === unit.id
             ? forwardDraft.angle
@@ -281,7 +283,7 @@ function UnitLayer({
               style={{
                 width: "48px",
                 height: "auto",
-                cursor: isShiftHeld ? "default" : "move",
+                cursor: isShiftHeld || locked ? "default" : "move",
                 userSelect: "none",
                 display: "block",
                 transform: unit.flipped ? "scaleX(-1)" : undefined,
@@ -346,7 +348,7 @@ function UnitLayer({
               </div>
             )}
 
-            {isSelected && (
+            {isSelected && !locked && (
               <>
                 <div
                   onMouseDown={(e) => handleRotateHandleMouseDown(e, unit.id)}

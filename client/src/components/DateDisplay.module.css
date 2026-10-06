@@ -1,0 +1,15 @@
+.date {
+    position: fixed;
+    top: var(--space-md);
+    left: var(--space-md);
+    z-index: 900;
+    padding: var(--space-sm) var(--space-lg);
+    background: rgba(26, 18, 37, 0.8);
+    border: 1px solid var(--color-gold-dim);
+    border-radius: var(--radius-md);
+    color: var(--color-gold);
+    font-family: var(--font-display, var(--font-ui));
+    font-size: 28px;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+  }

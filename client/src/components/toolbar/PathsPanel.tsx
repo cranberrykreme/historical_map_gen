@@ -3,12 +3,13 @@ import ToolbarButton from "./ToolbarButton";
 import { useMapStore } from "../../store/useMapStore";
 import { useAssetStore } from "../../store/useAssetStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
-import { playbackLength } from "../../utils/pathPlayback";
+import { getTimeline } from "../../utils/timeline";
 import { unitFacing } from "../../utils/unitFacing";
 import { TravelMode, Unit } from "../../types";
 import API_BASE_URL from "../../config/api";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PathsPanel.module.css";
+import { useTimelineStore } from "../../store/useTimelineStore";
 
 const PLAY_SPEED = 100; // map units per second at 1x
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2];
@@ -140,7 +141,9 @@ function PathsPanel() {
     const { paths: allPaths, placedUnits: allUnits } = useMapStore.getState();
     const path = allPaths.find((p) => p.id === selectedPathId);
     // The whole run: the pivot on the spot at the start, then the journey along the path
-    const length = path ? playbackLength(path, allUnits) : 0;
+    const length =
+      getTimeline(allPaths, allUnits).playbacks.get(selectedPathId)?.length ??
+      0;
     if (!path || length === 0) {
       setIsPlaying(false);
       return;
@@ -375,7 +378,10 @@ function PathsPanel() {
                     <div className={styles.actions}>
                       <button
                         className={styles.finishButton}
-                        onClick={() => setIsPlaying((playing) => !playing)}
+                        onClick={() => {
+                          useTimelineStore.getState().pause();
+                          setIsPlaying((playing) => !playing);
+                        }}
                       >
                         {isPlaying ? "Pause" : "Play"}
                       </button>
@@ -405,7 +411,10 @@ function PathsPanel() {
                     </div>
                     <PlaybackSlider
                       pathId={selectedPath.id}
-                      onScrub={() => setIsPlaying(false)}
+                      onScrub={() => {
+                        setIsPlaying(false);
+                        useTimelineStore.getState().pause();
+                      }}
                     />
                     <p className={styles.hint}>
                       Preview only: your units go back to their real positions

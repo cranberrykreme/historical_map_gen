@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MapCanvas from "../components/MapCanvas";
 import Toolbar from "../components/toolbar/Toolbar";
@@ -6,29 +6,28 @@ import AssetTypePopup from "../components/AssetTypePopup";
 import DropZoneOverlay from "../components/DropZoneOverlay";
 import PsdEditor from "../components/psd-editor/PsdEditor";
 import PortraitEditor from "../components/portrait-editor/PortraitEditor";
+import ProjectHeader, { SaveStatus } from "../components/ProjectHeader";
 import { AssetType, ViewportApi } from "../types";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
+import { usePathToolStore } from "../store/usePathToolStore";
 import useHistory from "../hooks/useHistory";
 import useProject from "../hooks/useProject";
 import API_BASE_URL from "../config/api";
 import styles from "../App.module.css";
-import ProjectHeader from "../components/ProjectHeader";
-import { usePathToolStore } from "../store/usePathToolStore";
+import Timeline from "../components/Timeline";
+import { useTimelineStore } from "../store/useTimelineStore";
+import DateDisplay from "../components/DateDisplay";
 
 function ProjectView() {
   const { projectName } = useParams<{ projectName: string }>();
+  const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const setCurrentProject = useAssetStore((state) => state.setCurrentProject);
   const navigate = useNavigate();
   const viewportApiRef = useRef<ViewportApi | null>(null);
 
   const { undo, redo } = useHistory();
   const { saveProject, loadProject } = useProject(projectName ?? "default");
-  const placedUnits = useMapStore((state) => state.placedUnits);
-  const paths = useMapStore((state) => state.paths);
-  const isDrawingPath = usePathToolStore(
-    (state) => state.drawingPoints !== null
-  );
   const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
   const removeSelectedUnits = useMapStore((state) => state.removeSelectedUnits);
   const setPlacedUnits = useMapStore((state) => state.setPlacedUnits);
@@ -41,15 +40,21 @@ function ProjectView() {
   const cleanupDeletedAsset = useMapStore((state) => state.cleanupDeletedAsset);
   const cleanupRenamedAsset = useMapStore((state) => state.cleanupRenamedAsset);
   const resetMapState = useMapStore((state) => state.resetMapState);
+  const canUndo = useMapStore((state) => state.past.length > 0);
+  const setDateMarkers = useMapStore((state) => state.setDateMarkers);
+  const setDateMode = useMapStore((state) => state.setDateMode);
+
+  const isDrawingPath = usePathToolStore(
+    (state) => state.drawingPoints !== null
+  );
 
   const fetchAssetList = useAssetStore((state) => state.fetchAssetList);
   const deleteAsset = useAssetStore((state) => state.deleteAsset);
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [editingPsd, setEditingPsd] = useState<string | null>(null);
-  const [editingPortraitSource, setEditingPortraitSource] = useState<
-    string | null
-  >(null);
+  const [portraitSource, setPortraitSource] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   useEffect(() => {
     if (!projectName) {
@@ -57,6 +62,7 @@ function ProjectView() {
       return;
     }
     resetMapState();
+    useTimelineStore.getState().reset();
     setCurrentProject(projectName);
     fetchAssetList("units");
     fetchAssetList("portraits");
@@ -68,6 +74,8 @@ function ProjectView() {
       ({
         units,
         paths: loadedPaths,
+        dateMarkers,
+        dateMode,
         selectedMapFilename: loadedMap,
         viewport,
       }) => {
@@ -77,6 +85,8 @@ function ProjectView() {
         if (loadedPaths.length > 0) {
           setPaths(loadedPaths);
         }
+        setDateMarkers(dateMarkers);
+        setDateMode(dateMode);
         if (loadedMap) {
           setSelectedMap(loadedMap);
         }
@@ -85,11 +95,44 @@ function ProjectView() {
         }
       }
     );
-  }, [loadProject, setPlacedUnits, setPaths, setSelectedMap]);
+  }, [
+    loadProject,
+    setPlacedUnits,
+    setPaths,
+    setDateMarkers,
+    setDateMode,
+    setSelectedMap,
+  ]);
+
+  // One save for both ⌘S and the Save button. It reads the store directly, so it always
+  // saves what is there right now.
+  const handleSave = useCallback(async () => {
+    setSaveStatus("saving");
+    const state = useMapStore.getState();
+    const saved = await saveProject({
+      units: state.placedUnits,
+      paths: state.paths,
+      dateMarkers: state.dateMarkers,
+      dateMode: state.dateMode,
+      selectedMapFilename: state.selectedMapFilename,
+      viewport: viewportApiRef.current?.get(),
+    });
+    setSaveStatus(saved ? "saved" : "failed");
+    window.setTimeout(() => setSaveStatus("idle"), 1500);
+  }, [saveProject]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (editingPsd || editingPortraitSource || isDrawingPath) return;
+      // ⌘S saves from anywhere, even while typing in a field. Leaving the field first applies
+      // what was typed, so the edit is part of the save.
+      if (e.metaKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (document.activeElement instanceof HTMLElement)
+          document.activeElement.blur();
+        handleSave();
+        return;
+      }
+      if (editingPsd || portraitSource || isDrawingPath) return;
 
       // Don't hijack keys while typing in a text field (rename, new folder, ...)
       const target = e.target as HTMLElement | null;
@@ -97,6 +140,7 @@ function ProjectView() {
         target &&
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
           target.isContentEditable)
       ) {
         return;
@@ -136,15 +180,6 @@ function ProjectView() {
         e.preventDefault();
         undo();
       }
-      if (e.metaKey && e.key === "s") {
-        e.preventDefault();
-        saveProject({
-          units: placedUnits,
-          paths,
-          selectedMapFilename,
-          viewport: viewportApiRef.current?.get(),
-        });
-      }
       if (e.metaKey && e.key === "c") {
         e.preventDefault();
         copySelectedUnits();
@@ -169,15 +204,13 @@ function ProjectView() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     editingPsd,
-    editingPortraitSource,
+    portraitSource,
+    isDrawingPath,
     selectedUnitIds,
-    placedUnits,
-    paths,
     undo,
     redo,
     removeSelectedUnits,
-    saveProject,
-    selectedMapFilename,
+    handleSave,
     copySelectedUnits,
     pasteUnits,
     flipSelectedUnits,
@@ -236,6 +269,8 @@ function ProjectView() {
     saveProject({
       units: state.placedUnits,
       paths: state.paths,
+      dateMarkers: state.dateMarkers,
+      dateMode: state.dateMode,
       selectedMapFilename: state.selectedMapFilename,
     });
   };
@@ -256,10 +291,24 @@ function ProjectView() {
 
   if (!projectName) return null;
 
+  // The map is only shown once the stores belong to this project. Before that they still
+  // hold the previous project's name and map, and the map would fetch the wrong file.
+  const storesReady = currentProjectName === projectName;
+
   return (
     <div className={styles.app}>
-      <ProjectHeader projectName={projectName} />
-      <MapCanvas key={projectName} viewportApiRef={viewportApiRef} />
+      <ProjectHeader
+        projectName={projectName}
+        onSave={handleSave}
+        onUndo={undo}
+        canUndo={canUndo && !isDrawingPath}
+        saveStatus={saveStatus}
+      />
+      {storesReady && (
+        <MapCanvas key={projectName} viewportApiRef={viewportApiRef} />
+      )}
+      {storesReady && <Timeline />}
+      {storesReady && <DateDisplay />}
       <Toolbar
         onAddAsset={handleAddAsset}
         selectedMapFilename={selectedMapFilename}
@@ -269,7 +318,7 @@ function ProjectView() {
         }
         onAssetRenamed={handleAssetRenamed}
         onSelectPsd={setEditingPsd}
-        onSelectPortraitSource={setEditingPortraitSource}
+        onSelectPortraitSource={setPortraitSource}
       />
       <DropZoneOverlay onFilesDrop={handleFilesSelected} />
       <AssetTypePopup
@@ -280,10 +329,10 @@ function ProjectView() {
       {editingPsd && (
         <PsdEditor psdName={editingPsd} onClose={() => setEditingPsd(null)} />
       )}
-      {editingPortraitSource && (
+      {portraitSource && (
         <PortraitEditor
-          sourceName={editingPortraitSource}
-          onClose={() => setEditingPortraitSource(null)}
+          sourceName={portraitSource}
+          onClose={() => setPortraitSource(null)}
         />
       )}
     </div>

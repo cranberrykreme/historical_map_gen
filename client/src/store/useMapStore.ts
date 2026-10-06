@@ -1,5 +1,14 @@
 import { create } from "zustand";
-import { Unit, AssetType, MapPath, PathPoint, TravelMode } from "../types";
+import {
+  Unit,
+  AssetType,
+  MapPath,
+  PathPoint,
+  TravelMode,
+  DateMarker,
+  DateMode,
+} from "../types";
+import { CalendarDate, clampDate } from "../utils/dates";
 import {
   attachUnits,
   changeFormationMode,
@@ -7,6 +16,15 @@ import {
   reanchorPaths,
   rerecordSlots,
 } from "../utils/formation";
+import {
+  chainedPathIds,
+  clampTiming,
+  defaultDuration,
+  getTimeline,
+  handoverUnits,
+  syncChainedStarts,
+} from "../utils/timeline";
+import { createPlayback } from "../utils/pathPlayback";
 
 interface DragPosition {
   id: string;
@@ -33,6 +51,7 @@ interface GroupDragDelta {
 interface Snapshot {
   units: Unit[];
   paths: MapPath[];
+  dateMarkers: DateMarker[];
 }
 
 interface MapStore {
@@ -119,6 +138,19 @@ interface MapStore {
   detachUnitFromPath: (pathId: string, unitId: string) => void;
   refreshPathFormation: (pathId: string) => void;
   setFormationMode: (pathId: string, mode: FormationMode) => void;
+  setPathTiming: (id: string, start: number, end: number) => void;
+
+  // Dates shown over the video (setDateMarkers is for loading and bypasses history)
+  dateMarkers: DateMarker[];
+  dateMode: DateMode;
+  setDateMarkers: (markers: DateMarker[]) => void;
+  setDateMode: (mode: DateMode) => void;
+  addDateMarker: (time: number, date: CalendarDate) => string;
+  updateDateMarker: (
+    id: string,
+    patch: Partial<Omit<DateMarker, "id">>
+  ) => void;
+  deleteDateMarker: (id: string) => void;
 
   // Track Map files
   selectedMapFilename: string | null;
@@ -132,7 +164,14 @@ interface MapStore {
 // Spread this into a set() call: set({ ...withHistory(get()), placedUnits: ... })
 function withHistory(state: MapStore) {
   return {
-    past: [...state.past, { units: state.placedUnits, paths: state.paths }],
+    past: [
+      ...state.past,
+      {
+        units: state.placedUnits,
+        paths: state.paths,
+        dateMarkers: state.dateMarkers,
+      },
+    ],
     future: [] as Snapshot[],
   };
 }
@@ -198,6 +237,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   // Initial state
   placedUnits: [],
   paths: [],
+  dateMarkers: [],
+  dateMode: "months",
   selectedUnitIds: new Set(),
   selectedPathId: null,
   dragPosition: null,
@@ -221,8 +262,13 @@ export const useMapStore = create<MapStore>((set, get) => ({
       past: state.past.slice(0, -1),
       placedUnits: previous.units,
       paths: previous.paths,
+      dateMarkers: previous.dateMarkers,
       future: [
-        { units: state.placedUnits, paths: state.paths },
+        {
+          units: state.placedUnits,
+          paths: state.paths,
+          dateMarkers: state.dateMarkers,
+        },
         ...state.future,
       ],
       ...reconcileSelection(state, previous.units, previous.paths),
@@ -234,9 +280,17 @@ export const useMapStore = create<MapStore>((set, get) => ({
     if (state.future.length === 0) return;
     const next = state.future[0];
     set({
-      past: [...state.past, { units: state.placedUnits, paths: state.paths }],
+      past: [
+        ...state.past,
+        {
+          units: state.placedUnits,
+          paths: state.paths,
+          dateMarkers: state.dateMarkers,
+        },
+      ],
       placedUnits: next.units,
       paths: next.paths,
+      dateMarkers: next.dateMarkers,
       future: state.future.slice(1),
       ...reconcileSelection(state, next.units, next.paths),
     });
@@ -301,18 +355,59 @@ export const useMapStore = create<MapStore>((set, get) => ({
 
   updatePathPoints: (id, points) => {
     const state = get();
+    const path = state.paths.find((p) => p.id === id);
+    if (!path || points.length === 0) return;
+
+    // Moving the start of an army's first march moves the army with it, the same way moving
+    // the army moves the start. Its formation, and where it arrives, stay as they were.
+    const dx = points[0].x - path.points[0].x;
+    const dy = points[0].y - path.points[0].y;
+    const startMoved = Math.abs(dx) > 1e-9 || Math.abs(dy) > 1e-9;
+    const chained = chainedPathIds(state.paths);
+
+    if (
+      startMoved &&
+      points.length === path.points.length &&
+      path.assignments.length > 0 &&
+      !chained.has(id)
+    ) {
+      const armyIds = new Set(path.assignments.map((a) => a.unitId));
+      const placedUnits = state.placedUnits.map((unit) =>
+        armyIds.has(unit.id)
+          ? { ...unit, x: unit.x + dx, y: unit.y + dy }
+          : unit
+      );
+      const edited = state.paths.map((p) =>
+        p.id === id
+          ? { ...p, points, assignments: rerecordSlots(p, points, placedUnits) }
+          : p
+      );
+      set({
+        ...withHistory(state),
+        placedUnits,
+        // Any other first march of the same units follows them too
+        paths: reanchorPaths(
+          edited,
+          state.placedUnits,
+          placedUnits,
+          new Set([...Array.from(chained), id])
+        ),
+      });
+      return;
+    }
+
     set({
       ...withHistory(state),
-      paths: state.paths.map((path) =>
-        path.id === id
+      paths: state.paths.map((p) =>
+        p.id === id
           ? {
-              ...path,
+              ...p,
               points,
               // Editing the route can change the start heading, so re-measure the formation
               // from where the units are now and nothing jumps when playback starts
-              assignments: rerecordSlots(path, points, state.placedUnits),
+              assignments: rerecordSlots(p, points, state.placedUnits),
             }
-          : path
+          : p
       ),
     });
   },
@@ -367,12 +462,17 @@ export const useMapStore = create<MapStore>((set, get) => ({
     const strip = (snapshot: Snapshot): Snapshot => {
       const units = snapshot.units.filter((unit) => !usesAsset(unit));
       return {
+        ...snapshot,
         units,
         paths: keepAssignments(snapshot.paths, new Set(units.map((u) => u.id))),
       };
     };
 
-    const current = strip({ units: state.placedUnits, paths: state.paths });
+    const current = strip({
+      units: state.placedUnits,
+      paths: state.paths,
+      dateMarkers: state.dateMarkers,
+    });
     const remainingIds = new Set(current.units.map((unit) => unit.id));
 
     set({
@@ -409,7 +509,12 @@ export const useMapStore = create<MapStore>((set, get) => ({
       dragPosition: null,
       placedUnits,
       // Attached units that moved keep their place in the formation (see reanchorPaths)
-      paths: reanchorPaths(state.paths, state.placedUnits, placedUnits),
+      paths: reanchorPaths(
+        state.paths,
+        state.placedUnits,
+        placedUnits,
+        chainedPathIds(state.paths)
+      ),
     });
   },
 
@@ -446,7 +551,12 @@ export const useMapStore = create<MapStore>((set, get) => ({
       ...withHistory(state),
       groupDragDelta: null,
       placedUnits,
-      paths: reanchorPaths(state.paths, state.placedUnits, placedUnits),
+      paths: reanchorPaths(
+        state.paths,
+        state.placedUnits,
+        placedUnits,
+        chainedPathIds(state.paths)
+      ),
     });
   },
 
@@ -559,21 +669,41 @@ export const useMapStore = create<MapStore>((set, get) => ({
 
   // Attaches the selected units to a path and records each one's place in the formation
   // (see attachUnits for how the path's start is handled). One undo step.
+  //
+  // Units that already march along other paths are picked up where those marches leave them,
+  // and this movement is scheduled to begin when the last of those marches ends.
   attachSelectedUnitsToPath: (pathId) => {
     const state = get();
     const path = state.paths.find((p) => p.id === pathId);
-    const units = state.placedUnits.filter((unit) =>
+    const selected = state.placedUnits.filter((unit) =>
       state.selectedUnitIds.has(unit.id)
     );
-    if (!path || units.length === 0) return false;
+    if (!path || selected.length === 0) return false;
 
-    const attachment = attachUnits(path, units);
+    const others = state.paths.filter((p) => p.id !== pathId);
+    const handover = handoverUnits(others, state.placedUnits, selected);
+
+    const attachment = attachUnits(path, handover.units);
     if (!attachment) return false;
+
+    // A movement whose timing has already been set keeps it
+    const schedule =
+      handover.time !== null && path.start === undefined
+        ? {
+            start: handover.time,
+            end:
+              handover.time +
+              defaultDuration(
+                createPlayback({ ...path, ...attachment }, handover.units)
+                  .length
+              ),
+          }
+        : {};
 
     set({
       ...withHistory(state),
       paths: state.paths.map((p) =>
-        p.id === pathId ? { ...p, ...attachment } : p
+        p.id === pathId ? { ...p, ...attachment, ...schedule } : p
       ),
       selectedPathId: pathId,
     });
@@ -595,17 +725,18 @@ export const useMapStore = create<MapStore>((set, get) => ({
     });
   },
 
-  // Re-records a path's formation from where its units are, and the way they face, right now
+  // Re-records a path's formation from where its units stand when the movement begins (where
+  // they were placed, or where an earlier march leaves them), and the way they face then
   refreshPathFormation: (pathId) => {
     const state = get();
     const path = state.paths.find((p) => p.id === pathId);
     if (!path || path.assignments.length === 0) return;
 
-    const ids = new Set(path.assignments.map((a) => a.unitId));
-    const attachment = attachUnits(
-      path,
-      state.placedUnits.filter((unit) => ids.has(unit.id))
+    const standing = getTimeline(state.paths, state.placedUnits).standing.get(
+      pathId
     );
+    if (!standing) return;
+    const attachment = attachUnits(path, standing);
     if (!attachment) return;
 
     set({
@@ -632,6 +763,56 @@ export const useMapStore = create<MapStore>((set, get) => ({
     });
   },
 
+  // When a movement plays on the timeline, in seconds. One undo step.
+  setPathTiming: (id, start, end) => {
+    const state = get();
+    const timing = clampTiming(start, end);
+    set({
+      ...withHistory(state),
+      paths: state.paths.map((path) =>
+        path.id === id
+          ? { ...path, start: timing.start, end: timing.end }
+          : path
+      ),
+    });
+  },
+
+  setDateMarkers: (dateMarkers) => set({ dateMarkers }),
+
+  setDateMode: (dateMode) => set({ dateMode }),
+
+  // A date shown over the video from this point on the timeline. One undo step.
+  addDateMarker: (time, date) => {
+    const state = get();
+    const marker: DateMarker = {
+      id: `date-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      time: Math.max(time, 0),
+      ...clampDate(date),
+    };
+    set({ ...withHistory(state), dateMarkers: [...state.dateMarkers, marker] });
+    return marker.id;
+  },
+
+  updateDateMarker: (id, patch) => {
+    const state = get();
+    set({
+      ...withHistory(state),
+      dateMarkers: state.dateMarkers.map((marker) => {
+        if (marker.id !== id) return marker;
+        const next = { ...marker, ...patch };
+        return { ...next, time: Math.max(next.time, 0), ...clampDate(next) };
+      }),
+    });
+  },
+
+  deleteDateMarker: (id) => {
+    const state = get();
+    set({
+      ...withHistory(state),
+      dateMarkers: state.dateMarkers.filter((marker) => marker.id !== id),
+    });
+  },
+
   setSelectedMap: (filename) => set({ selectedMapFilename: filename }),
 
   resetMapState: () =>
@@ -641,6 +822,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
       clipboard: [],
       placedUnits: [],
       paths: [],
+      dateMarkers: [],
+      dateMode: "months",
       selectedUnitIds: new Set(),
       selectedPathId: null,
       dragPosition: null,
@@ -663,6 +846,19 @@ export const useMapStore = create<MapStore>((set, get) => ({
     set({ placedUnits: updatedUnits });
   },
 }));
+
+// Keeps every chained movement's start point where its units arrive, whatever changed:
+// reshaping or re-timing an earlier march, moving units, undoing, loading a project. It is
+// derived from the document, so it adds no undo steps of its own.
+useMapStore.subscribe((state, previous) => {
+  if (
+    state.paths === previous.paths &&
+    state.placedUnits === previous.placedUnits
+  )
+    return;
+  const synced = syncChainedStarts(state.paths, state.placedUnits);
+  if (synced !== state.paths) useMapStore.setState({ paths: synced });
+});
 
 // Development only: lets you poke at the store from the browser console,
 // e.g. mapStore.getState().paths

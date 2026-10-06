@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../store/useMapStore";
 import { usePathToolStore } from "../store/usePathToolStore";
 import {
@@ -7,6 +7,7 @@ import {
   svgPathData,
 } from "../utils/pathGeometry";
 import { MapPath, PathPoint } from "../types";
+import { chainedPathIds } from "../utils/timeline";
 
 interface PathLayerProps {
   // "lines" sits under the units and can be clicked; "markers" sits above them
@@ -48,6 +49,7 @@ function PathLayer({
   isDraggingUnit,
 }: PathLayerProps) {
   const paths = useMapStore((state) => state.paths);
+  const chainedIds = useMemo(() => chainedPathIds(paths), [paths]);
   const selectedPathId = useMapStore((state) => state.selectedPathId);
   const selectPath = useMapStore((state) => state.selectPath);
   const attachSelectedUnitsToPath = useMapStore(
@@ -307,18 +309,21 @@ function PathLayer({
             selectedWaypoint.index === index;
           return (
             <g key={index}>
-              {/* Larger invisible circle: an easy target to grab */}
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={px(13)}
-                style={{
-                  fill: "rgba(0, 0, 0, 0)",
-                  pointerEvents: "all",
-                  cursor: "move",
-                }}
-                onMouseDown={(e) => startWaypointDrag(e, selectedPath, index)}
-              />
+              {/* Larger invisible circle: an easy target to grab. A chained movement's start
+                  can't be moved: it always sits where its units arrive. */}
+              {!(index === 0 && chainedIds.has(selectedPath.id)) && (
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={px(13)}
+                  style={{
+                    fill: "rgba(0, 0, 0, 0)",
+                    pointerEvents: "all",
+                    cursor: "move",
+                  }}
+                  onMouseDown={(e) => startWaypointDrag(e, selectedPath, index)}
+                />
+              )}
               <circle
                 cx={point.x}
                 cy={point.y}

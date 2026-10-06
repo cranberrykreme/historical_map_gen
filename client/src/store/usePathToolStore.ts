@@ -138,6 +138,10 @@ export const usePathToolStore = create<PathToolStore>((set, get) => ({
     ) {
       return false;
     }
+    // The start of a march is where its units stand, so it can't be removed
+    if (selectedWaypoint.index === 0 && path.assignments.length > 0) {
+      return false;
+    }
     useMapStore.getState().updatePathPoints(
       path.id,
       path.points.filter((_, i) => i !== selectedWaypoint.index)

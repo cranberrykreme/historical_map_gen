@@ -1,61 +1,90 @@
 .header {
-    position: fixed;
-    top: var(--space-md);
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    z-index: 1000;
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-full);
-    background: transparent;
-    border: 1px solid transparent;
-    transition: background var(--toolbar-transition), border-color var(--toolbar-transition), padding var(--toolbar-transition);
-    cursor: pointer;
-  }
-  
-  .headerExpanded {
-    background: var(--color-surface);
-    border-color: var(--color-border-subtle);
-    padding: var(--space-xs) var(--space-md);
-  }
-  
-  .homeButton {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-full);
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-text-dim);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    flex-shrink: 0;
-    opacity: 0.5;
-    transition: border-color var(--toolbar-transition), color var(--toolbar-transition), background var(--toolbar-transition), opacity var(--toolbar-transition);
-  }
-  
-  .homeButton:hover {
-    border-color: var(--color-gold);
-    color: var(--color-gold);
-    background: var(--color-surface-raised);
-    opacity: 1;
-  }
-  
-  .projectName {
-    color: var(--color-text-secondary);
-    font-family: var(--font-ui);
-    font-size: var(--font-size-md);
-    white-space: nowrap;
-    overflow: hidden;
-    max-width: 0;
-    opacity: 0;
-    transition: max-width var(--toolbar-transition), opacity var(--toolbar-transition);
-  }
-  
-  .projectNameVisible {
-    max-width: 240px;
-    opacity: 1;
-  }
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%) scale(0.75);
+  transform-origin: top center;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  opacity: 0.6;
+  transition: opacity var(--toolbar-transition), transform var(--toolbar-transition);
+}
+
+.active {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+.iconButton {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--color-gold);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background var(--toolbar-transition), border-color var(--toolbar-transition);
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-gold-dim);
+}
+
+.iconButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.projectName {
+  color: var(--color-text-primary);
+  font-family: var(--font-display, var(--font-ui));
+  font-size: var(--font-size-md);
+  white-space: nowrap;
+  padding: 0 var(--space-xs);
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+}
+
+.saveButton {
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-gold-subtle);
+  border: 1px solid var(--color-gold);
+  border-radius: var(--radius-sm);
+  color: var(--color-gold);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.status {
+  color: var(--color-gold);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  padding-right: var(--space-sm);
+}
+
+.statusFailed {
+  color: #e05a5a;
+}

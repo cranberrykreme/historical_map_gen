@@ -11,7 +11,8 @@ import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
 import { usePathToolStore } from "../store/usePathToolStore";
 import { ViewportApi } from "../types";
-import { createPlayback } from "../utils/pathPlayback";
+import { useTimelineStore } from "../store/useTimelineStore";
+import { getTimeline } from "../utils/timeline";
 
 function MapCanvas({
   viewportApiRef,
@@ -50,22 +51,37 @@ function MapCanvas({
   );
   const paths = useMapStore((state) => state.paths);
   const preview = usePathToolStore((state) => state.preview);
+  const timelineTime = useTimelineStore((state) => state.time);
+  const draftTiming = useTimelineStore((state) => state.draftTiming);
 
-  // While previewing a path, its attached units are shown along the path (display only).
-  // The plan (sampling, pivot, mirroring) is worked out once, not on every frame.
-  const previewPath = preview
-    ? paths.find((path) => path.id === preview.pathId)
-    : undefined;
-  const playbackPlan = useMemo(
-    () => (previewPath ? createPlayback(previewPath, placedUnits) : null),
-    [previewPath, placedUnits]
+  // Everything about the paths (sampling, pivots, who is where when) is worked out once per
+  // change, and each frame just looks it up
+  const timeline = useMemo(
+    () => getTimeline(paths, placedUnits),
+    [paths, placedUnits]
   );
-  const playback =
-    preview && playbackPlan ? playbackPlan.stateAt(preview.progress) : null;
+
+  // While previewing a path on its own, its attached units are shown along it (display only)
+  const playback = preview
+    ? (timeline.playbacks.get(preview.pathId)?.stateAt(preview.progress) ??
+      null)
+    : null;
+
+  // Otherwise the timeline drives the units: each follows the movement that most recently
+  // started for it, and sits where it was placed until then. A path preview wins over it.
+  const timelineActive = !preview && timelineTime > 0;
+  const timelineStates = timelineActive
+    ? timeline.stateAt(
+        timelineTime,
+        draftTiming
+          ? new Map([[draftTiming.pathId, draftTiming.timing]])
+          : undefined
+      )
+    : null;
 
   const displayUnits = placedUnits.map((unit) => {
     let display = { ...unit };
-    const onPath = playback?.get(unit.id);
+    const onPath = playback?.get(unit.id) ?? timelineStates?.get(unit.id);
     if (onPath) {
       display.x = onPath.x;
       display.y = onPath.y;
@@ -235,6 +251,7 @@ function MapCanvas({
           isDraggingUnit={isDraggingUnit}
           isShiftHeld={isShiftHeld}
           setCursor={setCursor}
+          locked={timelineActive}
         />
         <PathLayer
           mode="markers"

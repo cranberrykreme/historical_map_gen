@@ -1,10 +1,20 @@
 import { useCallback } from "react";
 import API_BASE_URL from "../config/api";
-import { Unit, MapPath, ProjectData, SavedViewport } from "../types";
+import {
+  DateMarker,
+  DateMode,
+  MapPath,
+  ProjectData,
+  SavedViewport,
+  Unit,
+} from "../types";
+import { clampDate } from "../utils/dates";
 
 export interface ProjectSnapshot {
   units: Unit[];
   paths: MapPath[];
+  dateMarkers: DateMarker[];
+  dateMode: DateMode;
   selectedMapFilename: string | null;
   // Left out (undefined) for auto-saves; Flask then keeps the last saved view
   viewport?: SavedViewport | null;
@@ -13,17 +23,21 @@ export interface ProjectSnapshot {
 interface LoadedProject {
   units: Unit[];
   paths: MapPath[];
+  dateMarkers: DateMarker[];
+  dateMode: DateMode;
   selectedMapFilename: string | null;
   viewport: SavedViewport | null;
 }
 
 function useProject(projectName: string = "default") {
   const saveProject = useCallback(
-    async (snapshot: ProjectSnapshot) => {
+    async (snapshot: ProjectSnapshot): Promise<boolean> => {
       const projectData: ProjectData = {
         name: projectName,
         units: snapshot.units,
         paths: snapshot.paths,
+        dateMarkers: snapshot.dateMarkers,
+        dateMode: snapshot.dateMode,
         selectedMapFilename: snapshot.selectedMapFilename,
         viewport: snapshot.viewport,
       };
@@ -35,12 +49,10 @@ function useProject(projectName: string = "default") {
           body: JSON.stringify(projectData),
         });
         const data = await response.json();
-
-        if (data.success) {
-          console.log("Project saved successfully");
-        }
+        return !!data.success;
       } catch (error) {
         console.error("Failed to save project: ", error);
+        return false;
       }
     },
     [projectName]
@@ -50,6 +62,8 @@ function useProject(projectName: string = "default") {
     const empty: LoadedProject = {
       units: [],
       paths: [],
+      dateMarkers: [],
+      dateMode: "months",
       selectedMapFilename: null,
       viewport: null,
     };
@@ -76,12 +90,31 @@ function useProject(projectName: string = "default") {
               : [],
             direction:
               typeof path.direction === "number" ? path.direction : undefined,
+            start: typeof path.start === "number" ? path.start : undefined,
+            end: typeof path.end === "number" ? path.end : undefined,
           }))
+        : [];
+
+      const dateMarkers: DateMarker[] = Array.isArray(data.dateMarkers)
+        ? data.dateMarkers
+            .filter(
+              (m: DateMarker) =>
+                m &&
+                typeof m.id === "string" &&
+                [m.time, m.year, m.month, m.day].every(Number.isFinite)
+            )
+            .map((m: DateMarker) => ({
+              id: m.id,
+              time: Math.max(m.time, 0),
+              ...clampDate(m),
+            }))
         : [];
 
       return {
         units: data.units || [],
         paths,
+        dateMarkers,
+        dateMode: data.dateMode === "days" ? "days" : "months",
         selectedMapFilename: data.selectedMapFilename ?? null,
         viewport,
       };

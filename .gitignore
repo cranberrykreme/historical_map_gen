@@ -1,15 +1,41 @@
+# Claude Code (settings, memory, local instructions — never pushed)
+.claude/
+**/.claude/
+CLAUDE.md
+CLAUDE.local.md
+**/CLAUDE.md
+**/CLAUDE.local.md
+.mcp.json
+
 # Python
 server/venv/
-server/__pycache__/
-*.pyc
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
-# React
+# React / Node
 client/node_modules/
 client/build/
+client/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Mac
-.DS_Store
+# Environment / secrets
+.env
+.env.*
+!.env.example
 
-# Assets
+# User data (uploaded assets and saved projects)
 server/assets/
 server/projects/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*~
+*.swp
+.idea/
+.vscode/

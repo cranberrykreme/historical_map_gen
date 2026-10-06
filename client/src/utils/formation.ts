@@ -168,7 +168,8 @@ export function changeFormationMode(
 export function reanchorPaths(
   paths: MapPath[],
   before: FormationUnit[],
-  after: FormationUnit[]
+  after: FormationUnit[],
+  skip: ReadonlySet<string> = new Set()
 ): MapPath[] {
   const beforeById = new Map<string, FormationUnit>(
     before.map((unit): [string, FormationUnit] => [unit.id, unit])
@@ -178,6 +179,7 @@ export function reanchorPaths(
   );
 
   return paths.map((path) => {
+    if (skip.has(path.id)) return path;
     if (path.assignments.length === 0 || path.points.length < 2) return path;
 
     const units: FormationUnit[] = [];

@@ -8,6 +8,7 @@ import {
   playbackLength,
   playbackState,
   PlaybackState,
+  easeTravel,
 } from "./pathPlayback";
 import { normalizeDegrees } from "./unitFacing";
 
@@ -122,10 +123,11 @@ test("units turn on the spot to face the path, then set off with the formation u
     );
   }
 
-  // Facing the path, they set off with the formation exactly as placed
+  // Facing the path, they set off (gently at first) with the formation exactly as placed
+  const travelled = 950 * easeTravel(10 / 950);
   const moving = at(160);
-  expect(moving.get("a")!.x).toBeCloseTo(40, 2);
-  expect(moving.get("b")!.x).toBeCloseTo(80, 2);
+  expect(moving.get("a")!.x).toBeCloseTo(30 + travelled, 2);
+  expect(moving.get("b")!.x).toBeCloseTo(70 + travelled, 2);
   expect(moving.get("a")!.y).toBeCloseTo(100, 5);
   expect(moving.get("a")!.rotation).toBeCloseTo(90, 3);
 
@@ -183,7 +185,10 @@ test("a group that turns with its units pivots as a block, then sets off", () =>
   // Now facing the path, it sets off with the block facing east
   const moving = at(160);
   expect(blockAngle(moving)).toBeCloseTo(90, 3);
-  expect((moving.get("a")!.x + moving.get("b")!.x) / 2).toBeCloseTo(60, 2);
+  expect((moving.get("a")!.x + moving.get("b")!.x) / 2).toBeCloseTo(
+    50 + 950 * easeTravel(10 / 950),
+    2
+  );
 
   const end = at(total);
   expect(end.get("a")!.x).toBeCloseTo(1000, 3);
@@ -303,11 +308,18 @@ test("after the pivot, turning units face the path's heading exactly, round bend
   const total = playbackLength(path, solo);
   const pivotLength = total - sampled.length;
 
-  for (const d of [0, 30, 60, 100, sampled.length]) {
-    const state = playbackState(path, solo, (pivotLength + d) / total).get(
+  // `t` is how far into the travelling we are. The march speeds up and slows down, so the
+  // distance it has covered by then is eased.
+  for (const t of [0, 30, 60, 100, sampled.length]) {
+    const state = playbackState(path, solo, (pivotLength + t) / total).get(
       "a"
     )!;
-    const expected = facingRotation(headingAtDistance(sampled, d), -90, false);
+    const travelled = sampled.length * easeTravel(t / sampled.length);
+    const expected = facingRotation(
+      headingAtDistance(sampled, travelled),
+      -90,
+      false
+    );
     expect(normalizeDegrees(state.rotation - expected)).toBeCloseTo(0, 4);
   }
 });
@@ -428,4 +440,44 @@ test("a prepared playback gives the same answers as one-off calls", () => {
       playbackState(path, units, progress)
     );
   }
+});
+
+test("a march speeds up over its first 10% and slows down over its last 10%", () => {
+  expect(easeTravel(0)).toBe(0);
+  expect(easeTravel(1)).toBe(1);
+  expect(easeTravel(0.5)).toBeCloseTo(0.5, 10);
+
+  // Slow at the start: after 5% of the time it has covered well under 5% of the way
+  expect(easeTravel(0.05)).toBeLessThan(0.02);
+  // The end mirrors the start
+  for (const u of [0.02, 0.07, 0.3]) {
+    expect(easeTravel(u) + easeTravel(1 - u)).toBeCloseTo(1, 10);
+  }
+  // Steady in the middle, a little quicker than average to make up for the gentle ends
+  expect(easeTravel(0.6) - easeTravel(0.5)).toBeCloseTo(0.1 / 0.9, 10);
+  // Never goes backwards
+  let previous = 0;
+  for (let u = 0; u <= 1.0001; u += 0.01) {
+    const s = easeTravel(u);
+    expect(s).toBeGreaterThanOrEqual(previous - 1e-12);
+    previous = s;
+  }
+});
+
+test("a march sets off gently, keeps a steady pace, and settles exactly at its end", () => {
+  const solo = [unit("a", 0, 50, { rotation: 90 })]; // already facing east, so no turning
+  const path = pathFor(
+    [
+      { x: 0, y: 50 },
+      { x: 1000, y: 50 },
+    ],
+    solo
+  );
+  const x = (progress: number) =>
+    playbackState(path, solo, progress).get("a")!.x;
+
+  expect(x(0.01)).toBeLessThan(2); // barely moving yet
+  expect(x(0.6) - x(0.5)).toBeCloseTo(x(0.5) - x(0.4), 6); // steady in the middle
+  expect(x(0.99)).toBeGreaterThan(998); // almost stopped near the end
+  expect(x(1)).toBeCloseTo(1000, 6);
 });

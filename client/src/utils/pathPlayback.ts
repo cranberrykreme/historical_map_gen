@@ -21,6 +21,26 @@ export interface PlaybackState {
 // of playback. 0.6 means a quarter turn takes 150 units (1.5 seconds at 1x). Lower is slower.
 export const PIVOT_DEGREES_PER_UNIT = 0.6;
 
+// How much of each march's travelling time is spent speeding up at the start, and the same
+// again slowing down at the end
+export const EASE_FRACTION = 0.1;
+
+// How far along the route (0 to 1) a march is after `fraction` (0 to 1) of its travelling time.
+// Speed builds up evenly over the first 10%, holds steady, and eases off evenly over the last
+// 10%. The total time doesn't change: the steady part is a little quicker to make up for it.
+export function easeTravel(
+  fraction: number,
+  ramp: number = EASE_FRACTION
+): number {
+  const u = Math.min(Math.max(fraction, 0), 1);
+  if (ramp <= 0) return u;
+  const a = Math.min(ramp, 0.5);
+  const top = 1 / (1 - a); // the steady speed, as a share of the average
+  if (u < a) return (top * u * u) / (2 * a);
+  if (u <= 1 - a) return top * (u - a / 2);
+  return 1 - (top * (1 - u) * (1 - u)) / (2 * a);
+}
+
 const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
 
@@ -115,7 +135,13 @@ export function createPlayback(
     const elapsed = Math.min(Math.max(progress, 0), 1) * total;
 
     const isPivoting = elapsed < pivot.length;
-    const distance = isPivoting ? 0 : elapsed - pivot.length;
+    // Once facing the right way, the march sets off gently, holds a steady pace, and slows
+    // to a stop at the end of the route
+    const distance =
+      isPivoting || sampled.length === 0
+        ? 0
+        : sampled.length *
+          easeTravel((elapsed - pivot.length) / sampled.length);
     const turnedSoFar = isPivoting ? elapsed * pivotRate : Infinity; // degrees
     const turnBy = (needed: number) =>
       Math.sign(needed) * Math.min(Math.abs(needed), turnedSoFar);
