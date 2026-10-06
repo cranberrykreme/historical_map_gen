@@ -11,7 +11,7 @@ import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
 import { usePathToolStore } from "../store/usePathToolStore";
 import { ViewportApi } from "../types";
-import { useTimelineStore } from "../store/useTimelineStore";
+import { isPastStart, useTimelineStore } from "../store/useTimelineStore";
 import { getTimeline } from "../utils/timeline";
 
 function MapCanvas({
@@ -51,7 +51,8 @@ function MapCanvas({
   );
   const paths = useMapStore((state) => state.paths);
   const preview = usePathToolStore((state) => state.preview);
-  const timelineTime = useTimelineStore((state) => state.time);
+  const storyStart = useMapStore((state) => state.storyStart);
+  const now = useTimelineStore((state) => state.now);
   const draftTiming = useTimelineStore((state) => state.draftTiming);
 
   // Everything about the paths (sampling, pivots, who is where when) is worked out once per
@@ -67,17 +68,19 @@ function MapCanvas({
       null)
     : null;
 
-  // Otherwise the timeline drives the units: each follows the movement that most recently
-  // started for it, and sits where it was placed until then. A path preview wins over it.
-  const timelineActive = !preview && timelineTime > 0;
-  const timelineStates = timelineActive
-    ? timeline.stateAt(
-        timelineTime,
-        draftTiming
-          ? new Map([[draftTiming.pathId, draftTiming.timing]])
-          : undefined
-      )
-    : null;
+  // Otherwise, once the playhead is past the story's start, the timeline drives the units:
+  // each follows the march that most recently started for it, and stays where it was placed
+  // until then. A path preview wins over it.
+  const timelineActive = !preview && isPastStart(now, storyStart);
+  const timelineStates =
+    timelineActive && now !== null
+      ? timeline.stateAt(
+          now,
+          draftTiming
+            ? new Map([[draftTiming.pathId, draftTiming.timing]])
+            : undefined
+        )
+      : null;
 
   const displayUnits = placedUnits.map((unit) => {
     let display = { ...unit };

@@ -19,16 +19,44 @@ export interface Unit {
   // "upright" never rotates and mirrors left/right instead (ships, portraits),
   // "fixed" never turns or mirrors. Defaults: units rotate, portraits stay upright.
   travelMode?: TravelMode;
+  // When the unit exists in history (days since 1 January 1970, see utils/historyTime).
+  // Missing means it is there from the start of the story, and never leaves.
+  appears?: number;
+  leaves?: number;
 }
+
+// When a march happens in history (days since 1 January 1970, see utils/historyTime).
+// The first `turn` days are spent turning on the spot, the rest travelling.
+export interface MarchTiming {
+  start: number;
+  end: number;
+  turn: number;
+}
+
+// A moment on the video paired with a moment in history. Kept from the date markers of
+// older projects, ready to become the first shot.
+export interface PacingKey {
+  seconds: number;
+  time: number;
+}
+
+// How the date reads: "October 1066", "14 October 1066", or with the time of day too
+export type HistoryDisplay = "months" | "days" | "times";
+
+// The project file version this app writes. Version 1 (no version field) timed marches in
+// seconds on the video; version 2 dates them in history.
+export const PROJECT_VERSION = 2;
 
 export interface ProjectData {
   name: string;
+  version?: number;
   units: Unit[];
   paths?: MapPath[];
+  storyStart?: number;
+  displayMode?: HistoryDisplay;
+  pacing?: PacingKey[];
   selectedMapFilename?: string | null;
   viewport?: SavedViewport | null;
-  dateMarkers?: DateMarker[];
-  dateMode?: DateMode;
 }
 
 export type ToolbarTabId = "assets" | "psd" | "portrait" | "paths";
@@ -94,16 +122,14 @@ export interface MapPath {
   // -90 = up). Formation slots are measured against it, so the formation keeps its shape
   // whichever way the route leaves. Missing on older paths, which use the start heading.
   direction?: number;
-  // When this path's march plays on the video's timeline, in seconds. Missing means it starts
-  // at 0:00 and lasts as long as the march takes at the default pace.
-  start?: number;
-  end?: number;
+  // When this path's march happens in history. Set when units are attached.
+  march?: MarchTiming;
 }
 
+// From version 1 project files only: how the date was shown, and the date markers that
+// paired seconds on the video with dates. They are converted when the project loads.
 export type DateMode = "months" | "days";
 
-// A date shown over the video from this point on the timeline. Between two markers the date
-// moves a whole number of days at a time.
 export interface DateMarker {
   id: string;
   time: number; // seconds on the video's timeline

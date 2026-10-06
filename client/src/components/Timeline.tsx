@@ -1,193 +1,99 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../store/useMapStore";
 import { usePathToolStore } from "../store/usePathToolStore";
-import { useTimelineStore } from "../store/useTimelineStore";
 import {
-  dragMarkerTime,
-  dragTiming,
-  formatTime,
+  currentMoment,
+  isPastStart,
+  useTimelineStore,
+} from "../store/useTimelineStore";
+import {
+  fitView,
   getTimeline,
-  MovementTiming,
+  HistoryView,
+  keepAfter,
+  snapStepFor,
+  zoomView,
 } from "../utils/timeline";
+import { dragMarch, MarchDragMode } from "../utils/marches";
 import {
-  CalendarDate,
-  clampDate,
-  dateAtTime,
-  formatDate,
-  MONTH_NAMES,
-} from "../utils/dates";
-import { DateMarker, DateMode, MapPath } from "../types";
+  formatDuration,
+  formatHistoryTime,
+  historyTicks,
+  HistoryTime,
+  HOUR,
+} from "../utils/historyTime";
+import { HistoryDisplay, MapPath, MarchTiming } from "../types";
 import styles from "./Timeline.module.css";
 
-const MIN_VIEW = 10; // seconds shown at least
-const VIEW_PADDING = 5; // seconds of room after the last movement or date
-const SPEEDS = [0.5, 1, 2];
-const START_TOLERANCE = 0.05; // a playhead this close to 0:00 counts as being at 0:00
-const DATE_MODES: { mode: DateMode; label: string }[] = [
-  { mode: "months", label: "Months" },
-  { mode: "days", label: "Days" },
+// How much history plays per second of preview
+const PACES: { days: number; label: string }[] = [
+  { days: HOUR, label: "1 hr" },
+  { days: 6 * HOUR, label: "6 hr" },
+  { days: 1, label: "1 day" },
+  { days: 7, label: "1 wk" },
+  { days: 365.2425 / 12, label: "1 mo" },
+  { days: 365.2425, label: "1 yr" },
 ];
 
-// The first date marker of a project, before there is anything to follow
-const FIRST_DATE: CalendarDate = { year: 1066, month: 1, day: 1 };
+const DISPLAYS: { mode: HistoryDisplay; label: string }[] = [
+  { mode: "months", label: "Months" },
+  { mode: "days", label: "Days" },
+  { mode: "times", label: "Times" },
+];
 
-type DragMode = "move" | "start" | "end";
-
-const clock = (seconds: number) => formatTime(seconds).replace(/\.0$/, "");
-
-function tickStepFor(view: number): number {
-  if (view <= 30) return 5;
-  if (view <= 120) return 10;
-  return 30;
-}
-
-// The editor for the selected date marker. Typed numbers are applied when you leave the
-// field or press Enter, so typing a year isn't a string of undo steps.
-function DateMarkerEditor({ marker }: { marker: DateMarker }) {
-  const updateDateMarker = useMapStore((state) => state.updateDateMarker);
-  const deleteDateMarker = useMapStore((state) => state.deleteDateMarker);
-  const selectMarker = useTimelineStore((state) => state.selectMarker);
-  const [day, setDay] = useState<string>(String(marker.day));
-  const [year, setYear] = useState<string>(String(marker.year));
-
-  // Follow the marker when it changes elsewhere (undo, redo, or picking another marker)
-  useEffect(() => {
-    setDay(String(marker.day));
-    setYear(String(marker.year));
-  }, [marker.id, marker.day, marker.year]);
-
-  const commit = (patch: Partial<CalendarDate>) => {
-    const next = clampDate({
-      year: marker.year,
-      month: marker.month,
-      day: marker.day,
-      ...patch,
-    });
-    if (
-      next.year !== marker.year ||
-      next.month !== marker.month ||
-      next.day !== marker.day
-    ) {
-      updateDateMarker(marker.id, patch);
-    } else {
-      setDay(String(marker.day));
-      setYear(String(marker.year));
-    }
-  };
-
-  const commitNumber = (text: string, field: "day" | "year") => {
-    if (text.trim() === "" || !Number.isFinite(Number(text))) {
-      setDay(String(marker.day));
-      setYear(String(marker.year));
-      return;
-    }
-    commit(field === "day" ? { day: Number(text) } : { year: Number(text) });
-  };
-
-  const applyOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") e.currentTarget.blur();
-  };
-
-  return (
-    <div className={styles.editor}>
-      <span>Date at {formatTime(marker.time)}</span>
-      <input
-        type="number"
-        className={styles.editorInput}
-        min={1}
-        max={31}
-        value={day}
-        title="Day"
-        onChange={(e) => setDay(e.target.value)}
-        onBlur={() => commitNumber(day, "day")}
-        onKeyDown={applyOnEnter}
-      />
-      <select
-        className={styles.editorSelect}
-        value={marker.month}
-        title="Month"
-        onChange={(e) => commit({ month: Number(e.target.value) })}
-      >
-        {MONTH_NAMES.map((name, index) => (
-          <option key={name} value={index + 1}>
-            {name}
-          </option>
-        ))}
-      </select>
-      <input
-        type="number"
-        className={`${styles.editorInput} ${styles.editorInputYear}`}
-        min={1}
-        max={9999}
-        value={year}
-        title="Year"
-        onChange={(e) => setYear(e.target.value)}
-        onBlur={() => commitNumber(year, "year")}
-        onKeyDown={applyOnEnter}
-      />
-      <button
-        className={styles.editorDelete}
-        onClick={() => {
-          deleteDateMarker(marker.id);
-          selectMarker(null);
-        }}
-      >
-        Delete
-      </button>
-    </div>
-  );
-}
+const TICK_SPACING = 90; // pixels between ruler labels, at least
+const START_SNAP = 4; // pixels: a playhead this close to the story's start counts as at it
+const ZOOM_SPEED = 0.01; // per unit of pinch or ⌘-scroll
 
 function Timeline() {
   const paths = useMapStore((state) => state.paths);
   const placedUnits = useMapStore((state) => state.placedUnits);
   const selectedPathId = useMapStore((state) => state.selectedPathId);
   const selectPath = useMapStore((state) => state.selectPath);
-  const setPathTiming = useMapStore((state) => state.setPathTiming);
-  const dateMarkers = useMapStore((state) => state.dateMarkers);
-  const dateMode = useMapStore((state) => state.dateMode);
-  const setDateMode = useMapStore((state) => state.setDateMode);
-  const addDateMarker = useMapStore((state) => state.addDateMarker);
-  const updateDateMarker = useMapStore((state) => state.updateDateMarker);
+  const setMarchTiming = useMapStore((state) => state.setMarchTiming);
+  const storyStart = useMapStore((state) => state.storyStart);
+  const displayMode = useMapStore((state) => state.displayMode);
+  const setDisplayMode = useMapStore((state) => state.setDisplayMode);
 
-  const time = useTimelineStore((state) => state.time);
+  const now = useTimelineStore((state) => state.now);
   const playing = useTimelineStore((state) => state.playing);
-  const speed = useTimelineStore((state) => state.speed);
+  const pace = useTimelineStore((state) => state.pace);
   const expanded = useTimelineStore((state) => state.expanded);
   const draftTiming = useTimelineStore((state) => state.draftTiming);
-  const selectedMarkerId = useTimelineStore((state) => state.selectedMarkerId);
-  const setTime = useTimelineStore((state) => state.setTime);
+  const view = useTimelineStore((state) => state.view);
+  const setNow = useTimelineStore((state) => state.setNow);
   const play = useTimelineStore((state) => state.play);
   const pause = useTimelineStore((state) => state.pause);
-  const setSpeed = useTimelineStore((state) => state.setSpeed);
+  const setPace = useTimelineStore((state) => state.setPace);
   const setExpanded = useTimelineStore((state) => state.setExpanded);
   const setDraftTiming = useTimelineStore((state) => state.setDraftTiming);
-  const selectMarker = useTimelineStore((state) => state.selectMarker);
+  const setView = useTimelineStore((state) => state.setView);
 
-  const [draftMarker, setDraftMarker] = useState<{
-    id: string;
-    time: number;
-  } | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const [trackWidth, setTrackWidth] = useState(0);
 
   const timeline = useMemo(
     () => getTimeline(paths, placedUnits),
     [paths, placedUnits]
   );
-  const duration = timeline.duration;
+  const storyEnd = timeline.end;
+  const current = currentMoment(now, storyStart);
 
-  // How much time the bar shows. It follows the saved timings and dates only, so it holds
-  // still while a bar or marker is being dragged.
-  const latestMarker = dateMarkers.reduce(
-    (latest, m) => Math.max(latest, m.time),
-    0
+  // The stretch of history on show: whatever you zoomed to, or the whole story. The fit
+  // follows the saved dates only, so it holds still while a bar is being dragged.
+  const fit = useMemo(
+    () => fitView(storyStart, storyEnd),
+    [storyStart, storyEnd]
   );
-  const view = Math.max(
-    MIN_VIEW,
-    Math.ceil((Math.max(duration, latestMarker) + VIEW_PADDING) / 5) * 5
-  );
+  const shown: HistoryView = view ?? fit;
+  const span = shown.to - shown.from;
+  const percent = (t: HistoryTime) => ((t - shown.from) / span) * 100;
 
-  // One row per movement; a bar being dragged shows its draft timing
+  // The wheel handler is attached once, so it reads the latest view through a ref
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+
+  // One row per march; a bar being dragged shows its draft dates
   const rows = paths
     .filter((path) => timeline.timings.has(path.id))
     .map((path) => ({
@@ -197,44 +103,81 @@ function Timeline() {
           ? draftTiming.timing
           : timeline.timings.get(path.id)!,
     }));
-  const hasMovements = rows.length > 0;
+  const hasMarches = rows.length > 0;
 
-  const markerTime = (marker: DateMarker) =>
-    draftMarker && draftMarker.id === marker.id
-      ? draftMarker.time
-      : marker.time;
-  const selectedMarker = dateMarkers.find(
-    (marker) => marker.id === selectedMarkerId
+  const ticks = historyTicks(
+    shown.from,
+    shown.to,
+    Math.max(Math.floor(trackWidth / TICK_SPACING), 2)
   );
 
-  const ticks: number[] = [];
-  for (let t = 0; t <= view; t += tickStepFor(view)) ticks.push(t);
+  // Keep track of the bar's width, for spacing the ruler's labels
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const observer = new ResizeObserver(() => setTrackWidth(track.clientWidth));
+    observer.observe(track);
+    setTrackWidth(track.clientWidth);
+    return () => observer.disconnect();
+  }, [expanded]);
 
-  // Play: advance the playhead in real time until the last movement has finished
+  // Pinching on a trackpad (or ⌘/Ctrl-scrolling) zooms about the pointer, and swiping
+  // sideways (or Shift-scrolling) pans. Plain scrolling is left alone, so it scrolls the
+  // rows. Attached by hand because React's wheel events can't stop the page from zooming.
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const handleWheel = (e: WheelEvent) => {
+      const rect = track.getBoundingClientRect();
+      if (rect.width === 0) return;
+      const base = shownRef.current;
+      const baseSpan = base.to - base.from;
+
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const anchor =
+          base.from + ((e.clientX - rect.left) / rect.width) * baseSpan;
+        setView(zoomView(base, anchor, Math.exp(e.deltaY * ZOOM_SPEED)));
+        return;
+      }
+
+      const sideways = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (sideways) {
+        e.preventDefault();
+        const pixels = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+        const shift = (pixels / rect.width) * baseSpan;
+        setView({ from: base.from + shift, to: base.to + shift });
+      }
+    };
+    track.addEventListener("wheel", handleWheel, { passive: false });
+    return () => track.removeEventListener("wheel", handleWheel);
+  }, [expanded, setView]);
+
+  // Play: move through history at the chosen pace until the last march has finished
   useEffect(() => {
     if (!playing) return;
-    if (duration <= 0) {
+    if (storyEnd === null || storyEnd <= storyStart) {
       pause();
       return;
     }
     let last = performance.now();
     let frame = 0;
-    const tick = (now: number) => {
-      const elapsed = Math.min(Math.max((now - last) / 1000, 0), 0.1);
-      last = now;
+    const tick = (time: number) => {
+      const elapsed = Math.min(Math.max((time - last) / 1000, 0), 0.1);
+      last = time;
       const state = useTimelineStore.getState();
-      const next = state.time + elapsed * state.speed;
-      if (next >= duration) {
-        state.setTime(duration);
+      const next = currentMoment(state.now, storyStart) + elapsed * state.pace;
+      if (next >= storyEnd) {
+        state.setNow(storyEnd);
         state.pause();
         return;
       }
-      state.setTime(next);
+      state.setNow(next);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, duration, pause]);
+  }, [playing, storyStart, storyEnd, pause]);
 
   const handlePlay = () => {
     if (playing) {
@@ -242,23 +185,23 @@ function Timeline() {
       return;
     }
     usePathToolStore.getState().clearPreview(); // the timeline and a path preview never both play
-    if (time >= duration - START_TOLERANCE) setTime(0);
+    if (storyEnd !== null && current >= storyEnd - 1e-9) setNow(null);
     play();
   };
 
   const handleRewind = () => {
     pause();
-    setTime(0);
+    setNow(null);
   };
 
-  const timeFromPointer = (clientX: number): number => {
+  // The moment under the pointer. Never before the story starts, and close enough to the
+  // start counts as at it (null), where units can be edited.
+  const momentAt = (clientX: number): HistoryTime | null => {
     const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return 0;
-    const t = Math.min(
-      Math.max(((clientX - rect.left) / rect.width) * view, 0),
-      view
-    );
-    return t < START_TOLERANCE ? 0 : t;
+    if (!rect || rect.width === 0) return null;
+    const t = shown.from + ((clientX - rect.left) / rect.width) * span;
+    const startX = rect.left + (percent(storyStart) / 100) * rect.width;
+    return t <= storyStart || clientX - startX < START_SNAP ? null : t;
   };
 
   // Clicking or dragging on the ruler or an empty part of a row moves the playhead
@@ -266,11 +209,10 @@ function Timeline() {
     if (e.button !== 0) return;
     e.preventDefault();
     usePathToolStore.getState().clearPreview();
-    selectMarker(null);
     pause();
-    setTime(timeFromPointer(e.clientX));
+    setNow(momentAt(e.clientX));
 
-    const onMove = (ev: MouseEvent) => setTime(timeFromPointer(ev.clientX));
+    const onMove = (ev: MouseEvent) => setNow(momentAt(ev.clientX));
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
@@ -279,12 +221,13 @@ function Timeline() {
     window.addEventListener("mouseup", onUp);
   };
 
-  // Dragging a bar moves it; dragging its ends changes how long the march takes
+  // Dragging a bar moves the march; its ends change its dates; the line between the turn
+  // and the march changes how long the turn takes
   const startBarDrag = (
     e: React.MouseEvent,
     path: MapPath,
-    timing: MovementTiming,
-    mode: DragMode
+    timing: MarchTiming,
+    mode: MarchDragMode
   ) => {
     if (e.button !== 0) return;
     e.stopPropagation(); // not a playhead scrub
@@ -293,69 +236,45 @@ function Timeline() {
 
     const rect = trackRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return;
-    const secondsPerPixel = view / rect.width;
+    const daysPerPixel = span / rect.width;
+    const snap = snapStepFor(daysPerPixel);
     const startX = e.clientX;
     let latest = timing;
 
     const onMove = (ev: MouseEvent) => {
-      latest = dragTiming(
+      const dragged = dragMarch(
         timing,
-        (ev.clientX - startX) * secondsPerPixel,
+        (ev.clientX - startX) * daysPerPixel,
         mode,
-        view
+        snap
       );
+      latest = keepAfter(dragged, storyStart, mode === "move");
       setDraftTiming({ pathId: path.id, timing: latest });
     };
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       setDraftTiming(null);
-      if (latest.start !== timing.start || latest.end !== timing.end) {
-        setPathTiming(path.id, latest.start, latest.end);
+      if (
+        latest.start !== timing.start ||
+        latest.end !== timing.end ||
+        latest.turn !== timing.turn
+      ) {
+        setMarchTiming(path.id, latest);
       }
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   };
 
-  // Dragging a date marker moves it along the timeline
-  const startMarkerDrag = (e: React.MouseEvent, marker: DateMarker) => {
-    if (e.button !== 0) return;
-    e.stopPropagation(); // not a playhead scrub
-    e.preventDefault();
-    selectMarker(marker.id);
+  const describe = (timing: MarchTiming) =>
+    [
+      `${formatHistoryTime(timing.start, "times")} to ${formatHistoryTime(timing.end, "times")}`,
+      `Turning: ${formatDuration(timing.turn)}`,
+      `Marching: ${formatDuration(timing.end - timing.start - timing.turn)}`,
+    ].join("\n");
 
-    const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return;
-    const secondsPerPixel = view / rect.width;
-    const startX = e.clientX;
-    let latest = marker.time;
-
-    const onMove = (ev: MouseEvent) => {
-      latest = dragMarkerTime(
-        marker.time,
-        (ev.clientX - startX) * secondsPerPixel,
-        view
-      );
-      setDraftMarker({ id: marker.id, time: latest });
-    };
-    const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      setDraftMarker(null);
-      if (latest !== marker.time) updateDateMarker(marker.id, { time: latest });
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  };
-
-  // Double-clicking the dates row adds a marker at that moment, with the date the timeline
-  // has reached there
-  const handleDateRowDoubleClick = (e: React.MouseEvent) => {
-    const t = Math.round(timeFromPointer(e.clientX) * 10) / 10;
-    const date = dateAtTime(dateMarkers, t) ?? FIRST_DATE;
-    selectMarker(addDateMarker(t, date));
-  };
+  const startShare = percent(storyStart);
 
   return (
     <div className={styles.timeline}>
@@ -363,48 +282,56 @@ function Timeline() {
         <button
           className={styles.iconButton}
           onClick={handleRewind}
-          title="Back to the start (units can be edited at 0:00)"
+          title="Back to the start of the story (units can be edited there)"
         >
           {"\u23EE\uFE0E"}
         </button>
         <button
           className={styles.playButton}
           onClick={handlePlay}
-          disabled={!hasMovements}
+          disabled={!hasMarches}
           title={playing ? "Pause" : "Play"}
         >
           {playing ? "\u275A\u275A" : "\u25B6\uFE0E"}
         </button>
         <span className={styles.time}>
-          {formatTime(time)}
-          <span className={styles.timeTotal}> / {formatTime(duration)}</span>
+          {formatHistoryTime(current, "times")}
         </span>
+        <span className={styles.modeLabel}>Per second</span>
         <div className={styles.speed}>
-          {SPEEDS.map((value) => (
+          {PACES.map(({ days, label }) => (
             <button
-              key={value}
-              className={`${styles.speedButton} ${speed === value ? styles.speedActive : ""}`}
-              onClick={() => setSpeed(value)}
-            >
-              {value}×
-            </button>
-          ))}
-        </div>
-        <span className={styles.modeLabel}>Dates</span>
-        <div className={styles.speed} title="How the date is shown on screen">
-          {DATE_MODES.map(({ mode, label }) => (
-            <button
-              key={mode}
-              className={`${styles.speedButton} ${dateMode === mode ? styles.speedActive : ""}`}
-              onClick={() => setDateMode(mode)}
+              key={label}
+              className={`${styles.speedButton} ${pace === days ? styles.speedActive : ""}`}
+              onClick={() => setPace(days)}
             >
               {label}
             </button>
           ))}
         </div>
-        {time > 0 && !playing && (
+        <span className={styles.modeLabel}>Date</span>
+        <div className={styles.speed} title="How the date is shown on screen">
+          {DISPLAYS.map(({ mode, label }) => (
+            <button
+              key={mode}
+              className={`${styles.speedButton} ${displayMode === mode ? styles.speedActive : ""}`}
+              onClick={() => setDisplayMode(mode)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          className={styles.textButton}
+          onClick={() => setView(null)}
+          disabled={view === null}
+          title="Show the whole story (pinch or ⌘-scroll on the bars to zoom, swipe sideways or Shift-scroll to pan)"
+        >
+          Fit
+        </button>
+        {isPastStart(now, storyStart) && !playing && (
           <span className={styles.note}>
-            Units are locked while the playhead is away from 0:00
+            Units are locked away from the story's start
           </span>
         )}
         <div className={styles.spacer} />
@@ -417,21 +344,14 @@ function Timeline() {
         </button>
       </div>
 
-      {expanded && selectedMarker && (
-        <DateMarkerEditor marker={selectedMarker} />
-      )}
-
       {expanded && (
         <div className={styles.body}>
           <div className={styles.labels}>
             <div className={styles.labelSpacer} />
-            <div className={`${styles.label} ${styles.labelStatic}`}>Dates</div>
             {rows.map(({ path }) => (
               <div
                 key={path.id}
-                className={`${styles.label} ${
-                  path.id === selectedPathId ? styles.labelActive : ""
-                }`}
+                className={`${styles.label} ${path.id === selectedPathId ? styles.labelActive : ""}`}
                 title={path.name}
                 onClick={() =>
                   selectPath(path.id === selectedPathId ? null : path.id)
@@ -447,84 +367,84 @@ function Timeline() {
             ref={trackRef}
             onMouseDown={startScrub}
           >
+            {startShare > 0 && (
+              <div
+                className={styles.beforeStart}
+                style={{ width: `${Math.min(startShare, 100)}%` }}
+                title="Before the story starts"
+              />
+            )}
+
             <div className={styles.ruler}>
-              {ticks.map((t) => (
+              {ticks.map((tick) => (
                 <div
-                  key={t}
+                  key={tick.time}
                   className={styles.tick}
-                  style={{ left: `${(t / view) * 100}%` }}
+                  style={{ left: `${percent(tick.time)}%` }}
                 >
-                  <span className={styles.tickLabel}>{clock(t)}</span>
+                  <span className={styles.tickLabel}>{tick.label}</span>
                 </div>
               ))}
             </div>
 
-            <div
-              className={styles.dateRow}
-              title="Double-click to add a date"
-              onDoubleClick={handleDateRowDoubleClick}
-            >
-              {dateMarkers.map((marker) => {
-                const selected = marker.id === selectedMarkerId;
-                return (
+            {rows.map(({ path, timing }) => {
+              const length = timing.end - timing.start;
+              const turnShare = length > 0 ? (timing.turn / length) * 100 : 0;
+              const active = path.id === selectedPathId;
+              return (
+                <div key={path.id} className={styles.row}>
                   <div
-                    key={marker.id}
-                    className={styles.dateMarker}
+                    className={`${styles.bar} ${active ? styles.barActive : ""}`}
                     style={{
-                      left: `${(Math.min(markerTime(marker), view) / view) * 100}%`,
+                      left: `${percent(timing.start)}%`,
+                      width: `${(length / span) * 100}%`,
                     }}
-                    title={formatDate(marker, "days")}
-                    onMouseDown={(e) => startMarkerDrag(e, marker)}
-                    onDoubleClick={(e) => e.stopPropagation()}
+                    title={describe(timing)}
+                    onMouseDown={(e) => startBarDrag(e, path, timing, "move")}
                   >
                     <div
-                      className={`${styles.diamond} ${selected ? styles.diamondSelected : ""}`}
+                      className={styles.barTurn}
+                      style={{ width: `${turnShare}%` }}
                     />
-                    {selected && (
-                      <span className={styles.dateMarkerLabel}>
-                        {formatDate(marker, dateMode)}
-                      </span>
-                    )}
+                    <div
+                      className={styles.barMarch}
+                      style={{ left: `${turnShare}%` }}
+                    />
+                    <div
+                      className={styles.splitHandle}
+                      style={{ left: `${turnShare}%` }}
+                      title="Drag to change how long the turn takes"
+                      onMouseDown={(e) =>
+                        startBarDrag(e, path, timing, "split")
+                      }
+                    />
+                    <div
+                      className={`${styles.handle} ${styles.handleStart}`}
+                      onMouseDown={(e) =>
+                        startBarDrag(e, path, timing, "start")
+                      }
+                    />
+                    <div
+                      className={`${styles.handle} ${styles.handleEnd}`}
+                      onMouseDown={(e) => startBarDrag(e, path, timing, "end")}
+                    />
                   </div>
-                );
-              })}
-            </div>
-
-            {rows.map(({ path, timing }) => (
-              <div key={path.id} className={styles.row}>
-                <div
-                  className={`${styles.bar} ${
-                    path.id === selectedPathId ? styles.barActive : ""
-                  }`}
-                  style={{
-                    left: `${(timing.start / view) * 100}%`,
-                    width: `${((timing.end - timing.start) / view) * 100}%`,
-                  }}
-                  title={`${clock(timing.start)} to ${clock(timing.end)}`}
-                  onMouseDown={(e) => startBarDrag(e, path, timing, "move")}
-                >
-                  <div
-                    className={`${styles.handle} ${styles.handleStart}`}
-                    onMouseDown={(e) => startBarDrag(e, path, timing, "start")}
-                  />
-                  <div
-                    className={`${styles.handle} ${styles.handleEnd}`}
-                    onMouseDown={(e) => startBarDrag(e, path, timing, "end")}
-                  />
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
-            {!hasMovements && (
+            {!hasMarches && (
               <div className={styles.empty}>
                 Attach units to a path and its march appears here.
               </div>
             )}
 
-            <div
-              className={styles.playhead}
-              style={{ left: `${(Math.min(time, view) / view) * 100}%` }}
-            />
+            {current >= shown.from && current <= shown.to && (
+              <div
+                className={styles.playhead}
+                style={{ left: `${percent(current)}%` }}
+              />
+            )}
           </div>
         </div>
       )}

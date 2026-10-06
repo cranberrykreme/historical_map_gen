@@ -7,17 +7,17 @@ import DropZoneOverlay from "../components/DropZoneOverlay";
 import PsdEditor from "../components/psd-editor/PsdEditor";
 import PortraitEditor from "../components/portrait-editor/PortraitEditor";
 import ProjectHeader, { SaveStatus } from "../components/ProjectHeader";
+import Timeline from "../components/Timeline";
+import DateDisplay from "../components/DateDisplay";
 import { AssetType, ViewportApi } from "../types";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
 import { usePathToolStore } from "../store/usePathToolStore";
+import { useTimelineStore } from "../store/useTimelineStore";
 import useHistory from "../hooks/useHistory";
 import useProject from "../hooks/useProject";
 import API_BASE_URL from "../config/api";
 import styles from "../App.module.css";
-import Timeline from "../components/Timeline";
-import { useTimelineStore } from "../store/useTimelineStore";
-import DateDisplay from "../components/DateDisplay";
 
 function ProjectView() {
   const { projectName } = useParams<{ projectName: string }>();
@@ -32,6 +32,9 @@ function ProjectView() {
   const removeSelectedUnits = useMapStore((state) => state.removeSelectedUnits);
   const setPlacedUnits = useMapStore((state) => state.setPlacedUnits);
   const setPaths = useMapStore((state) => state.setPaths);
+  const setStoryStart = useMapStore((state) => state.setStoryStart);
+  const setDisplayMode = useMapStore((state) => state.setDisplayMode);
+  const setPacing = useMapStore((state) => state.setPacing);
   const copySelectedUnits = useMapStore((state) => state.copySelectedUnits);
   const pasteUnits = useMapStore((state) => state.pasteUnits);
   const flipSelectedUnits = useMapStore((state) => state.flipSelectedUnits);
@@ -41,9 +44,6 @@ function ProjectView() {
   const cleanupRenamedAsset = useMapStore((state) => state.cleanupRenamedAsset);
   const resetMapState = useMapStore((state) => state.resetMapState);
   const canUndo = useMapStore((state) => state.past.length > 0);
-  const setDateMarkers = useMapStore((state) => state.setDateMarkers);
-  const setDateMode = useMapStore((state) => state.setDateMode);
-
   const isDrawingPath = usePathToolStore(
     (state) => state.drawingPoints !== null
   );
@@ -74,19 +74,21 @@ function ProjectView() {
       ({
         units,
         paths: loadedPaths,
-        dateMarkers,
-        dateMode,
+        storyStart,
+        displayMode,
+        pacing,
         selectedMapFilename: loadedMap,
         viewport,
       }) => {
+        setStoryStart(storyStart);
+        setDisplayMode(displayMode);
+        setPacing(pacing);
         if (units.length > 0) {
           setPlacedUnits(units);
         }
         if (loadedPaths.length > 0) {
           setPaths(loadedPaths);
         }
-        setDateMarkers(dateMarkers);
-        setDateMode(dateMode);
         if (loadedMap) {
           setSelectedMap(loadedMap);
         }
@@ -99,8 +101,9 @@ function ProjectView() {
     loadProject,
     setPlacedUnits,
     setPaths,
-    setDateMarkers,
-    setDateMode,
+    setStoryStart,
+    setDisplayMode,
+    setPacing,
     setSelectedMap,
   ]);
 
@@ -112,8 +115,9 @@ function ProjectView() {
     const saved = await saveProject({
       units: state.placedUnits,
       paths: state.paths,
-      dateMarkers: state.dateMarkers,
-      dateMode: state.dateMode,
+      storyStart: state.storyStart,
+      displayMode: state.displayMode,
+      pacing: state.pacing,
       selectedMapFilename: state.selectedMapFilename,
       viewport: viewportApiRef.current?.get(),
     });
@@ -132,6 +136,7 @@ function ProjectView() {
         handleSave();
         return;
       }
+
       if (editingPsd || portraitSource || isDrawingPath) return;
 
       // Don't hijack keys while typing in a text field (rename, new folder, ...)
@@ -269,8 +274,9 @@ function ProjectView() {
     saveProject({
       units: state.placedUnits,
       paths: state.paths,
-      dateMarkers: state.dateMarkers,
-      dateMode: state.dateMode,
+      storyStart: state.storyStart,
+      displayMode: state.displayMode,
+      pacing: state.pacing,
       selectedMapFilename: state.selectedMapFilename,
     });
   };

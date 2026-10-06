@@ -1,46 +1,61 @@
 import { create } from "zustand";
-import { MovementTiming } from "../utils/timeline";
+import { MarchTiming } from "../types";
+import { HistoryTime } from "../utils/historyTime";
+import { HistoryView } from "../utils/timeline";
 
 interface DraftTiming {
   pathId: string;
-  timing: MovementTiming;
+  timing: MarchTiming;
 }
 
 // The playhead and the timeline bar's own state. It is not part of the document: the saved
-// parts (each movement's start and end, and the date markers) live in the map store.
+// parts (each march's dates and the story's start) live in the map store.
 interface TimelineStore {
-  time: number; // playhead position, in seconds
+  now: HistoryTime | null; // the playhead, a moment in history; null means the story's start
   playing: boolean;
-  speed: number; // 1 = real time
+  pace: number; // days of history played per second
   expanded: boolean;
   draftTiming: DraftTiming | null; // a bar being dragged, shown before it is saved
-  selectedMarkerId: string | null;
+  view: HistoryView | null; // the stretch of history the bar shows; null fits the whole story
 
-  setTime: (time: number) => void;
+  setNow: (now: HistoryTime | null) => void;
   play: () => void;
   pause: () => void;
-  setSpeed: (speed: number) => void;
+  setPace: (pace: number) => void;
   setExpanded: (expanded: boolean) => void;
   setDraftTiming: (draft: DraftTiming | null) => void;
-  selectMarker: (id: string | null) => void;
+  setView: (view: HistoryView | null) => void;
   reset: () => void;
 }
 
 export const useTimelineStore = create<TimelineStore>((set) => ({
-  time: 0,
+  now: null,
   playing: false,
-  speed: 1,
+  pace: 1,
   expanded: true,
   draftTiming: null,
-  selectedMarkerId: null,
+  view: null,
 
-  setTime: (time) => set({ time: Math.max(time, 0) }),
+  setNow: (now) => set({ now }),
   play: () => set({ playing: true }),
   pause: () => set({ playing: false }),
-  setSpeed: (speed) => set({ speed }),
+  setPace: (pace) => set({ pace }),
   setExpanded: (expanded) => set({ expanded }),
   setDraftTiming: (draftTiming) => set({ draftTiming }),
-  selectMarker: (selectedMarkerId) => set({ selectedMarkerId }),
+  setView: (view) => set({ view }),
   reset: () =>
-    set({ time: 0, playing: false, draftTiming: null, selectedMarkerId: null }),
+    set({ now: null, playing: false, draftTiming: null, view: null }),
 }));
+
+// The moment the playhead is at
+export const currentMoment = (
+  now: HistoryTime | null,
+  storyStart: HistoryTime
+): HistoryTime => now ?? storyStart;
+
+// Whether the playhead is past the story's start. Placed units can only be edited at the
+// start, because anywhere later they are shown where their marches have taken them.
+export const isPastStart = (
+  now: HistoryTime | null,
+  storyStart: HistoryTime
+): boolean => now !== null && now > storyStart;

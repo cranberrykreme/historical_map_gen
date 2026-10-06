@@ -1,24 +1,30 @@
-import { MapPath, PathPoint, Unit } from "../types";
+import { MapPath, MarchTiming, PathPoint, Unit } from "../types";
 import { attachUnits } from "./formation";
-import {
-  createPlayback,
-  easeTravel,
-  PIVOT_DEGREES_PER_UNIT,
-} from "./pathPlayback";
+import { HOUR, MINUTE, toHistoryTime } from "./historyTime";
+import { createPlayback, easeTravel } from "./pathPlayback";
 import {
   chainedPathIds,
-  clampTiming,
   createTimeline,
-  DEFAULT_PACE,
-  dragTiming,
-  formatTime,
+  DEFAULT_MARCH_PACE,
+  defaultMarch,
+  existsAt,
+  fitView,
   getTimeline,
   handoverUnits,
-  MIN_MOVEMENT_SECONDS,
-  dragMarkerTime,
+  keepAfter,
+  MAX_VIEW_DAYS,
+  MIN_DEFAULT_MARCH,
+  MIN_VIEW_DAYS,
+  snapStepFor,
+  zoomView,
 } from "./timeline";
 
-const unit = (id: string, x: number, y: number): Unit => ({
+const unit = (
+  id: string,
+  x: number,
+  y: number,
+  extra: Partial<Unit> = {}
+): Unit => ({
   id,
   filename: `${id}.png`,
   path: `${id}.png`,
@@ -27,20 +33,24 @@ const unit = (id: string, x: number, y: number): Unit => ({
   y,
   rotation: 0,
   scale: 1,
+  ...extra,
 });
 
 function pathFor(
   id: string,
   points: PathPoint[],
   units: Unit[],
-  timing: { start?: number; end?: number } = {}
+  march?: MarchTiming
 ): MapPath {
   const attachment = attachUnits(
     { id, name: id, points, assignments: [] },
     units
   )!;
-  return { id, name: id, ...attachment, ...timing };
+  return { id, name: id, ...attachment, march };
 }
+
+// 20 September 1066, midnight
+const D = toHistoryTime({ year: 1066, month: 9, day: 20 });
 
 const east = [
   { x: 0, y: 0 },
@@ -51,215 +61,244 @@ const south = [
   { x: 0, y: 1000 },
 ];
 
-test("a movement with no stored timing starts at 0 and lasts as long as the march takes", () => {
-  const units = [unit("a", 0, 0)];
-  const path = pathFor("p", east, units);
-  const timeline = createTimeline([path], units);
-  const timing = timeline.timings.get("p")!;
+test("a new march lasts as long as its run takes at the default pace, turn included", () => {
+  const units = [unit("a", 0, 0)]; // faces north, so it turns 90° (150 of run) to head east
+  const playback = createPlayback(pathFor("p", east, units), units);
+  const march = defaultMarch(playback, D);
 
-  expect(timing.start).toBe(0);
-  expect(timing.end).toBeCloseTo(
-    createPlayback(path, units).length / DEFAULT_PACE,
-    1
+  expect(march.start).toBe(D);
+  expect(march.end - D).toBeCloseTo(1150 / DEFAULT_MARCH_PACE, 2); // 11.5 days
+  expect(march.turn).toBeCloseTo(1.5, 2);
+
+  // A very short run still lasts a while
+  const facingEast = [unit("b", 0, 0, { rotation: 90 })];
+  const tiny = createPlayback(
+    pathFor(
+      "q",
+      [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+      ],
+      facingEast
+    ),
+    facingEast
   );
-  expect(timeline.duration).toBe(timing.end);
+  expect(defaultMarch(tiny, D).end - D).toBeCloseTo(MIN_DEFAULT_MARCH, 10);
 });
 
-test("a stored timing is used as it is", () => {
+test("a march's dates are used as they are, and the timeline knows when the story's marches begin and end", () => {
   const units = [unit("a", 0, 0)];
-  const path = pathFor("p", east, units, { start: 2, end: 6 });
-  const timeline = createTimeline([path], units);
+  const march = { start: D + 2, end: D + 6, turn: 0.5 };
+  const timeline = createTimeline([pathFor("p", east, units, march)], units);
 
-  expect(timeline.timings.get("p")).toEqual({ start: 2, end: 6 });
-  expect(timeline.duration).toBe(6);
+  expect(timeline.timings.get("p")).toEqual(march);
+  expect(timeline.start).toBe(D + 2);
+  expect(timeline.end).toBe(D + 6);
+
+  const empty = createTimeline([], units);
+  expect(empty.start).toBeNull();
+  expect(empty.end).toBeNull();
 });
 
-test("units wait at their placed spot, travel during the movement, then stay at the end", () => {
+test("units wait where they were placed, turn, travel, then stay at the end", () => {
   const units = [unit("a", 0, 0)];
-  const path = pathFor("p", east, units, { start: 2, end: 12 });
-  const timeline = createTimeline([path], units);
-  const playback = createPlayback(path, units);
+  const timeline = createTimeline(
+    [pathFor("p", east, units, { start: D, end: D + 11.5, turn: 1.5 })],
+    units
+  );
 
-  expect(timeline.stateAt(1).size).toBe(0); // not started: the unit stays where it was placed
-  expect(timeline.stateAt(2).get("a")).toEqual(playback.stateAt(0).get("a"));
-  expect(timeline.stateAt(7).get("a")).toEqual(playback.stateAt(0.5).get("a"));
-  expect(timeline.stateAt(12).get("a")).toEqual(playback.stateAt(1).get("a"));
-  expect(timeline.stateAt(99).get("a")).toEqual(playback.stateAt(1).get("a"));
+  expect(timeline.stateAt(D - 1).has("a")).toBe(false);
+
+  const turning = timeline.stateAt(D + 0.75).get("a")!;
+  expect(turning.x).toBeCloseTo(0, 6);
+  expect(turning.rotation).toBeCloseTo(45, 4);
+
+  const halfway = timeline.stateAt(D + 1.5 + 5).get("a")!;
+  expect(halfway.x).toBeCloseTo(1000 * easeTravel(0.5), 3);
+  expect(halfway.rotation).toBeCloseTo(90, 4);
+
+  expect(timeline.stateAt(D + 20).get("a")!.x).toBeCloseTo(1000, 3);
 });
 
-test("when a unit has two movements, the one that started most recently drives it", () => {
+test("a longer turn is a slower turn, and the travel keeps its own share", () => {
   const units = [unit("a", 0, 0)];
-  const first = pathFor("p1", east, units, { start: 0, end: 10 });
-  const second = pathFor("p2", south, units, { start: 5, end: 15 });
+  const timeline = createTimeline(
+    [pathFor("p", east, units, { start: D, end: D + 13, turn: 3 })],
+    units
+  );
+
+  expect(timeline.stateAt(D + 1.5).get("a")!.rotation).toBeCloseTo(45, 4);
+  expect(timeline.stateAt(D + 3).get("a")!.x).toBeCloseTo(0, 6);
+  expect(timeline.stateAt(D + 8).get("a")!.x).toBeCloseTo(
+    1000 * easeTravel(0.5),
+    3
+  );
+});
+
+test("when a unit has two marches, the one that started most recently drives it", () => {
+  const units = [unit("a", 0, 0)];
+  const first = pathFor("first", east, units, {
+    start: D,
+    end: D + 11.5,
+    turn: 1.5,
+  });
+  const second = pathFor("second", south, units, {
+    start: D + 5,
+    end: D + 15,
+    turn: 1,
+  });
   const timeline = createTimeline([first, second], units);
 
-  // Until the second begins, the first one drives the unit
-  expect(timeline.stateAt(4).get("a")).toEqual(
-    createPlayback(first, units).stateAt(0.4).get("a")
-  );
+  // The second picks the unit up where the first had got to on day 5: 35% of the way
+  // through its travel
+  const pickedUp = 1000 * easeTravel(0.35);
+  const atHandover = timeline.stateAt(D + 5).get("a")!;
+  expect(atHandover.x).toBeCloseTo(pickedUp, 3);
+  expect(atHandover.y).toBeCloseTo(0, 3);
 
-  // The second picks the unit up where the first had got to at time 5: 425 into its 1000 of
-  // travelling (after 150 spent turning), which with the gentle start is a little short of
-  // 425 along. It ends at its destination, offset by that much.
-  const pickedUp = 1000 * easeTravel(425 / 1000);
-  const end = timeline.stateAt(15).get("a")!;
+  const end = timeline.stateAt(D + 15).get("a")!;
   expect(end.x).toBeCloseTo(pickedUp, 3);
   expect(end.y).toBeCloseTo(1000, 3);
 });
 
-test("a draft timing overrides a stored one for that movement only", () => {
-  const units = [unit("a", 0, 0)];
-  const path = pathFor("p", east, units, { start: 0, end: 10 });
-  const timeline = createTimeline([path], units);
-  const playback = createPlayback(path, units);
-
-  const overrides = new Map([["p", { start: 6, end: 8 }]]);
-  expect(timeline.stateAt(7, overrides).get("a")).toEqual(
-    playback.stateAt(0.5).get("a")
+test("a draft timing overrides a stored one for that march only", () => {
+  const units = [unit("a", 0, 0), unit("b", 0, 500)];
+  const p = pathFor("p", east, [units[0]], { start: D, end: D + 10, turn: 0 });
+  const q = pathFor(
+    "q",
+    east.map((pt) => ({ x: pt.x, y: 500 })),
+    [units[1]],
+    {
+      start: D,
+      end: D + 10,
+      turn: 0,
+    }
   );
-  expect(timeline.stateAt(7).get("a")).toEqual(playback.stateAt(0.7).get("a"));
+  const timeline = createTimeline([p, q], units);
+
+  const draft = new Map([["p", { start: D + 20, end: D + 30, turn: 0 }]]);
+  const states = timeline.stateAt(D + 10, draft);
+  expect(states.has("a")).toBe(false); // p hasn't started under its draft dates
+  expect(states.get("b")!.x).toBeCloseTo(1000, 3);
 });
 
-test("paths with no attached units, or no route, are not movements", () => {
-  const timeline = createTimeline(
-    [
-      { id: "x", name: "x", points: east, assignments: [] },
-      {
-        id: "y",
-        name: "y",
-        points: [{ x: 0, y: 0 }],
-        assignments: [{ unitId: "a", forward: 0, right: 0 }],
-      },
-    ],
-    [unit("a", 0, 0)]
-  );
-
+test("paths with no attached units, or no route, are not marches", () => {
+  const units = [unit("a", 0, 0)];
+  const bare: MapPath = {
+    id: "bare",
+    name: "bare",
+    points: east,
+    assignments: [],
+  };
+  const dot: MapPath = {
+    id: "dot",
+    name: "dot",
+    points: [{ x: 0, y: 0 }],
+    assignments: [{ unitId: "a", forward: 0, right: 0 }],
+  };
+  const timeline = createTimeline([bare, dot], units);
   expect(timeline.timings.size).toBe(0);
-  expect(timeline.duration).toBe(0);
-  expect(timeline.stateAt(5).size).toBe(0);
 });
 
 test("the same paths and units share one built timeline", () => {
   const units = [unit("a", 0, 0)];
-  const paths = [pathFor("p", east, units)];
-  const built = getTimeline(paths, units);
-
-  expect(getTimeline(paths, units)).toBe(built);
-  expect(getTimeline([...paths], units)).not.toBe(built);
+  const paths = [pathFor("p", east, units, { start: D, end: D + 1, turn: 0 })];
+  expect(getTimeline(paths, units)).toBe(getTimeline(paths, units));
+  expect(getTimeline([...paths], units)).not.toBe(getTimeline(paths, units));
 });
 
-test("dragging a bar moves it, snapping to tenths and staying within the view", () => {
-  const timing = { start: 2, end: 6 };
-  expect(dragTiming(timing, 1.04, "move", 20)).toEqual({ start: 3, end: 7 });
-  expect(dragTiming(timing, -5, "move", 20)).toEqual({ start: 0, end: 4 });
-  expect(dragTiming(timing, 99, "move", 20)).toEqual({ start: 16, end: 20 });
-});
-
-test("dragging the left end changes the start but never passes the minimum length", () => {
-  const timing = { start: 2, end: 6 };
-  expect(dragTiming(timing, 1.02, "start", 20)).toEqual({ start: 3, end: 6 });
-  expect(dragTiming(timing, -99, "start", 20)).toEqual({ start: 0, end: 6 });
-  expect(dragTiming(timing, 99, "start", 20).start).toBeCloseTo(
-    6 - MIN_MOVEMENT_SECONDS,
-    6
-  );
-});
-
-test("dragging the right end changes the end but never passes the minimum length or the view", () => {
-  const timing = { start: 2, end: 6 };
-  expect(dragTiming(timing, 2.04, "end", 20)).toEqual({ start: 2, end: 8 });
-  expect(dragTiming(timing, -99, "end", 20).end).toBeCloseTo(
-    2 + MIN_MOVEMENT_SECONDS,
-    6
-  );
-  expect(dragTiming(timing, 99, "end", 20).end).toBe(20);
-});
-
-test("a timing cannot start before 0 or be shorter than the minimum", () => {
-  expect(clampTiming(-3, 1)).toEqual({ start: 0, end: 1 });
-  expect(clampTiming(4, 4.1)).toEqual({
-    start: 4,
-    end: 4 + MIN_MOVEMENT_SECONDS,
+test("units are handed over where their earlier marches leave them, when the last one ends", () => {
+  const units = [unit("a", 0, 0)];
+  const first = pathFor("first", east, units, {
+    start: D,
+    end: D + 11.5,
+    turn: 1.5,
   });
-});
-
-test("formatTime shows minutes, seconds and tenths", () => {
-  expect(formatTime(0)).toBe("0:00.0");
-  expect(formatTime(12.4)).toBe("0:12.4");
-  expect(formatTime(75.3)).toBe("1:15.3");
-  expect(formatTime(59.96)).toBe("1:00.0");
-  expect(formatTime(-5)).toBe("0:00.0");
-});
-
-test("a second movement picks its units up where the first one leaves them", () => {
-  const units = [unit("a", 0, 0)];
-  const first = pathFor("p1", east, units, { start: 0, end: 10 });
-  const second = {
-    ...pathFor("p2", south, units, { start: 10, end: 20 }),
-    // drawn from where the first march ends
-    points: [
-      { x: 1000, y: 0 },
-      { x: 1000, y: 1000 },
-    ],
-  };
-  const timeline = createTimeline([first, second], units);
-
-  // At the handover the unit is where the first march ended, facing east
-  const handover = timeline.stateAt(10).get("a")!;
-  expect(handover.x).toBeCloseTo(1000, 3);
-  expect(handover.y).toBeCloseTo(0, 3);
-  expect(handover.rotation).toBeCloseTo(90, 3);
-
-  // It turns on the spot from that facing to face south, without moving
-  // (150 to turn, then 1000 to travel, fitted into 10 seconds)
-  const turning = timeline.stateAt(10.5).get("a")!;
-  expect(turning.x).toBeCloseTo(1000, 3);
-  expect(turning.y).toBeCloseTo(0, 3);
-  expect(turning.rotation).toBeCloseTo(
-    90 + 0.05 * 1150 * PIVOT_DEGREES_PER_UNIT,
-    2
-  );
-
-  const end = timeline.stateAt(20).get("a")!;
-  expect(end.x).toBeCloseTo(1000, 3);
-  expect(end.y).toBeCloseTo(1000, 3);
-});
-
-test("a movement is chained when an earlier one drives any of its units", () => {
-  const units = [unit("a", 0, 0), unit("b", 100, 0)];
-  const one = pathFor("one", east, [units[0]], { start: 0, end: 5 });
-  const two = pathFor("two", south, [units[0]], { start: 5, end: 10 });
-  const other = pathFor("other", east, [units[1]], { start: 5, end: 10 });
-
-  expect(Array.from(chainedPathIds([one, two, other]))).toEqual(["two"]);
-});
-
-test("movements that start together and share a unit chain in list order", () => {
-  const units = [unit("a", 0, 0)];
-  const one = pathFor("one", east, units);
-  const two = pathFor("two", south, units);
-
-  expect(Array.from(chainedPathIds([one, two]))).toEqual(["two"]);
-  expect(Array.from(chainedPathIds([two, one]))).toEqual(["one"]);
-});
-
-test("units are handed over where their earlier movements leave them", () => {
-  const units = [unit("a", 0, 0), unit("b", 500, 500)];
-  const first = pathFor("p1", east, [units[0]], { start: 0, end: 10 });
-
   const handover = handoverUnits([first], units, units);
-  expect(handover.time).toBe(10);
-  const a = handover.units.find((u) => u.id === "a")!;
-  const b = handover.units.find((u) => u.id === "b")!;
-  expect(a.x).toBeCloseTo(1000, 3);
-  expect(b.x).toBe(500); // never marched, so it stays where it was placed
-  expect(b.y).toBe(500);
+
+  expect(handover.time).toBe(D + 11.5);
+  expect(handover.units[0].x).toBeCloseTo(1000, 3);
+  expect(handover.units[0].rotation).toBeCloseTo(90, 4);
 
   expect(handoverUnits([], units, units)).toEqual({ units, time: null });
 });
 
-test("dragging a date marker snaps to tenths and stays within the view", () => {
-  expect(dragMarkerTime(2, 1.04, 20)).toBe(3);
-  expect(dragMarkerTime(2, -5, 20)).toBe(0);
-  expect(dragMarkerTime(2, 99, 20)).toBe(20);
+test("a march is chained when an earlier one moves any of its units, in date order", () => {
+  const units = [unit("a", 0, 0)];
+  const early = pathFor("early", east, units, {
+    start: D,
+    end: D + 2,
+    turn: 0,
+  });
+  const late = pathFor("late", south, units, {
+    start: D + 5,
+    end: D + 6,
+    turn: 0,
+  });
+
+  expect(Array.from(chainedPathIds([late, early]))).toEqual(["late"]);
+
+  // Re-dating swaps which one follows the other
+  const swapped = { ...early, march: { start: D + 9, end: D + 10, turn: 0 } };
+  expect(Array.from(chainedPathIds([late, swapped]))).toEqual(["early"]);
+
+  // Marches that start together chain in list order
+  const together = { ...late, march: { start: D, end: D + 1, turn: 0 } };
+  expect(Array.from(chainedPathIds([early, together]))).toEqual(["late"]);
+});
+
+test("a march can't begin before the story starts: moving shifts it, dragging its start stops", () => {
+  const timing = { start: D - 2, end: D + 3, turn: 1 };
+
+  expect(keepAfter(timing, D, true)).toEqual({ start: D, end: D + 5, turn: 1 });
+  expect(keepAfter(timing, D, false)).toEqual({
+    start: D,
+    end: D + 3,
+    turn: 1,
+  });
+  expect(keepAfter({ start: D + 1, end: D + 2, turn: 0 }, D, true).start).toBe(
+    D + 1
+  );
+});
+
+test("a unit exists from when it appears until it leaves", () => {
+  expect(existsAt({}, D)).toBe(true);
+  expect(existsAt({ appears: D }, D - 1)).toBe(false);
+  expect(existsAt({ appears: D }, D)).toBe(true);
+  expect(existsAt({ appears: D, leaves: D + 2 }, D + 1)).toBe(true);
+  expect(existsAt({ appears: D, leaves: D + 2 }, D + 2)).toBe(false);
+});
+
+test("the bar fits the whole story, and zooms about the pointer within limits", () => {
+  const fit = fitView(D, D + 100);
+  expect(fit.from).toBeLessThan(D);
+  expect(fit.to).toBeGreaterThan(D + 100);
+  expect(fitView(D, null).to).toBeGreaterThan(D + 7); // at least a week
+
+  // Zooming in about day 50 keeps day 50 where it was on screen
+  const view = { from: D, to: D + 100 };
+  const zoomed = zoomView(view, D + 50, 0.5);
+  expect(zoomed.from).toBeCloseTo(D + 25, 6);
+  expect(zoomed.to).toBeCloseTo(D + 75, 6);
+  const anchorShare = (D + 30 - view.from) / 100;
+  const z2 = zoomView(view, D + 30, 0.1);
+  expect((D + 30 - z2.from) / (z2.to - z2.from)).toBeCloseTo(anchorShare, 6);
+
+  expect(zoomView(view, D, 1e-9).to - zoomView(view, D, 1e-9).from).toBeCloseTo(
+    MIN_VIEW_DAYS,
+    9
+  );
+  expect(zoomView(view, D, 1e9).to - zoomView(view, D, 1e9).from).toBeCloseTo(
+    MAX_VIEW_DAYS,
+    3
+  );
+});
+
+test("dragged dates snap to round steps a few pixels wide", () => {
+  expect(snapStepFor(MINUTE / 10)).toBe(MINUTE);
+  expect(snapStepFor(HOUR / 100)).toBe(5 * MINUTE);
+  expect(snapStepFor(HOUR / 20)).toBe(HOUR);
+  expect(snapStepFor(1 / 20)).toBe(1);
+  expect(snapStepFor(1)).toBe(7);
+  expect(snapStepFor(100)).toBe(30);
 });

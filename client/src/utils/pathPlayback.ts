@@ -44,6 +44,8 @@ export function easeTravel(
 const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
 
+const clamp01 = (value: number) => Math.min(Math.max(value, 0), 1);
+
 // Whether the art's own front points right (rather than left) when unmirrored.
 // Art that faces straight up or down has no side and counts as facing right.
 export function artFacesRight(forwardAngleDeg: number): boolean {
@@ -54,6 +56,7 @@ interface Pivot {
   groupFacing: number; // degrees: the way the group faces at rest
   frameTurn: number; // degrees the block must turn to face the path's start heading
   unitTurns: Map<string, number>; // degrees each unit that turns to face travel must turn
+  largest: number; // degrees: the biggest of all those turns
   length: number; // how long the pivot lasts, in map units of playback
 }
 
@@ -93,13 +96,21 @@ function pivotFor(
     groupFacing,
     frameTurn,
     unitTurns,
+    largest,
     length: largest < 1e-6 ? 0 : largest / rate,
   };
 }
 
 export interface Playback {
-  length: number; // the whole run, in map units of playback
+  length: number; // the whole run in map units of playback: the turn, then the route
+  pivotLength: number; // the turn's part of that
+  routeLength: number; // the route's part of that
+  // By overall progress through the run (0 to 1), the turn and route each getting their
+  // natural share of it
   stateAt: (progress: number) => Map<string, PlaybackState>;
+  // By phase: how far through the turn (0 to 1) and how far through the travel (0 to 1).
+  // Until the turn is finished nobody moves, whatever `travel` says.
+  stateAtPhase: (turn: number, travel: number) => Map<string, PlaybackState>;
 }
 
 // Does all the work that doesn't depend on how far through the run we are (sampling the path,
@@ -107,15 +118,23 @@ export interface Playback {
 // Build one per path and reuse it for every frame.
 //
 // A run is a pivot on the spot (the group does not move), then the journey, where the
-// formation and turning units follow the path's heading exactly.
+// formation and turning units follow the path's heading exactly, easing in and out.
 export function createPlayback(
   path: MapPath,
   units: Unit[],
   pivotRate: number = PIVOT_DEGREES_PER_UNIT
 ): Playback {
   const sampled = samplePath(path.points);
-  if (sampled.samples.length === 0)
-    return { length: 0, stateAt: () => new Map() };
+  if (sampled.samples.length === 0) {
+    const empty = () => new Map<string, PlaybackState>();
+    return {
+      length: 0,
+      pivotLength: 0,
+      routeLength: 0,
+      stateAt: empty,
+      stateAtPhase: empty,
+    };
+  }
 
   const startHeading = headingAtDistance(sampled, 0);
   const pivot = pivotFor(path, units, startHeading, pivotRate);
@@ -130,21 +149,23 @@ export function createPlayback(
     return unit ? [{ slot, unit, ...unitFacing(unit) }] : [];
   });
 
-  const stateAt = (progress: number): Map<string, PlaybackState> => {
+  const stateAtPhase = (
+    turn: number,
+    travel: number
+  ): Map<string, PlaybackState> => {
     const result = new Map<string, PlaybackState>();
-    const elapsed = Math.min(Math.max(progress, 0), 1) * total;
 
-    const isPivoting = elapsed < pivot.length;
+    const isPivoting = pivot.length > 0 && turn < 1;
+    const turnedSoFar = isPivoting ? clamp01(turn) * pivot.largest : Infinity; // degrees
+    const turnBy = (needed: number) =>
+      Math.sign(needed) * Math.min(Math.abs(needed), turnedSoFar);
+
     // Once facing the right way, the march sets off gently, holds a steady pace, and slows
     // to a stop at the end of the route
     const distance =
       isPivoting || sampled.length === 0
         ? 0
-        : sampled.length *
-          easeTravel((elapsed - pivot.length) / sampled.length);
-    const turnedSoFar = isPivoting ? elapsed * pivotRate : Infinity; // degrees
-    const turnBy = (needed: number) =>
-      Math.sign(needed) * Math.min(Math.abs(needed), turnedSoFar);
+        : sampled.length * easeTravel(travel);
 
     const centre = pointAtDistance(sampled, distance);
     const heading = headingAtDistance(sampled, distance);
@@ -173,7 +194,21 @@ export function createPlayback(
     return result;
   };
 
-  return { length: total, stateAt };
+  const stateAt = (progress: number): Map<string, PlaybackState> => {
+    const elapsed = clamp01(progress) * total;
+    return stateAtPhase(
+      pivot.length > 0 ? elapsed / pivot.length : 1,
+      sampled.length > 0 ? (elapsed - pivot.length) / sampled.length : 1
+    );
+  };
+
+  return {
+    length: total,
+    pivotLength: pivot.length,
+    routeLength: sampled.length,
+    stateAt,
+    stateAtPhase,
+  };
 }
 
 // How long a whole run takes, in map units of playback

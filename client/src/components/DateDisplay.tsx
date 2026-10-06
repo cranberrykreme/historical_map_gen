@@ -1,18 +1,20 @@
 import React from "react";
 import { useMapStore } from "../store/useMapStore";
-import { useTimelineStore } from "../store/useTimelineStore";
-import { dateAtTime, formatDate } from "../utils/dates";
+import { currentMoment, useTimelineStore } from "../store/useTimelineStore";
+import { formatHistoryTime } from "../utils/historyTime";
 import styles from "./DateDisplay.module.css";
 
-// The date in the corner of the screen at the playhead. Nothing shows until there is a marker.
+// The date in the corner of the screen: the moment in history the playhead is at
 function DateDisplay() {
-  const markers = useMapStore((state) => state.dateMarkers);
-  const mode = useMapStore((state) => state.dateMode);
-  const time = useTimelineStore((state) => state.time);
+  const storyStart = useMapStore((state) => state.storyStart);
+  const displayMode = useMapStore((state) => state.displayMode);
+  const now = useTimelineStore((state) => state.now);
 
-  const date = dateAtTime(markers, time);
-  if (!date) return null;
-  return <div className={styles.date}>{formatDate(date, mode)}</div>;
+  return (
+    <div className={styles.date}>
+      {formatHistoryTime(currentMoment(now, storyStart), displayMode)}
+    </div>
+  );
 }
 
 export default DateDisplay;

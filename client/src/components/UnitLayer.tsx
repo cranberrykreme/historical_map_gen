@@ -3,6 +3,7 @@ import API_BASE_URL from "../config/api";
 import { Unit } from "../types";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
+import { usePathToolStore } from "../store/usePathToolStore";
 import {
   effectiveForward,
   forwardFromPointer,
@@ -15,10 +16,12 @@ interface UnitLayerProps {
   isDraggingUnit: React.RefObject<boolean>;
   isShiftHeld: boolean;
   setCursor: (cursor: string) => void;
+  // True while the playhead is away from the start: units can't be touched then
   locked: boolean;
 }
 
 const ARROW_LENGTH = 64; // in the unit's own space, so it scales with the unit
+const FADED_OPACITY = 0.35; // while a path is being drawn or a point dragged
 
 function UnitLayer({
   units,
@@ -44,6 +47,12 @@ function UnitLayer({
   const commitGroupRotate = useMapStore((state) => state.commitGroupRotate);
   const commitGroupScale = useMapStore((state) => state.commitGroupScale);
   const setUnitForward = useMapStore((state) => state.setUnitForward);
+
+  // While a path is being drawn or one of its points dragged, units fade so you can see the
+  // map underneath and place the point exactly
+  const pathEditing = usePathToolStore(
+    (state) => state.drawingPoints !== null || state.draftPath !== null
+  );
 
   // The arrow shows the angle being dragged before it is committed
   const [forwardDraft, setForwardDraft] = useState<{
@@ -253,6 +262,8 @@ function UnitLayer({
         width: "100%",
         height: "100%",
         pointerEvents: "none",
+        opacity: pathEditing ? FADED_OPACITY : 1,
+        transition: "opacity 120ms ease",
       }}
     >
       {units.map((unit) => {

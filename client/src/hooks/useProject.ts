@@ -1,32 +1,30 @@
 import { useCallback } from "react";
 import API_BASE_URL from "../config/api";
 import {
-  DateMarker,
-  DateMode,
+  HistoryDisplay,
   MapPath,
+  PacingKey,
+  PROJECT_VERSION,
   ProjectData,
   SavedViewport,
   Unit,
 } from "../types";
-import { clampDate } from "../utils/dates";
+import {
+  emptyProject,
+  LoadedProject,
+  parseProject,
+} from "../utils/convertProject";
+import { HistoryTime } from "../utils/historyTime";
 
 export interface ProjectSnapshot {
   units: Unit[];
   paths: MapPath[];
-  dateMarkers: DateMarker[];
-  dateMode: DateMode;
+  storyStart: HistoryTime;
+  displayMode: HistoryDisplay;
+  pacing: PacingKey[];
   selectedMapFilename: string | null;
   // Left out (undefined) for auto-saves; Flask then keeps the last saved view
   viewport?: SavedViewport | null;
-}
-
-interface LoadedProject {
-  units: Unit[];
-  paths: MapPath[];
-  dateMarkers: DateMarker[];
-  dateMode: DateMode;
-  selectedMapFilename: string | null;
-  viewport: SavedViewport | null;
 }
 
 function useProject(projectName: string = "default") {
@@ -34,10 +32,12 @@ function useProject(projectName: string = "default") {
     async (snapshot: ProjectSnapshot): Promise<boolean> => {
       const projectData: ProjectData = {
         name: projectName,
+        version: PROJECT_VERSION,
         units: snapshot.units,
         paths: snapshot.paths,
-        dateMarkers: snapshot.dateMarkers,
-        dateMode: snapshot.dateMode,
+        storyStart: snapshot.storyStart,
+        displayMode: snapshot.displayMode,
+        pacing: snapshot.pacing,
         selectedMapFilename: snapshot.selectedMapFilename,
         viewport: snapshot.viewport,
       };
@@ -58,69 +58,18 @@ function useProject(projectName: string = "default") {
     [projectName]
   );
 
+  // Older project files are converted as they load (see parseProject). They are written
+  // back in the new form the next time the project is saved.
   const loadProject = useCallback(async (): Promise<LoadedProject> => {
-    const empty: LoadedProject = {
-      units: [],
-      paths: [],
-      dateMarkers: [],
-      dateMode: "months",
-      selectedMapFilename: null,
-      viewport: null,
-    };
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/projects/load/${projectName}`
       );
-      if (!response.ok) return empty;
-      const data = await response.json();
-
-      const raw = data.viewport;
-      const viewport: SavedViewport | null =
-        raw && [raw.centerX, raw.centerY, raw.scale].every(Number.isFinite)
-          ? { centerX: raw.centerX, centerY: raw.centerY, scale: raw.scale }
-          : null;
-
-      const paths: MapPath[] = Array.isArray(data.paths)
-        ? data.paths.map((path: MapPath) => ({
-            id: path.id,
-            name: path.name,
-            points: Array.isArray(path.points) ? path.points : [],
-            assignments: Array.isArray(path.assignments)
-              ? path.assignments
-              : [],
-            direction:
-              typeof path.direction === "number" ? path.direction : undefined,
-            start: typeof path.start === "number" ? path.start : undefined,
-            end: typeof path.end === "number" ? path.end : undefined,
-          }))
-        : [];
-
-      const dateMarkers: DateMarker[] = Array.isArray(data.dateMarkers)
-        ? data.dateMarkers
-            .filter(
-              (m: DateMarker) =>
-                m &&
-                typeof m.id === "string" &&
-                [m.time, m.year, m.month, m.day].every(Number.isFinite)
-            )
-            .map((m: DateMarker) => ({
-              id: m.id,
-              time: Math.max(m.time, 0),
-              ...clampDate(m),
-            }))
-        : [];
-
-      return {
-        units: data.units || [],
-        paths,
-        dateMarkers,
-        dateMode: data.dateMode === "days" ? "days" : "months",
-        selectedMapFilename: data.selectedMapFilename ?? null,
-        viewport,
-      };
+      if (!response.ok) return emptyProject();
+      return parseProject(await response.json());
     } catch (error) {
       console.error("Failed to load project: ", error);
-      return empty;
+      return emptyProject();
     }
   }, [projectName]);
 

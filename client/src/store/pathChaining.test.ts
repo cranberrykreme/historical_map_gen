@@ -16,13 +16,24 @@ const unit = (id: string, x: number, y: number): Unit => ({
 
 const pathOf = (id: string) =>
   useMapStore.getState().paths.find((p) => p.id === id)!;
+const storyStart = () => useMapStore.getState().storyStart;
+
+// Dates a march `from` to `to` days after the story starts, with no turn
+const dateMarch = (id: string, from: number, to: number) =>
+  useMapStore
+    .getState()
+    .setMarchTiming(id, {
+      start: storyStart() + from,
+      end: storyStart() + to,
+      turn: 0,
+    });
 
 const currentTimeline = () => {
   const { paths, placedUnits } = useMapStore.getState();
   return getTimeline(paths, placedUnits);
 };
 
-// Every chained movement starts at the centre of the units as they stand when it begins
+// Every chained march starts at the centre of the units as they stand when it begins
 function expectChainedStartsAtArrival() {
   const { paths } = useMapStore.getState();
   const timeline = currentTimeline();
@@ -65,15 +76,14 @@ beforeEach(() => {
   });
 });
 
-test("a second march is scheduled when the first ends, and starts where the first ends", () => {
+test("the first march starts with the story, and a second is dated to begin when it ends", () => {
   const { first, second } = twoMarches();
 
-  expect(pathOf(first).start).toBeUndefined(); // the first keeps its default timing
-  expect(pathOf(second).start).toBeCloseTo(
-    currentTimeline().timings.get(first)!.end,
-    6
+  expect(pathOf(first).march!.start).toBe(storyStart());
+  expect(pathOf(second).march!.start).toBeCloseTo(pathOf(first).march!.end, 9);
+  expect(pathOf(second).march!.end).toBeGreaterThan(
+    pathOf(second).march!.start
   );
-  expect(pathOf(second).end!).toBeGreaterThan(pathOf(second).start!);
   expect(pathOf(second).points[0].x).toBeCloseTo(1000, 3);
   expect(pathOf(second).points[0].y).toBeCloseTo(0, 3);
 });
@@ -102,7 +112,7 @@ test("moving the placed units shifts the first march's start but not a chained o
   expect(pathOf(second).points[0].y).toBeCloseTo(0, 6);
 });
 
-test("attaching to a path that already has a timing keeps it", () => {
+test("attaching to a path that already has dates keeps them", () => {
   useMapStore.getState().setPlacedUnits([unit("a", 0, 0)]);
   useMapStore.getState().boxSelect(["a"]);
   const first = useMapStore.getState().addPath([
@@ -114,16 +124,19 @@ test("attaching to a path that already has a timing keeps it", () => {
     { x: 1000, y: 0 },
     { x: 1000, y: 1000 },
   ]);
-  useMapStore.getState().setPathTiming(second, 30, 40);
+  dateMarch(second, 30, 40);
   useMapStore.getState().attachSelectedUnitsToPath(second);
 
-  expect(pathOf(second).start).toBe(30);
-  expect(pathOf(second).end).toBe(40);
+  expect(pathOf(second).march).toEqual({
+    start: storyStart() + 30,
+    end: storyStart() + 40,
+    turn: 0,
+  });
   // ...but it still picks the unit up where the first march ended
   expect(pathOf(second).points[0].x).toBeCloseTo(1000, 3);
 });
 
-test("re-recording a chained movement keeps its start where the units arrive", () => {
+test("re-recording a chained march keeps its start where the units arrive", () => {
   const { second } = twoMarches();
 
   useMapStore.getState().refreshPathFormation(second);
@@ -139,7 +152,7 @@ test("reshaping the first march moves the chained march's start to the new arriv
     { x: 1000, y: 0 },
   ]);
   useMapStore.getState().attachSelectedUnitsToPath(first);
-  useMapStore.getState().setPathTiming(first, 0, 10);
+  dateMarch(first, 0, 10);
   const second = useMapStore.getState().addPath([
     { x: 1000, y: 0 },
     { x: 1000, y: 1000 },
@@ -160,12 +173,12 @@ test("reshaping the first march moves the chained march's start to the new arriv
   expect(pathOf(second).points[0].x).toBeCloseTo(1000, 3);
 });
 
-test("re-timing the movements re-chains them", () => {
+test("re-dating the marches re-chains them", () => {
   const { first, second } = twoMarches();
 
-  // Play the second march first: now the first one is the one that follows on
-  useMapStore.getState().setPathTiming(first, 20, 32);
-  useMapStore.getState().setPathTiming(second, 0, 10);
+  // March the second route first: now the first one is the one that follows on
+  dateMarch(first, 20, 32);
+  dateMarch(second, 0, 10);
 
   expect(Array.from(chainedPathIds(useMapStore.getState().paths))).toEqual([
     first,
@@ -202,14 +215,14 @@ test("reshaping the first march re-chains every march after it", () => {
     { x: 1000, y: 0 },
   ]);
   useMapStore.getState().attachSelectedUnitsToPath(first);
-  useMapStore.getState().setPathTiming(first, 0, 10);
+  dateMarch(first, 0, 10);
 
   const second = useMapStore.getState().addPath([
     { x: 1000, y: 0 },
     { x: 1000, y: 1000 },
   ]);
   useMapStore.getState().attachSelectedUnitsToPath(second);
-  useMapStore.getState().setPathTiming(second, 10, 20);
+  dateMarch(second, 10, 20);
 
   const third = useMapStore.getState().addPath([
     { x: 1000, y: 1000 },
@@ -227,7 +240,7 @@ test("reshaping the first march re-chains every march after it", () => {
   expectChainedStartsAtArrival();
 });
 
-test("a chained movement's first waypoint can't be deleted", () => {
+test("a chained march's first waypoint can't be deleted", () => {
   const { second } = twoMarches();
   useMapStore
     .getState()
