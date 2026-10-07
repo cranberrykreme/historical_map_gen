@@ -28,6 +28,12 @@ import { clampMarch } from "../utils/marches";
 import { createPlayback } from "../utils/pathPlayback";
 import { DEFAULT_STORY_START } from "../utils/convertProject";
 import { HistoryTime } from "../utils/historyTime";
+import {
+  defaultMarchStart,
+  placementMoment,
+  removeUnitsAt,
+} from "../utils/lifespans";
+import { useTimelineStore } from "./useTimelineStore";
 
 interface DragPosition {
   id: string;
@@ -139,6 +145,7 @@ interface MapStore {
   refreshPathFormation: (pathId: string) => void;
   setFormationMode: (pathId: string, mode: FormationMode) => void;
   setMarchTiming: (pathId: string, timing: MarchTiming) => void;
+  bringBackUnits: (unitIds: string[]) => void;
 
   // The story in history. The placed units stand as they are at `storyStart`. These load
   // with the project and bypass undo.
@@ -213,6 +220,13 @@ function inheritedFacing(units: Unit[], path: string, assetType: AssetType) {
     travelMode: sameAsset.find((unit) => unit.travelMode !== undefined)
       ?.travelMode,
   };
+}
+
+// When a unit placed right now appears: at the playhead once it is past the story's start,
+// otherwise it is there from the start (no date)
+function appearsNow(storyStart: HistoryTime): { appears?: number } {
+  const appears = placementMoment(useTimelineStore.getState().now, storyStart);
+  return appears === undefined ? {} : { appears };
 }
 
 const newPathId = () =>
@@ -290,6 +304,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
       rotation: 0,
       scale: 1,
       ...inheritedFacing(state.placedUnits, path, assetType),
+      ...appearsNow(state.storyStart),
     };
     set({
       ...withHistory(state),
@@ -297,15 +312,25 @@ export const useMapStore = create<MapStore>((set, get) => ({
     });
   },
 
+  // At a unit's own moment (the story's start, or when it appears) deleting removes it
+  // outright. Anywhere later it leaves at the playhead's moment and stays in history before.
   removeSelectedUnits: () => {
     const state = get();
-    const remaining = state.placedUnits.filter(
-      (unit) => !state.selectedUnitIds.has(unit.id)
+    if (state.selectedUnitIds.size === 0) return;
+    const { units, deletedIds } = removeUnitsAt(
+      state.placedUnits,
+      state.selectedUnitIds,
+      useTimelineStore.getState().now,
+      state.storyStart
     );
     set({
       ...withHistory(state),
-      placedUnits: remaining,
-      paths: keepAssignments(state.paths, new Set(remaining.map((u) => u.id))),
+      placedUnits: units,
+      // Units that only leave keep their places in their marches
+      paths:
+        deletedIds.size > 0
+          ? keepAssignments(state.paths, new Set(units.map((u) => u.id)))
+          : state.paths,
       selectedUnitIds: new Set(),
     });
   },
@@ -573,6 +598,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
       rotation: 0,
       scale: 1,
       ...inheritedFacing(state.placedUnits, path, assetType),
+      ...appearsNow(state.storyStart),
     };
     set({
       ...withHistory(state),
@@ -590,12 +616,16 @@ export const useMapStore = create<MapStore>((set, get) => ({
     const state = get();
     if (state.clipboard.length === 0) return;
 
-    const newUnits: Unit[] = state.clipboard.map((unit) => ({
-      ...unit,
-      id: `${unit.filename}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      x: unit.x + 20,
-      y: unit.y + 20,
-    }));
+    // Pasted units appear at the playhead's moment, like any other newly placed unit
+    const newUnits: Unit[] = state.clipboard.map(
+      ({ appears: _appears, leaves: _leaves, ...unit }) => ({
+        ...unit,
+        id: `${unit.filename}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        x: unit.x + 20,
+        y: unit.y + 20,
+        ...appearsNow(state.storyStart),
+      })
+    );
 
     set({
       ...withHistory(state),
@@ -646,7 +676,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   //
   // Units that already march along other paths are picked up where those marches leave them,
   // and this march is dated to begin when the last of those ends. Otherwise it begins at the
-  // story's start. A march that already has dates keeps them.
+  // story's start, or once the last of the units has appeared. A march that already has dates
+  // keeps them.
   attachSelectedUnitsToPath: (pathId) => {
     const state = get();
     const path = state.paths.find((p) => p.id === pathId);
@@ -665,7 +696,7 @@ export const useMapStore = create<MapStore>((set, get) => ({
       path.march ??
       defaultMarch(
         createPlayback({ ...path, ...attachment }, handover.units),
-        handover.time ?? state.storyStart
+        defaultMarchStart(handover.time, state.storyStart, selected)
       );
 
     set({
@@ -739,6 +770,24 @@ export const useMapStore = create<MapStore>((set, get) => ({
     set({
       ...withHistory(state),
       paths: state.paths.map((p) => (p.id === pathId ? { ...p, march } : p)),
+    });
+  },
+
+  // Undoes a unit leaving: it stays until the end of the story again. One undo step.
+  bringBackUnits: (unitIds) => {
+    const state = get();
+    const ids = new Set(unitIds);
+    const anyLeaving = state.placedUnits.some(
+      (unit) => ids.has(unit.id) && unit.leaves !== undefined
+    );
+    if (!anyLeaving) return;
+    set({
+      ...withHistory(state),
+      placedUnits: state.placedUnits.map((unit) => {
+        if (!ids.has(unit.id) || unit.leaves === undefined) return unit;
+        const { leaves: _left, ...back } = unit;
+        return back;
+      }),
     });
   },
 

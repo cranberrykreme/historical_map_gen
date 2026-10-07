@@ -16,8 +16,10 @@ interface UnitLayerProps {
   isDraggingUnit: React.RefObject<boolean>;
   isShiftHeld: boolean;
   setCursor: (cursor: string) => void;
-  // True while the playhead is away from the start: units can't be touched then
-  locked: boolean;
+  // Units that can't be moved, turned or resized with the playhead where it is: each unit is
+  // edited at its own moment (the story's start, or when it appears). Locked units can still
+  // be selected, so they can be deleted (they leave then) or looked at in the Paths panel.
+  lockedIds: ReadonlySet<string>;
 }
 
 const ARROW_LENGTH = 64; // in the unit's own space, so it scales with the unit
@@ -29,7 +31,7 @@ function UnitLayer({
   isDraggingUnit,
   isShiftHeld,
   setCursor,
-  locked,
+  lockedIds,
 }: UnitLayerProps) {
   const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const selectUnit = useMapStore((state) => state.selectUnit);
@@ -61,16 +63,30 @@ function UnitLayer({
   } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent, unitId: string) => {
-    if (locked || e.button !== 0) return;
+    if (e.button !== 0) return;
     if (e.shiftKey) {
       selectUnit(unitId, true);
       return;
     }
     e.stopPropagation();
     e.preventDefault();
+
+    // A locked unit is only selected, never dragged
+    if (lockedIds.has(unitId)) {
+      selectUnit(unitId, false);
+      return;
+    }
     isDraggingUnit.current = true;
 
-    if (selectedUnitIds.size > 1 && selectedUnitIds.has(unitId)) {
+    // The whole selection moves together only if every unit in it can be moved now
+    const groupMovable = Array.from(selectedUnitIds).every(
+      (id) => !lockedIds.has(id)
+    );
+    if (
+      selectedUnitIds.size > 1 &&
+      selectedUnitIds.has(unitId) &&
+      groupMovable
+    ) {
       let lastX = e.clientX;
       let lastY = e.clientY;
       let totalDx = 0;
@@ -268,6 +284,7 @@ function UnitLayer({
     >
       {units.map((unit) => {
         const isSelected = selectedUnitIds.has(unit.id);
+        const locked = lockedIds.has(unit.id);
         const showForward = isSelected && selectedUnitIds.size === 1 && !locked;
         const forwardAngle =
           forwardDraft && forwardDraft.id === unit.id

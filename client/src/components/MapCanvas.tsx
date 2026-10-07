@@ -17,6 +17,7 @@ import {
   useTimelineStore,
 } from "../store/useTimelineStore";
 import { existsAt, getTimeline } from "../utils/timeline";
+import { editableAt } from "../utils/lifespans";
 
 function MapCanvas({
   viewportApiRef,
@@ -89,6 +90,19 @@ function MapCanvas({
   // Only the units that exist at the playhead's moment are shown. A unit with no dates is
   // there for the whole story.
   const moment = currentMoment(now, storyStart);
+
+  // Each unit is edited at its own moment: the story's start, or when it appears. Anywhere
+  // else it is locked, because the map shows it where history has taken it. While previewing
+  // one path, units are only locked if they don't exist from the start.
+  const lockedIds = useMemo(
+    () =>
+      new Set(
+        placedUnits
+          .filter((unit) => !editableAt(unit, preview ? null : now, storyStart))
+          .map((unit) => unit.id)
+      ),
+    [placedUnits, preview, now, storyStart]
+  );
 
   const displayUnits = placedUnits
     .filter((unit) => existsAt(unit, moment))
@@ -267,7 +281,7 @@ function MapCanvas({
           isDraggingUnit={isDraggingUnit}
           isShiftHeld={isShiftHeld}
           setCursor={setCursor}
-          locked={timelineActive}
+          lockedIds={lockedIds}
         />
         <PathLayer
           mode="markers"

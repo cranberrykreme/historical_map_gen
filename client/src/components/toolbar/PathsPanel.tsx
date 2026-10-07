@@ -10,6 +10,7 @@ import API_BASE_URL from "../../config/api";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PathsPanel.module.css";
 import { useTimelineStore } from "../../store/useTimelineStore";
+import { formatHistoryTime } from "../../utils/historyTime";
 
 const PLAY_SPEED = 100; // map units per second at 1x
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2];
@@ -27,6 +28,35 @@ const TRAVEL_MODES: { mode: TravelMode; label: string; hint: string }[] = [
   },
   { mode: "fixed", label: "Fixed", hint: "Never turns or flips" },
 ];
+
+// The lifespan rows (inline so PathsPanel.module.css doesn't change)
+const LIFESPAN: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  margin: "6px 0",
+};
+const LIFESPAN_ROW: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  fontSize: "var(--font-size-sm)",
+};
+const LIFESPAN_LABEL: React.CSSProperties = {
+  width: 56,
+  flexShrink: 0,
+  color: "var(--color-text-dim)",
+};
+const LIFESPAN_VALUE: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  color: "var(--color-text-secondary)",
+};
+const SMALL_BUTTON: React.CSSProperties = {
+  width: "auto",
+  padding: "1px 6px",
+  flexShrink: 0,
+};
 
 const displayName = (unit: Unit) => unit.filename.replace(/\.[^/.]+$/, "");
 
@@ -92,6 +122,7 @@ function PathsPanel() {
   );
   const setUnitsTravelMode = useMapStore((state) => state.setUnitsTravelMode);
   const setFormationMode = useMapStore((state) => state.setFormationMode);
+  const bringBackUnits = useMapStore((state) => state.bringBackUnits);
 
   const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const drawingPoints = usePathToolStore((state) => state.drawingPoints);
@@ -116,6 +147,19 @@ function PathsPanel() {
     selectedUnits.map((unit) => unitFacing(unit).travelMode)
   );
   const activeMode = modes.size === 1 ? Array.from(modes)[0] : null;
+
+  // When the selected units exist in history
+  const soleUnit = selectedUnits.length === 1 ? selectedUnits[0] : null;
+  const leavingUnits = selectedUnits.filter(
+    (unit) => unit.leaves !== undefined
+  );
+  const goTo = (moment: number) => {
+    usePathToolStore.getState().clearPreview();
+    setIsPlaying(false);
+    const timeline = useTimelineStore.getState();
+    timeline.pause();
+    timeline.setNow(moment);
+  };
 
   const selectedPath = paths.find((path) => path.id === selectedPathId);
   const attachedUnits = selectedPath
@@ -255,6 +299,69 @@ function PathsPanel() {
                   ? TRAVEL_MODES.find((m) => m.mode === activeMode)?.hint
                   : "Mixed settings"}
                 . Click a path on the map to attach the selected units to it.
+              </p>
+
+              {soleUnit && (
+                <div style={LIFESPAN}>
+                  <div style={LIFESPAN_ROW}>
+                    <span style={LIFESPAN_LABEL}>Appears</span>
+                    <span style={LIFESPAN_VALUE}>
+                      {soleUnit.appears !== undefined
+                        ? formatHistoryTime(soleUnit.appears, "times")
+                        : "From the start"}
+                    </span>
+                    {soleUnit.appears !== undefined && (
+                      <button
+                        className={styles.cancelButton}
+                        style={SMALL_BUTTON}
+                        title="Move the playhead to when this unit appears, where it can be moved and turned"
+                        onClick={() => goTo(soleUnit.appears!)}
+                      >
+                        Go there
+                      </button>
+                    )}
+                  </div>
+                  <div style={LIFESPAN_ROW}>
+                    <span style={LIFESPAN_LABEL}>Leaves</span>
+                    <span style={LIFESPAN_VALUE}>
+                      {soleUnit.leaves !== undefined
+                        ? formatHistoryTime(soleUnit.leaves, "times")
+                        : "Never"}
+                    </span>
+                    {soleUnit.leaves !== undefined && (
+                      <button
+                        className={styles.cancelButton}
+                        style={SMALL_BUTTON}
+                        title="Keep this unit until the end of the story"
+                        onClick={() => bringBackUnits([soleUnit.id])}
+                      >
+                        Bring back
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {!soleUnit && leavingUnits.length > 0 && (
+                <div style={LIFESPAN_ROW}>
+                  <span style={LIFESPAN_VALUE}>
+                    {leavingUnits.length} of these leave during the story
+                  </span>
+                  <button
+                    className={styles.cancelButton}
+                    style={SMALL_BUTTON}
+                    title="Keep them until the end of the story"
+                    onClick={() =>
+                      bringBackUnits(leavingUnits.map((unit) => unit.id))
+                    }
+                  >
+                    Bring back
+                  </button>
+                </div>
+              )}
+              <p className={styles.hint}>
+                Units placed with the playhead past the story's start appear
+                then. Deleting a unit there makes it leave at that moment. Each
+                unit can be moved only at the moment it appears.
               </p>
             </div>
           )}
