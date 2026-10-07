@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../store/useMapStore";
 import { usePathToolStore } from "../store/usePathToolStore";
+import { isPastStart, useTimelineStore } from "../store/useTimelineStore";
 import {
   chevronsAlong,
   nearestOnPath,
@@ -8,6 +9,7 @@ import {
 } from "../utils/pathGeometry";
 import { MapPath, PathPoint } from "../types";
 import { chainedPathIds } from "../utils/timeline";
+import { pathShownAt } from "../utils/historyEdit";
 
 interface PathLayerProps {
   // "lines" sits under the units and can be clicked; "markers" sits above them
@@ -48,13 +50,16 @@ function PathLayer({
   containerRef,
   isDraggingUnit,
 }: PathLayerProps) {
-  const paths = useMapStore((state) => state.paths);
-  const chainedIds = useMemo(() => chainedPathIds(paths), [paths]);
+  const allPaths = useMapStore((state) => state.paths);
+  const chainedIds = useMemo(() => chainedPathIds(allPaths), [allPaths]);
   const selectedPathId = useMapStore((state) => state.selectedPathId);
   const selectPath = useMapStore((state) => state.selectPath);
   const attachSelectedUnitsToPath = useMapStore(
     (state) => state.attachSelectedUnitsToPath
   );
+  const storyStart = useMapStore((state) => state.storyStart);
+  const now = useTimelineStore((state) => state.now);
+  const draftTiming = useTimelineStore((state) => state.draftTiming);
   const drawingPoints = usePathToolStore((state) => state.drawingPoints);
   const draftPath = usePathToolStore((state) => state.draftPath);
   const selectedWaypoint = usePathToolStore((state) => state.selectedWaypoint);
@@ -62,12 +67,30 @@ function PathLayer({
   const setDraftPath = usePathToolStore((state) => state.setDraftPath);
   const commitDraftPath = usePathToolStore((state) => state.commitDraftPath);
   const insertWaypoint = usePathToolStore((state) => state.insertWaypoint);
+  const preview = usePathToolStore((state) => state.preview);
   const [scale, setScale] = useState<number>(1);
   const mouseDownAt = useRef<{ x: number; y: number } | null>(null);
 
+  // Which paths are on the map right now. At the story's start (or while previewing one path
+  // on its own) every path shows, so they can all be edited. Past the start, a march's path
+  // shows only while the march is under way; a bar being dragged uses its draft dates.
+  const shownAt = !preview && isPastStart(now, storyStart) ? now : null;
+  const paths = useMemo(
+    () =>
+      allPaths.filter((path) =>
+        pathShownAt(
+          draftTiming && draftTiming.pathId === path.id
+            ? draftTiming.timing
+            : path.march,
+          shownAt
+        )
+      ),
+    [allPaths, draftTiming, shownAt]
+  );
+
   // The map's zoom lives in a ref (so zooming never re-renders the whole map).
   // Only this layer watches it, so lines and dots keep a constant on-screen size.
-  const active = paths.length > 0 || drawingPoints !== null;
+  const active = allPaths.length > 0 || drawingPoints !== null;
   useEffect(() => {
     if (!active) return;
     let frame = 0;
@@ -284,6 +307,7 @@ function PathLayer({
     );
   }
 
+  // Only a path that is on the map shows its waypoints
   const selectedPath = paths.find((path) => path.id === selectedPathId);
 
   return (

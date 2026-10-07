@@ -11,8 +11,12 @@ import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
 import { usePathToolStore } from "../store/usePathToolStore";
 import { ViewportApi } from "../types";
-import { isPastStart, useTimelineStore } from "../store/useTimelineStore";
-import { getTimeline } from "../utils/timeline";
+import {
+  currentMoment,
+  isPastStart,
+  useTimelineStore,
+} from "../store/useTimelineStore";
+import { existsAt, getTimeline } from "../utils/timeline";
 
 function MapCanvas({
   viewportApiRef,
@@ -82,37 +86,46 @@ function MapCanvas({
         )
       : null;
 
-  const displayUnits = placedUnits.map((unit) => {
-    let display = { ...unit };
-    const onPath = playback?.get(unit.id) ?? timelineStates?.get(unit.id);
-    if (onPath) {
-      display.x = onPath.x;
-      display.y = onPath.y;
-      display.rotation = onPath.rotation;
-      display.flipped = onPath.flipped;
-    }
-    if (dragPosition && dragPosition.id === unit.id) {
-      display.x = dragPosition.x;
-      display.y = dragPosition.y;
-    }
-    if (dragRotation && dragRotation.id === unit.id) {
-      display.rotation = dragRotation.rotation;
-    }
-    if (dragScale && dragScale.id === unit.id) {
-      display.scale = dragScale.scale;
-    }
-    if (groupDragDelta && selectedUnitIds.has(unit.id)) {
-      display.x = unit.x + groupDragDelta.dx;
-      display.y = unit.y + groupDragDelta.dy;
-    }
-    if (groupRotateDelta !== null && selectedUnitIds.has(unit.id)) {
-      display.rotation = unit.rotation + groupRotateDelta;
-    }
-    if (groupScaleDelta !== null && selectedUnitIds.has(unit.id)) {
-      display.scale = Math.min(Math.max(unit.scale + groupScaleDelta, 0.1), 5);
-    }
-    return display;
-  });
+  // Only the units that exist at the playhead's moment are shown. A unit with no dates is
+  // there for the whole story.
+  const moment = currentMoment(now, storyStart);
+
+  const displayUnits = placedUnits
+    .filter((unit) => existsAt(unit, moment))
+    .map((unit) => {
+      let display = { ...unit };
+      const onPath = playback?.get(unit.id) ?? timelineStates?.get(unit.id);
+      if (onPath) {
+        display.x = onPath.x;
+        display.y = onPath.y;
+        display.rotation = onPath.rotation;
+        display.flipped = onPath.flipped;
+      }
+      if (dragPosition && dragPosition.id === unit.id) {
+        display.x = dragPosition.x;
+        display.y = dragPosition.y;
+      }
+      if (dragRotation && dragRotation.id === unit.id) {
+        display.rotation = dragRotation.rotation;
+      }
+      if (dragScale && dragScale.id === unit.id) {
+        display.scale = dragScale.scale;
+      }
+      if (groupDragDelta && selectedUnitIds.has(unit.id)) {
+        display.x = unit.x + groupDragDelta.dx;
+        display.y = unit.y + groupDragDelta.dy;
+      }
+      if (groupRotateDelta !== null && selectedUnitIds.has(unit.id)) {
+        display.rotation = unit.rotation + groupRotateDelta;
+      }
+      if (groupScaleDelta !== null && selectedUnitIds.has(unit.id)) {
+        display.scale = Math.min(
+          Math.max(unit.scale + groupScaleDelta, 0.1),
+          5
+        );
+      }
+      return display;
+    });
 
   // The map is placed in a shadow root so the styles inside the SVG file can't leak out
   // and restyle the rest of the app (path lines, portrait editor, ...)

@@ -22,6 +22,16 @@ import {
   HistoryTime,
   HOUR,
 } from "../utils/historyTime";
+import {
+  allowedStoryStart,
+  durationFields,
+  fromDurationFields,
+  fromMomentFields,
+  momentFields,
+  MomentFields,
+  DurationFields,
+} from "../utils/historyEdit";
+import { MONTH_NAMES } from "../utils/dates";
 import { HistoryDisplay, MapPath, MarchTiming } from "../types";
 import styles from "./Timeline.module.css";
 
@@ -44,6 +54,233 @@ const DISPLAYS: { mode: HistoryDisplay; label: string }[] = [
 const TICK_SPACING = 90; // pixels between ruler labels, at least
 const START_SNAP = 4; // pixels: a playhead this close to the story's start counts as at it
 const ZOOM_SPEED = 0.01; // per unit of pinch or ⌘-scroll
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// A number box that applies what you typed when you leave it or press Enter, so typing a
+// year isn't a string of undo steps. Anything that isn't a number puts the old value back.
+function NumberField({
+  value,
+  min,
+  max,
+  width,
+  title,
+  padded,
+  onCommit,
+}: {
+  value: number;
+  min: number;
+  max?: number;
+  width: number;
+  title: string;
+  padded?: boolean;
+  onCommit: (value: number) => void;
+}) {
+  const shown = padded ? pad2(value) : String(value);
+  const [draft, setDraft] = useState(shown);
+
+  // Follow the value when it changes elsewhere (undo, dragging the bar, another field)
+  useEffect(() => setDraft(shown), [shown]);
+
+  const finish = () => {
+    const typed = Number(draft);
+    setDraft(shown);
+    if (draft.trim() === "" || !Number.isFinite(typed) || typed === value)
+      return;
+    onCommit(typed);
+  };
+
+  return (
+    <input
+      type="number"
+      className={styles.editorInput}
+      style={{ width }}
+      min={min}
+      max={max}
+      value={draft}
+      title={title}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={finish}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+    />
+  );
+}
+
+// A moment in history as day, month, year and time of day
+function MomentInput({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string;
+  value: HistoryTime;
+  onCommit: (t: HistoryTime) => void;
+}) {
+  const fields = momentFields(value);
+  const change = (patch: Partial<MomentFields>) => {
+    const next = fromMomentFields({ ...fields, ...patch });
+    if (next !== value) onCommit(next);
+  };
+
+  return (
+    <span className={styles.field}>
+      <span className={styles.editorLabel}>{label}</span>
+      <NumberField
+        value={fields.day}
+        min={1}
+        max={31}
+        width={44}
+        title="Day"
+        onCommit={(day) => change({ day })}
+      />
+      <select
+        className={styles.editorSelect}
+        value={fields.month}
+        title="Month"
+        onChange={(e) => change({ month: Number(e.target.value) })}
+      >
+        {MONTH_NAMES.map((name, index) => (
+          <option key={name} value={index + 1}>
+            {name}
+          </option>
+        ))}
+      </select>
+      <NumberField
+        value={fields.year}
+        min={1}
+        max={9999}
+        width={64}
+        title="Year"
+        onCommit={(year) => change({ year })}
+      />
+      <NumberField
+        value={fields.hour}
+        min={0}
+        max={23}
+        width={42}
+        title="Hour (0 to 23)"
+        padded
+        onCommit={(hour) => change({ hour })}
+      />
+      <span className={styles.editorDim}>:</span>
+      <NumberField
+        value={fields.minute}
+        min={0}
+        max={59}
+        width={42}
+        title="Minute"
+        padded
+        onCommit={(minute) => change({ minute })}
+      />
+    </span>
+  );
+}
+
+// A length of history as days, hours and minutes
+function DurationInput({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  onCommit: (days: number) => void;
+}) {
+  const fields = durationFields(value);
+  const change = (patch: Partial<DurationFields>) => {
+    const next = fromDurationFields({ ...fields, ...patch });
+    if (next !== value) onCommit(next);
+  };
+
+  return (
+    <span className={styles.field}>
+      <span className={styles.editorLabel}>{label}</span>
+      <NumberField
+        value={fields.days}
+        min={0}
+        width={52}
+        title="Days"
+        onCommit={(days) => change({ days })}
+      />
+      <span className={styles.editorDim}>d</span>
+      <NumberField
+        value={fields.hours}
+        min={0}
+        width={42}
+        title="Hours"
+        onCommit={(hours) => change({ hours })}
+      />
+      <span className={styles.editorDim}>h</span>
+      <NumberField
+        value={fields.minutes}
+        min={0}
+        width={42}
+        title="Minutes"
+        onCommit={(minutes) => change({ minutes })}
+      />
+      <span className={styles.editorDim}>m</span>
+    </span>
+  );
+}
+
+// Exact dates for the selected march. Each change is one undo step.
+function MarchEditor({ path, timing }: { path: MapPath; timing: MarchTiming }) {
+  const setMarchTiming = useMapStore((state) => state.setMarchTiming);
+  const marching = timing.end - timing.start - timing.turn;
+
+  return (
+    <div className={styles.editor}>
+      <span className={styles.editorTitle} title={path.name}>
+        {path.name}
+      </span>
+      <MomentInput
+        label="Starts"
+        value={timing.start}
+        onCommit={(start) => setMarchTiming(path.id, { ...timing, start })}
+      />
+      <MomentInput
+        label="Ends"
+        value={timing.end}
+        onCommit={(end) => setMarchTiming(path.id, { ...timing, end })}
+      />
+      <DurationInput
+        label="Turning"
+        value={timing.turn}
+        onCommit={(turn) => setMarchTiming(path.id, { ...timing, turn })}
+      />
+      <span className={styles.editorDim}>
+        Marching: {formatDuration(marching)}
+      </span>
+    </div>
+  );
+}
+
+// When the story begins. It can't be later than the first march.
+function StoryStartEditor({ firstMarch }: { firstMarch: HistoryTime | null }) {
+  const storyStart = useMapStore((state) => state.storyStart);
+  const setStoryStart = useMapStore((state) => state.setStoryStart);
+
+  const commit = (wanted: HistoryTime) => {
+    const next = allowedStoryStart(wanted, firstMarch);
+    setStoryStart(next);
+    // A playhead at or before the new start is at the start
+    const timeline = useTimelineStore.getState();
+    if (timeline.now !== null && timeline.now <= next) timeline.setNow(null);
+  };
+
+  return (
+    <div className={styles.editor}>
+      <MomentInput label="Story starts" value={storyStart} onCommit={commit} />
+      <span className={styles.editorDim}>
+        {firstMarch !== null
+          ? `No later than the first march (${formatHistoryTime(firstMarch, "times")})`
+          : "Select a march to edit its dates"}
+      </span>
+    </div>
+  );
+}
 
 function Timeline() {
   const paths = useMapStore((state) => state.paths);
@@ -104,6 +341,7 @@ function Timeline() {
           : timeline.timings.get(path.id)!,
     }));
   const hasMarches = rows.length > 0;
+  const selectedRow = rows.find((row) => row.path.id === selectedPathId);
 
   const ticks = historyTicks(
     shown.from,
@@ -343,6 +581,16 @@ function Timeline() {
           {expanded ? "\u25BE" : "\u25B4"}
         </button>
       </div>
+
+      {expanded &&
+        (selectedRow ? (
+          <MarchEditor
+            path={selectedRow.path}
+            timing={timeline.timings.get(selectedRow.path.id)!}
+          />
+        ) : (
+          <StoryStartEditor firstMarch={timeline.start} />
+        ))}
 
       {expanded && (
         <div className={styles.body}>
