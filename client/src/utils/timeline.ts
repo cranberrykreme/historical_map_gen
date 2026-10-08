@@ -1,4 +1,4 @@
-import { MapPath, Unit } from "../types";
+import { MapPath, PathPoint, Unit } from "../types";
 import { changeFormationMode } from "./formation";
 import { HistoryTime, HOUR, MINUTE } from "./historyTime";
 import { clampMarch, defaultTurn, MarchTiming, marchPhase } from "./marches";
@@ -21,12 +21,25 @@ export function defaultMarch(
   playback: Playback,
   start: HistoryTime
 ): MarchTiming {
+  const length = Number.isFinite(playback.length) ? playback.length : 0;
   const days = Math.max(
-    Math.round(playback.length / DEFAULT_MARCH_PACE / MINUTE) * MINUTE,
+    Math.round(length / DEFAULT_MARCH_PACE / MINUTE) * MINUTE,
     MIN_DEFAULT_MARCH
   );
   const end = start + days;
-  return clampMarch({ start, end, turn: defaultTurn(playback, start, end) });
+  const turn = defaultTurn(playback, start, end);
+  return clampMarch({ start, end, turn: Number.isFinite(turn) ? turn : 0 });
+}
+
+// A march's stored dates, if they are usable. Anything missing or not a real number (which
+// would draw nothing and sort unpredictably) counts as no dates.
+export function validMarch(
+  march: MarchTiming | undefined
+): MarchTiming | undefined {
+  if (!march) return undefined;
+  const { start, end, turn } = march;
+  if (![start, end].every(Number.isFinite)) return undefined;
+  return clampMarch({ start, end, turn: Number.isFinite(turn) ? turn : 0 });
 }
 
 // Keeps a march from starting before `earliest` (the story's start). Moving a whole march
@@ -54,7 +67,8 @@ export function existsAt(
 
 const isMovement = (path: MapPath) =>
   path.assignments.length > 0 && path.points.length >= 2;
-const marchStart = (path: MapPath) => path.march?.start ?? UNDATED_START;
+const marchStart = (path: MapPath) =>
+  validMarch(path.march)?.start ?? UNDATED_START;
 
 interface Movement {
   id: string;
@@ -132,37 +146,39 @@ export function createTimeline(paths: MapPath[], units: Unit[]): Timeline {
     // The units as they stand when this march begins: wherever the most recent earlier march
     // leaves them, or where they were placed
     const standingUnits: Unit[] = [];
+    const arrived: Unit[] = []; // those an earlier march brought here
     for (const slot of path.assignments) {
       const unit = placed.get(slot.unitId);
       if (!unit) continue;
       const state = stateOfBuilt(unit.id, start);
-      standingUnits.push(
-        state
-          ? {
-              ...unit,
-              x: state.x,
-              y: state.y,
-              rotation: state.rotation,
-              flipped: state.flipped,
-            }
-          : unit
-      );
+      const standingUnit = state
+        ? {
+            ...unit,
+            x: state.x,
+            y: state.y,
+            rotation: state.rotation,
+            flipped: state.flipped,
+          }
+        : unit;
+      standingUnits.push(standingUnit);
+      if (state) arrived.push(standingUnit);
     }
 
     // The formation is measured from where the units actually are when the march begins, so
-    // it never jumps, however the earlier marches are reshaped or re-dated
+    // it never jumps, however the earlier marches are reshaped or re-dated. A formation that
+    // turns with its units faces the way the arriving units face, so a unit joining from
+    // elsewhere doesn't swing the whole group round.
     const effective: MapPath = {
       ...path,
       ...changeFormationMode(
         path,
         standingUnits,
-        path.direction !== undefined ? "wheel" : "keep"
+        path.direction !== undefined ? "wheel" : "keep",
+        arrived
       ),
     };
     const playback = createPlayback(effective, standingUnits);
-    const timing = path.march
-      ? clampMarch(path.march)
-      : defaultMarch(playback, start);
+    const timing = validMarch(path.march) ?? defaultMarch(playback, start);
 
     movements.push({
       id: path.id,
@@ -306,10 +322,49 @@ export function chainedPathIds(paths: MapPath[]): Set<string> {
 const mean = (values: number[]) =>
   values.reduce((sum, v) => sum + v, 0) / values.length;
 
-// Keeps every chained march's start point at the place its units arrive (the centre of the
-// units as they stand when it begins). One march's start can change where the next one's
-// units arrive, so this repeats until nothing moves. Returns the same array when nothing
-// needed to change.
+// The army march just before this one: the latest-starting earlier march of the same army
+// that has units. Undefined for a march in no army, or an army's first march.
+function previousArmyMarch(
+  path: MapPath,
+  paths: MapPath[]
+): MapPath | undefined {
+  if (!path.armyId) return undefined;
+  const order = (p: MapPath) => paths.indexOf(p);
+  const start = marchStart(path);
+  let best: MapPath | undefined;
+  for (const other of paths) {
+    if (other === path || other.armyId !== path.armyId || !isMovement(other))
+      continue;
+    const otherStart = marchStart(other);
+    const earlier =
+      otherStart < start ||
+      (otherStart === start && order(other) < order(path));
+    if (!earlier) continue;
+    if (
+      !best ||
+      otherStart > marchStart(best) ||
+      (otherStart === marchStart(best) && order(other) > order(best))
+    ) {
+      best = other;
+    }
+  }
+  return best;
+}
+
+// Where an army's previous march ends: the last point of its route. The army's centre
+// follows its route from march to march, so units joining or leaving it along the way never
+// move where it goes next. Undefined when the march isn't an army's, or is its army's first.
+function armyArrival(path: MapPath, paths: MapPath[]): PathPoint | undefined {
+  const previous = previousArmyMarch(path, paths);
+  return previous ? previous.points[previous.points.length - 1] : undefined;
+}
+
+// Keeps every chained march's start point at the place its units arrive:
+// - an army's march starts where the army's previous march ends, so units joining or leaving
+//   the army along the way never move it (each unit keeps its own place relative to the route)
+// - any other chained march starts at the centre of its units as they stand when it begins
+// One march's start can change where the next one's units arrive, so this repeats until
+// nothing moves. Returns the same array when nothing needed to change.
 export function syncChainedStarts(paths: MapPath[], units: Unit[]): MapPath[] {
   let current = paths;
   for (let pass = 0; pass <= paths.length; pass++) {
@@ -323,7 +378,7 @@ export function syncChainedStarts(paths: MapPath[], units: Unit[]): MapPath[] {
       if (!chained.has(path.id) || !standing || standing.length === 0)
         return path;
 
-      const arrival = {
+      const arrival = armyArrival(path, current) ?? {
         x: mean(standing.map((unit) => unit.x)),
         y: mean(standing.map((unit) => unit.y)),
       };
@@ -332,7 +387,10 @@ export function syncChainedStarts(paths: MapPath[], units: Unit[]): MapPath[] {
         return path;
 
       changed = true;
-      return { ...path, points: [arrival, ...path.points.slice(1)] };
+      return {
+        ...path,
+        points: [{ x: arrival.x, y: arrival.y }, ...path.points.slice(1)],
+      };
     });
     if (!changed) break;
     current = next;
@@ -359,6 +417,34 @@ export function fitView(
   const to = Math.max(lastEnd ?? storyStart, storyStart + 7);
   const pad = (to - storyStart) * 0.04;
   return { from: storyStart - pad, to: to + pad };
+}
+
+// Where a march's bar is relative to the stretch of history on show
+export type BarPlacement = "before" | "inside" | "after";
+
+export function barPlacement(
+  timing: MarchTiming,
+  view: HistoryView
+): BarPlacement {
+  if (timing.end < view.from) return "before";
+  if (timing.start > view.to) return "after";
+  return "inside";
+}
+
+// A view that shows a march: the same zoom, centred on it, or zoomed out just enough to fit it
+// with a little room either side if it is longer than the view
+export function viewShowing(
+  timing: MarchTiming,
+  view: HistoryView
+): HistoryView {
+  const span = Math.max(view.to - view.from, MIN_VIEW_DAYS);
+  const length = timing.end - timing.start;
+  if (length * 1.2 > span) {
+    const pad = Math.max(length * 0.1, MIN_VIEW_DAYS / 2);
+    return { from: timing.start - pad, to: timing.end + pad };
+  }
+  const centre = (timing.start + timing.end) / 2;
+  return { from: centre - span / 2, to: centre + span / 2 };
 }
 
 // Zooms a view by `factor` (above 1 zooms out) about the moment `anchor`, which stays under

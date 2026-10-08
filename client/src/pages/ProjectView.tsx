@@ -32,6 +32,7 @@ function ProjectView() {
   const removeSelectedUnits = useMapStore((state) => state.removeSelectedUnits);
   const setPlacedUnits = useMapStore((state) => state.setPlacedUnits);
   const setPaths = useMapStore((state) => state.setPaths);
+  const setArmies = useMapStore((state) => state.setArmies);
   const setStoryStart = useMapStore((state) => state.setStoryStart);
   const setDisplayMode = useMapStore((state) => state.setDisplayMode);
   const setPacing = useMapStore((state) => state.setPacing);
@@ -74,6 +75,7 @@ function ProjectView() {
       ({
         units,
         paths: loadedPaths,
+        armies,
         storyStart,
         displayMode,
         pacing,
@@ -89,6 +91,7 @@ function ProjectView() {
         if (loadedPaths.length > 0) {
           setPaths(loadedPaths);
         }
+        setArmies(armies);
         if (loadedMap) {
           setSelectedMap(loadedMap);
         }
@@ -101,6 +104,7 @@ function ProjectView() {
     loadProject,
     setPlacedUnits,
     setPaths,
+    setArmies,
     setStoryStart,
     setDisplayMode,
     setPacing,
@@ -115,6 +119,7 @@ function ProjectView() {
     const saved = await saveProject({
       units: state.placedUnits,
       paths: state.paths,
+      armies: state.armies,
       storyStart: state.storyStart,
       displayMode: state.displayMode,
       pacing: state.pacing,
@@ -274,6 +279,7 @@ function ProjectView() {
     saveProject({
       units: state.placedUnits,
       paths: state.paths,
+      armies: state.armies,
       storyStart: state.storyStart,
       displayMode: state.displayMode,
       pacing: state.pacing,

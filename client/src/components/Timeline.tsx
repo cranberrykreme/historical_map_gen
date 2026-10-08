@@ -2,16 +2,20 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../store/useMapStore";
 import { usePathToolStore } from "../store/usePathToolStore";
 import {
+  clampRowsHeight,
   currentMoment,
+  DEFAULT_ROWS_HEIGHT,
   isPastStart,
   useTimelineStore,
 } from "../store/useTimelineStore";
 import {
+  barPlacement,
   fitView,
   getTimeline,
   HistoryView,
   keepAfter,
   snapStepFor,
+  viewShowing,
   zoomView,
 } from "../utils/timeline";
 import { dragMarch, MarchDragMode } from "../utils/marches";
@@ -32,6 +36,14 @@ import {
   DurationFields,
 } from "../utils/historyEdit";
 import { MONTH_NAMES } from "../utils/dates";
+import {
+  groupKeyOf,
+  groupRows,
+  MarchRow,
+  NO_ARMY,
+  RowFilter,
+  RowGroup,
+} from "../utils/timelineRows";
 import { HistoryDisplay, MapPath, MarchTiming } from "../types";
 import styles from "./Timeline.module.css";
 
@@ -51,11 +63,46 @@ const DISPLAYS: { mode: HistoryDisplay; label: string }[] = [
   { mode: "times", label: "Times" },
 ];
 
+const FILTERS: { filter: RowFilter; label: string; hint: string }[] = [
+  { filter: "all", label: "All", hint: "List every march" },
+  {
+    filter: "now",
+    label: "Now",
+    hint: "List only the marches under way at the playhead",
+  },
+  {
+    filter: "view",
+    label: "In view",
+    hint: "List the marches in the stretch of history on show",
+  },
+];
+
 const TICK_SPACING = 90; // pixels between ruler labels, at least
 const START_SNAP = 4; // pixels: a playhead this close to the story's start counts as at it
 const ZOOM_SPEED = 0.01; // per unit of pinch or ⌘-scroll
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// The arrow at a row's edge when its bar is outside the stretch of history on show. Click it
+// to bring the bar into view.
+const OFFSCREEN: React.CSSProperties = {
+  position: "absolute",
+  top: 4,
+  bottom: 4,
+  width: 18,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "var(--color-gold-subtle)",
+  border: "1px solid var(--color-gold-dim)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--color-gold)",
+  fontSize: 10,
+  cursor: "pointer",
+  zIndex: 2,
+};
+
+const MIN_BAR_PX = 6; // a very short march still gets a bar you can see and grab
 
 // A number box that applies what you typed when you leave it or press Enter, so typing a
 // year isn't a string of undo steps. Anything that isn't a number puts the old value back.
@@ -291,6 +338,9 @@ function Timeline() {
   const storyStart = useMapStore((state) => state.storyStart);
   const displayMode = useMapStore((state) => state.displayMode);
   const setDisplayMode = useMapStore((state) => state.setDisplayMode);
+  const armies = useMapStore((state) => state.armies);
+  const selectedArmyId = useMapStore((state) => state.selectedArmyId);
+  const selectArmy = useMapStore((state) => state.selectArmy);
 
   const now = useTimelineStore((state) => state.now);
   const playing = useTimelineStore((state) => state.playing);
@@ -305,6 +355,11 @@ function Timeline() {
   const setExpanded = useTimelineStore((state) => state.setExpanded);
   const setDraftTiming = useTimelineStore((state) => state.setDraftTiming);
   const setView = useTimelineStore((state) => state.setView);
+  const rowFilter = useTimelineStore((state) => state.rowFilter);
+  const setRowFilter = useTimelineStore((state) => state.setRowFilter);
+  const collapsedGroups = useTimelineStore((state) => state.collapsedGroups);
+  const toggleGroup = useTimelineStore((state) => state.toggleGroup);
+  const rowsHeight = useTimelineStore((state) => state.rowsHeight);
 
   const trackRef = useRef<HTMLDivElement>(null);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -331,7 +386,7 @@ function Timeline() {
   shownRef.current = shown;
 
   // One row per march; a bar being dragged shows its draft dates
-  const rows = paths
+  const rows: MarchRow[] = paths
     .filter((path) => timeline.timings.has(path.id))
     .map((path) => ({
       path,
@@ -342,6 +397,112 @@ function Timeline() {
     }));
   const hasMarches = rows.length > 0;
   const selectedRow = rows.find((row) => row.path.id === selectedPathId);
+
+  // The rows, grouped by army and filtered. Headers only appear once some march belongs to
+  // an army; until then it's a plain list.
+  const groups = groupRows(
+    rows,
+    armies,
+    rowFilter,
+    current,
+    shown,
+    selectedPathId
+  );
+  const grouped = rows.some((row) => groupKeyOf(row.path, armies) !== NO_ARMY);
+  const collapsed = new Set(collapsedGroups);
+  const isOpen = (group: RowGroup) => !grouped || !collapsed.has(group.key);
+
+  // Selecting a march (here, on the map or in a panel) brings its bar into view, opens its
+  // group and scrolls its row into sight
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const headerRefs = useRef(new Map<string, HTMLDivElement>());
+  const selectedTiming = selectedPathId
+    ? timeline.timings.get(selectedPathId)
+    : undefined;
+  useEffect(() => {
+    if (!selectedPathId || !selectedTiming) return;
+    const state = useTimelineStore.getState();
+    const visible = state.view ?? fitView(storyStart, storyEnd);
+    if (barPlacement(selectedTiming, visible) !== "inside") {
+      state.setView(viewShowing(selectedTiming, visible));
+    }
+    const path = useMapStore
+      .getState()
+      .paths.find((p) => p.id === selectedPathId);
+    if (path)
+      state.expandGroup(groupKeyOf(path, useMapStore.getState().armies));
+    // After the group has opened
+    const frame = requestAnimationFrame(() =>
+      rowRefs.current.get(selectedPathId)?.scrollIntoView({ block: "nearest" })
+    );
+    return () => cancelAnimationFrame(frame);
+    // Only when the selection changes, not on every edit of the selected march
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPathId]);
+
+  // Selecting an army (in the Armies tab, say) opens its group and scrolls to it
+  useEffect(() => {
+    if (!selectedArmyId) return;
+    useTimelineStore.getState().expandGroup(selectedArmyId);
+    const frame = requestAnimationFrame(() =>
+      headerRefs.current
+        .get(selectedArmyId)
+        ?.scrollIntoView({ block: "nearest" })
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [selectedArmyId]);
+
+  // Drag the timeline's top edge to give the rows more or less room; double-click it to go
+  // back to the usual height
+  const startResize = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = useTimelineStore.getState().rowsHeight;
+    const onMove = (ev: MouseEvent) =>
+      useTimelineStore
+        .getState()
+        .setRowsHeight(
+          clampRowsHeight(
+            startHeight + (startY - ev.clientY),
+            window.innerHeight
+          )
+        );
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      useTimelineStore.getState().saveRowsHeight();
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  const resetHeight = () => {
+    const state = useTimelineStore.getState();
+    state.setRowsHeight(
+      clampRowsHeight(DEFAULT_ROWS_HEIGHT, window.innerHeight)
+    );
+    state.saveRowsHeight();
+  };
+
+  // Keep within the window as it is resized. (The panel as a whole is also capped to the
+  // window's height in the CSS, so the rows give way first on a very small window.)
+  const [windowHeight, setWindowHeight] = useState(() =>
+    typeof window === "undefined" ? Infinity : window.innerHeight
+  );
+  useEffect(() => {
+    const onResize = () => setWindowHeight(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const fittedHeight = clampRowsHeight(rowsHeight, windowHeight);
+
+  const reveal = (e: React.MouseEvent, path: MapPath, timing: MarchTiming) => {
+    e.stopPropagation(); // not a playhead scrub
+    e.preventDefault();
+    selectPath(path.id);
+    setView(viewShowing(timing, shown));
+  };
 
   const ticks = historyTicks(
     shown.from,
@@ -514,15 +675,42 @@ function Timeline() {
 
   const startShare = percent(storyStart);
 
+  const emptyMessage =
+    rowFilter === "now"
+      ? `No marches under way on ${formatHistoryTime(current, "days")}`
+      : "No marches in this stretch of history. Pan or zoom out, or click Fit.";
+
+  const groupTitle = (group: RowGroup) => {
+    const count =
+      rowFilter === "all" || group.rows.length === group.total
+        ? `${group.total} march${group.total === 1 ? "" : "es"}`
+        : `${group.rows.length} of ${group.total} marches listed`;
+    return `${group.army ? group.army.name : "Marches in no army"}\n${count}\n${formatHistoryTime(
+      group.start,
+      "times"
+    )} to ${formatHistoryTime(group.end, "times")}`;
+  };
+
+  // The rows a group shows: none while it's folded away
+  const shownRows = (group: RowGroup) => (isOpen(group) ? group.rows : []);
+
   return (
     <div className={styles.timeline}>
+      {expanded && (
+        <div
+          className={styles.resizeHandle}
+          onMouseDown={startResize}
+          onDoubleClick={resetHeight}
+          title="Drag to give the marches more or less room (double-click for the usual height)"
+        />
+      )}
       <div className={styles.transport}>
         <button
           className={styles.iconButton}
           onClick={handleRewind}
           title="Back to the start of the story (units can be edited there)"
         >
-          {"\u23EE\uFE0E"}
+          {"⏮︎"}
         </button>
         <button
           className={styles.playButton}
@@ -530,7 +718,7 @@ function Timeline() {
           disabled={!hasMarches}
           title={playing ? "Pause" : "Play"}
         >
-          {playing ? "\u275A\u275A" : "\u25B6\uFE0E"}
+          {playing ? "❚❚" : "▶︎"}
         </button>
         <span className={styles.time}>
           {formatHistoryTime(current, "times")}
@@ -567,9 +755,22 @@ function Timeline() {
         >
           Fit
         </button>
+        <span className={styles.modeLabel}>Show</span>
+        <div className={styles.speed} title="Which marches are listed">
+          {FILTERS.map(({ filter, label, hint }) => (
+            <button
+              key={filter}
+              title={hint}
+              className={`${styles.speedButton} ${rowFilter === filter ? styles.speedActive : ""}`}
+              onClick={() => setRowFilter(filter)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {isPastStart(now, storyStart) && !playing && (
           <span className={styles.note}>
-            Units are locked away from the story's start
+            Units can only be moved at the moment they appear
           </span>
         )}
         <div className={styles.spacer} />
@@ -578,7 +779,7 @@ function Timeline() {
           onClick={() => setExpanded(!expanded)}
           title={expanded ? "Collapse the timeline" : "Expand the timeline"}
         >
-          {expanded ? "\u25BE" : "\u25B4"}
+          {expanded ? "▾" : "▴"}
         </button>
       </div>
 
@@ -593,20 +794,75 @@ function Timeline() {
         ))}
 
       {expanded && (
-        <div className={styles.body}>
+        <div className={styles.body} style={{ maxHeight: fittedHeight }}>
           <div className={styles.labels}>
             <div className={styles.labelSpacer} />
-            {rows.map(({ path }) => (
-              <div
-                key={path.id}
-                className={`${styles.label} ${path.id === selectedPathId ? styles.labelActive : ""}`}
-                title={path.name}
-                onClick={() =>
-                  selectPath(path.id === selectedPathId ? null : path.id)
-                }
-              >
-                {path.name}
-              </div>
+            {groups.map((group) => (
+              <React.Fragment key={group.key}>
+                {grouped && (
+                  <div
+                    ref={(el) => {
+                      if (el) headerRefs.current.set(group.key, el);
+                      else headerRefs.current.delete(group.key);
+                    }}
+                    className={`${styles.groupLabel} ${
+                      group.army && group.army.id === selectedArmyId
+                        ? styles.labelActive
+                        : ""
+                    }`}
+                    title={groupTitle(group)}
+                  >
+                    <button
+                      className={styles.groupToggle}
+                      onClick={() => toggleGroup(group.key)}
+                      title={
+                        isOpen(group)
+                          ? "Fold these marches away"
+                          : "Show these marches"
+                      }
+                    >
+                      {isOpen(group) ? "▾" : "▸"}
+                    </button>
+                    <span
+                      className={styles.groupName}
+                      onClick={() =>
+                        group.army
+                          ? selectArmy(
+                              group.army.id === selectedArmyId
+                                ? null
+                                : group.army.id
+                            )
+                          : toggleGroup(group.key)
+                      }
+                    >
+                      {group.army ? group.army.name : "No army"}
+                    </span>
+                    <span className={styles.groupCount}>
+                      {rowFilter === "all" || group.rows.length === group.total
+                        ? group.total
+                        : `${group.rows.length}/${group.total}`}
+                    </span>
+                  </div>
+                )}
+                {shownRows(group).map(({ path, timing }) => (
+                  <div
+                    key={path.id}
+                    ref={(el) => {
+                      if (el) rowRefs.current.set(path.id, el);
+                      else rowRefs.current.delete(path.id);
+                    }}
+                    className={`${styles.label} ${grouped ? styles.labelIndented : ""} ${
+                      path.id === selectedPathId ? styles.labelActive : ""
+                    }`}
+                    title={`${path.name}\n${describe(timing)}`}
+                    onClick={() =>
+                      selectPath(path.id === selectedPathId ? null : path.id)
+                    }
+                  >
+                    {path.name}
+                  </div>
+                ))}
+              </React.Fragment>
             ))}
           </div>
 
@@ -635,56 +891,107 @@ function Timeline() {
               ))}
             </div>
 
-            {rows.map(({ path, timing }) => {
-              const length = timing.end - timing.start;
-              const turnShare = length > 0 ? (timing.turn / length) * 100 : 0;
-              const active = path.id === selectedPathId;
-              return (
-                <div key={path.id} className={styles.row}>
-                  <div
-                    className={`${styles.bar} ${active ? styles.barActive : ""}`}
-                    style={{
-                      left: `${percent(timing.start)}%`,
-                      width: `${(length / span) * 100}%`,
-                    }}
-                    title={describe(timing)}
-                    onMouseDown={(e) => startBarDrag(e, path, timing, "move")}
-                  >
-                    <div
-                      className={styles.barTurn}
-                      style={{ width: `${turnShare}%` }}
-                    />
-                    <div
-                      className={styles.barMarch}
-                      style={{ left: `${turnShare}%` }}
-                    />
-                    <div
-                      className={styles.splitHandle}
-                      style={{ left: `${turnShare}%` }}
-                      title="Drag to change how long the turn takes"
-                      onMouseDown={(e) =>
-                        startBarDrag(e, path, timing, "split")
-                      }
-                    />
-                    <div
-                      className={`${styles.handle} ${styles.handleStart}`}
-                      onMouseDown={(e) =>
-                        startBarDrag(e, path, timing, "start")
-                      }
-                    />
-                    <div
-                      className={`${styles.handle} ${styles.handleEnd}`}
-                      onMouseDown={(e) => startBarDrag(e, path, timing, "end")}
-                    />
+            {groups.map((group) => (
+              <React.Fragment key={group.key}>
+                {grouped && (
+                  <div className={styles.groupRow} title={groupTitle(group)}>
+                    {group.end >= shown.from && group.start <= shown.to && (
+                      <div
+                        className={`${styles.groupBar} ${
+                          group.army && group.army.id === selectedArmyId
+                            ? styles.groupBarActive
+                            : ""
+                        }`}
+                        style={{
+                          left: `${Math.max(percent(group.start), 0)}%`,
+                          right: `${Math.max(100 - percent(group.end), 0)}%`,
+                          minWidth: MIN_BAR_PX,
+                        }}
+                      />
+                    )}
                   </div>
-                </div>
-              );
-            })}
+                )}
+                {shownRows(group).map(({ path, timing }) => {
+                  const length = timing.end - timing.start;
+                  const turnShare =
+                    length > 0 ? (timing.turn / length) * 100 : 0;
+                  const active = path.id === selectedPathId;
+                  const placement = barPlacement(timing, shown);
+                  return (
+                    <div key={path.id} className={styles.row}>
+                      {placement === "before" && (
+                        <div
+                          style={{ ...OFFSCREEN, left: 2 }}
+                          title={`Earlier: ${describe(timing)}\nClick to show it`}
+                          onMouseDown={(e) => reveal(e, path, timing)}
+                        >
+                          {"◂"}
+                        </div>
+                      )}
+                      {placement === "after" && (
+                        <div
+                          style={{ ...OFFSCREEN, right: 2 }}
+                          title={`Later: ${describe(timing)}\nClick to show it`}
+                          onMouseDown={(e) => reveal(e, path, timing)}
+                        >
+                          {"▸"}
+                        </div>
+                      )}
+                      <div
+                        className={`${styles.bar} ${active ? styles.barActive : ""}`}
+                        style={{
+                          left: `${percent(timing.start)}%`,
+                          width: `${(length / span) * 100}%`,
+                          minWidth: MIN_BAR_PX,
+                          display: placement === "inside" ? undefined : "none",
+                        }}
+                        title={describe(timing)}
+                        onMouseDown={(e) =>
+                          startBarDrag(e, path, timing, "move")
+                        }
+                      >
+                        <div
+                          className={styles.barTurn}
+                          style={{ width: `${turnShare}%` }}
+                        />
+                        <div
+                          className={styles.barMarch}
+                          style={{ left: `${turnShare}%` }}
+                        />
+                        <div
+                          className={styles.splitHandle}
+                          style={{ left: `${turnShare}%` }}
+                          title="Drag to change how long the turn takes"
+                          onMouseDown={(e) =>
+                            startBarDrag(e, path, timing, "split")
+                          }
+                        />
+                        <div
+                          className={`${styles.handle} ${styles.handleStart}`}
+                          onMouseDown={(e) =>
+                            startBarDrag(e, path, timing, "start")
+                          }
+                        />
+                        <div
+                          className={`${styles.handle} ${styles.handleEnd}`}
+                          onMouseDown={(e) =>
+                            startBarDrag(e, path, timing, "end")
+                          }
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
 
             {!hasMarches && (
               <div className={styles.empty}>
                 Attach units to a path and its march appears here.
               </div>
+            )}
+            {hasMarches && groups.length === 0 && (
+              <div className={styles.empty}>{emptyMessage}</div>
             )}
 
             {current >= shown.from && current <= shown.to && (

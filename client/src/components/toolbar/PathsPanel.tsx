@@ -123,6 +123,7 @@ function PathsPanel() {
   const setUnitsTravelMode = useMapStore((state) => state.setUnitsTravelMode);
   const setFormationMode = useMapStore((state) => state.setFormationMode);
   const bringBackUnits = useMapStore((state) => state.bringBackUnits);
+  const armies = useMapStore((state) => state.armies);
 
   const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const drawingPoints = usePathToolStore((state) => state.drawingPoints);
@@ -167,6 +168,12 @@ function PathsPanel() {
         .map((a) => placedUnits.find((unit) => unit.id === a.unitId))
         .filter((unit): unit is Unit => unit !== undefined)
     : [];
+
+  // An army's march takes whoever is in the army as it sets off, so its units are changed
+  // in the Armies tab rather than here
+  const marchArmy = selectedPath?.armyId
+    ? armies.find((army) => army.id === selectedPath.armyId)
+    : undefined;
 
   const formationMode =
     selectedPath && selectedPath.direction !== undefined ? "wheel" : "keep";
@@ -427,7 +434,7 @@ function PathsPanel() {
               <p className={styles.sectionTitle}>
                 {selectedPath.name}: attached units
               </p>
-              {attachedUnits.length === 0 && (
+              {attachedUnits.length === 0 && !marchArmy && (
                 <p className={styles.hint}>
                   None yet. Select units, then click this path on the map.
                 </p>
@@ -443,13 +450,25 @@ function PathsPanel() {
                   <span className={styles.unitName}>{displayName(unit)}</span>
                   <button
                     onClick={() => detachUnitFromPath(selectedPath.id, unit.id)}
-                    title="Detach from this path"
+                    title={
+                      marchArmy
+                        ? `Take off this march: it leaves ${marchArmy.name} as the march sets off`
+                        : "Detach from this path"
+                    }
                     className={deleteStyles.deleteButton}
                   >
                     ×
                   </button>
                 </div>
               ))}
+              {marchArmy && (
+                <p className={styles.hint}>
+                  This is a march of {marchArmy.name}: it takes whoever is in
+                  the army as it sets off. Removing a unit here makes it leave
+                  the army then, so it sits out this march and the army's later
+                  ones.
+                </p>
+              )}
 
               {attachedUnits.length > 0 && (
                 <>

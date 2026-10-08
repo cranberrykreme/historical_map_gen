@@ -1,4 +1,6 @@
 import {
+  Army,
+  ArmyMember,
   DateMarker,
   HistoryDisplay,
   MapPath,
@@ -11,6 +13,7 @@ import { clampDate, daysFromCivil } from "./dates";
 import { HistoryTime, toHistoryTime } from "./historyTime";
 import { clampMarch } from "./marches";
 import { createPlayback } from "./pathPlayback";
+import { deriveArmies, rebuildMemberships } from "./armies";
 
 // Where a new project's story starts
 export const DEFAULT_STORY_START = toHistoryTime({
@@ -27,6 +30,7 @@ const LEGACY_MIN_SECONDS = 0.5;
 export interface LoadedProject {
   units: Unit[];
   paths: MapPath[];
+  armies: Army[];
   storyStart: HistoryTime;
   displayMode: HistoryDisplay;
   pacing: PacingKey[];
@@ -38,6 +42,7 @@ export function emptyProject(): LoadedProject {
   return {
     units: [],
     paths: [],
+    armies: [],
     storyStart: DEFAULT_STORY_START,
     displayMode: "months",
     pacing: [],
@@ -149,9 +154,60 @@ function parsePath(raw: any): LegacyPath {
     assignments: Array.isArray(raw.assignments) ? raw.assignments : [],
     direction: isNumber(raw.direction) ? raw.direction : undefined,
     march: parseMarch(raw.march),
+    armyId: typeof raw.armyId === "string" ? raw.armyId : undefined,
     start: isNumber(raw.start) ? raw.start : undefined,
     end: isNumber(raw.end) ? raw.end : undefined,
   };
+}
+
+function parseArmies(raw: unknown): Army[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((a: any) => a && typeof a.id === "string")
+    .map((a: any) => ({
+      id: a.id,
+      name: typeof a.name === "string" && a.name.trim() ? a.name : "Army",
+      members: Array.isArray(a.members)
+        ? a.members
+            .filter((m: any) => m && typeof m.unitId === "string")
+            .map((m: any) => {
+              const member: ArmyMember = { unitId: m.unitId };
+              if (isNumber(m.joins)) member.joins = m.joins;
+              if (isNumber(m.leaves)) member.leaves = m.leaves;
+              return member;
+            })
+        : [],
+    }));
+}
+
+// Gives a project its armies.
+// - Saved before armies: units that share marches become one army each.
+// - Saved with armies before version 3, when membership didn't yet decide who marches: each
+//   army's memberships are rebuilt from its marches, so every march keeps exactly its units.
+// - Version 3 and later: read as they are.
+// Marches that point at an army that doesn't exist no longer belong to one.
+function withArmies(
+  project: Omit<LoadedProject, "armies">,
+  rawArmies: unknown,
+  version: number
+): LoadedProject {
+  if (!Array.isArray(rawArmies)) {
+    const derived = deriveArmies(project.paths, project.storyStart);
+    return { ...project, paths: derived.paths, armies: derived.armies };
+  }
+
+  const parsed = parseArmies(rawArmies);
+  const known = new Set(parsed.map((a) => a.id));
+  const paths = project.paths.map((p) => {
+    if (p.armyId === undefined || known.has(p.armyId)) return p;
+    const { armyId: _missing, ...rest } = p;
+    return rest;
+  });
+  const armies =
+    version >= 3
+      ? parsed
+      : rebuildMemberships(parsed, paths, project.storyStart);
+  return { ...project, paths, armies };
 }
 
 function parseUnit(raw: any): Unit {
@@ -212,30 +268,39 @@ export function parseProject(data: any): LoadedProject {
     : [];
   const selectedMapFilename = data.selectedMapFilename ?? null;
 
-  if (isNumber(data.version) && data.version >= 2) {
-    return {
-      units,
-      paths: rawPaths.map(({ start, end, ...path }) => path),
-      storyStart: isNumber(data.storyStart)
-        ? data.storyStart
-        : DEFAULT_STORY_START,
-      displayMode: DISPLAYS.includes(data.displayMode)
-        ? data.displayMode
-        : "months",
-      pacing: parsePacing(data.pacing),
-      selectedMapFilename,
-      viewport,
-    };
+  const version = isNumber(data.version) ? data.version : 1;
+  if (version >= 2) {
+    return withArmies(
+      {
+        units,
+        paths: rawPaths.map(({ start, end, ...path }) => path),
+        storyStart: isNumber(data.storyStart)
+          ? data.storyStart
+          : DEFAULT_STORY_START,
+        displayMode: DISPLAYS.includes(data.displayMode)
+          ? data.displayMode
+          : "months",
+        pacing: parsePacing(data.pacing),
+        selectedMapFilename,
+        viewport,
+      },
+      data.armies,
+      version
+    );
   }
 
   const pacing = pacingFromMarkers(parseMarkers(data.dateMarkers));
-  return {
-    units,
-    paths: convertLegacyPaths(rawPaths, units, pacing),
-    storyStart: legacyClock(pacing)(0),
-    displayMode: data.dateMode === "days" ? "days" : "months",
-    pacing,
-    selectedMapFilename,
-    viewport,
-  };
+  return withArmies(
+    {
+      units,
+      paths: convertLegacyPaths(rawPaths, units, pacing),
+      storyStart: legacyClock(pacing)(0),
+      displayMode: data.dateMode === "days" ? "days" : "months",
+      pacing,
+      selectedMapFilename,
+      viewport,
+    },
+    data.armies,
+    version
+  );
 }

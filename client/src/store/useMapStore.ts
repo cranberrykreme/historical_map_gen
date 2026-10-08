@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import {
+  Army,
+  ArmyMember,
   Unit,
   AssetType,
   HistoryDisplay,
@@ -19,10 +21,12 @@ import {
 import {
   chainedPathIds,
   defaultMarch,
+  existsAt,
   getTimeline,
   handoverUnits,
   keepAfter,
   syncChainedStarts,
+  validMarch,
 } from "../utils/timeline";
 import { clampMarch } from "../utils/marches";
 import { createPlayback } from "../utils/pathPlayback";
@@ -34,6 +38,16 @@ import {
   removeUnitsAt,
 } from "../utils/lifespans";
 import { useTimelineStore } from "./useTimelineStore";
+import {
+  armyForAttach,
+  forgetUnits,
+  joinArmy,
+  leaveArmy,
+  membersAt,
+  newArmyId,
+  nextArmyName,
+  syncArmyMarches,
+} from "../utils/armies";
 
 interface DragPosition {
   id: string;
@@ -56,10 +70,11 @@ interface GroupDragDelta {
   dy: number;
 }
 
-// One undo step: the whole document, so units and paths always move through history together
+// One undo step: the whole document, so units, paths and armies move through history together
 interface Snapshot {
   units: Unit[];
   paths: MapPath[];
+  armies: Army[];
 }
 
 interface MapStore {
@@ -156,6 +171,19 @@ interface MapStore {
   setDisplayMode: (mode: HistoryDisplay) => void;
   setPacing: (pacing: PacingKey[]) => void;
 
+  // Armies (setArmies is for loading and bypasses history). Joining and leaving happen at the
+  // playhead's moment, or from the start when the playhead is at the story's start.
+  armies: Army[];
+  selectedArmyId: string | null;
+  setArmies: (armies: Army[]) => void;
+  selectArmy: (id: string | null) => void;
+  createArmyFromSelection: () => string | null;
+  renameArmy: (id: string, name: string) => void;
+  deleteArmy: (id: string) => void;
+  addSelectedUnitsToArmy: (id: string) => void;
+  removeUnitsFromArmy: (id: string, unitIds: string[]) => void;
+  eraseMembership: (id: string, member: ArmyMember) => void;
+
   // Track Map files
   selectedMapFilename: string | null;
   setSelectedMap: (filename: string | null) => void;
@@ -164,11 +192,17 @@ interface MapStore {
   resetMapState: () => void;
 }
 
+const snapshotOf = (state: MapStore): Snapshot => ({
+  units: state.placedUnits,
+  paths: state.paths,
+  armies: state.armies,
+});
+
 // Records the current document as an undo step and clears redo.
 // Spread this into a set() call: set({ ...withHistory(get()), placedUnits: ... })
 function withHistory(state: MapStore) {
   return {
-    past: [...state.past, { units: state.placedUnits, paths: state.paths }],
+    past: [...state.past, snapshotOf(state)],
     future: [] as Snapshot[],
   };
 }
@@ -195,6 +229,15 @@ function reconcileSelection(state: MapStore, units: Unit[], paths: MapPath[]) {
       ? state.selectedPathId
       : null,
   };
+}
+
+// Whether an army change actually changed anything (so a no-op adds no undo step)
+const sameArmies = (a: Army[], b: Army[]) =>
+  JSON.stringify(a) === JSON.stringify(b);
+
+// The playhead's moment for joining and leaving armies: undefined at the story's start
+function armyMoment(storyStart: HistoryTime): HistoryTime | undefined {
+  return placementMoment(useTimelineStore.getState().now, storyStart);
 }
 
 function nextPathName(paths: MapPath[]): string {
@@ -241,6 +284,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
   // Initial state
   placedUnits: [],
   paths: [],
+  armies: [],
+  selectedArmyId: null,
   storyStart: DEFAULT_STORY_START,
   displayMode: "months",
   pacing: [],
@@ -267,11 +312,12 @@ export const useMapStore = create<MapStore>((set, get) => ({
       past: state.past.slice(0, -1),
       placedUnits: previous.units,
       paths: previous.paths,
-      future: [
-        { units: state.placedUnits, paths: state.paths },
-        ...state.future,
-      ],
+      armies: previous.armies,
+      future: [snapshotOf(state), ...state.future],
       ...reconcileSelection(state, previous.units, previous.paths),
+      selectedArmyId: previous.armies.some((a) => a.id === state.selectedArmyId)
+        ? state.selectedArmyId
+        : null,
     });
   },
 
@@ -280,11 +326,15 @@ export const useMapStore = create<MapStore>((set, get) => ({
     if (state.future.length === 0) return;
     const next = state.future[0];
     set({
-      past: [...state.past, { units: state.placedUnits, paths: state.paths }],
+      past: [...state.past, snapshotOf(state)],
       placedUnits: next.units,
       paths: next.paths,
+      armies: next.armies,
       future: state.future.slice(1),
       ...reconcileSelection(state, next.units, next.paths),
+      selectedArmyId: next.armies.some((a) => a.id === state.selectedArmyId)
+        ? state.selectedArmyId
+        : null,
     });
   },
 
@@ -331,6 +381,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
         deletedIds.size > 0
           ? keepAssignments(state.paths, new Set(units.map((u) => u.id)))
           : state.paths,
+      // Deleted units are forgotten by their armies; units that only leave stay in them
+      armies: forgetUnits(state.armies, deletedIds),
       selectedUnitIds: new Set(),
     });
   },
@@ -464,19 +516,24 @@ export const useMapStore = create<MapStore>((set, get) => ({
     // Removes the asset's units, and their formation slots, from a snapshot
     const strip = (snapshot: Snapshot): Snapshot => {
       const units = snapshot.units.filter((unit) => !usesAsset(unit));
+      const gone = new Set(
+        snapshot.units.filter(usesAsset).map((unit) => unit.id)
+      );
       return {
         ...snapshot,
         units,
         paths: keepAssignments(snapshot.paths, new Set(units.map((u) => u.id))),
+        armies: forgetUnits(snapshot.armies, gone),
       };
     };
 
-    const current = strip({ units: state.placedUnits, paths: state.paths });
+    const current = strip(snapshotOf(state));
     const remainingIds = new Set(current.units.map((unit) => unit.id));
 
     set({
       placedUnits: current.units,
       paths: current.paths,
+      armies: current.armies,
       past: state.past.map(strip),
       future: state.future.map(strip),
       selectedUnitIds: new Set(
@@ -699,27 +756,57 @@ export const useMapStore = create<MapStore>((set, get) => ({
         defaultMarchStart(handover.time, state.storyStart, selected)
       );
 
+    // The march belongs to the army its units are in when it sets off. Units in no army
+    // become a new army; a mix of armies leaves it a plain march. A path that already
+    // belongs to an army keeps it, and the selected units join that army as it sets off, so
+    // they are on the march (an army's march is whoever is in the army then).
+    const setsOff = march.start > state.storyStart ? march.start : undefined;
+    const selectedIds = selected.map((unit) => unit.id);
+    const owner = path.armyId
+      ? {
+          armies: joinArmy(state.armies, path.armyId, selectedIds, setsOff),
+          armyId: path.armyId,
+        }
+      : armyForAttach(state.armies, selectedIds, setsOff);
+
     set({
       ...withHistory(state),
       paths: state.paths.map((p) =>
-        p.id === pathId ? { ...p, ...attachment, march } : p
+        p.id === pathId
+          ? { ...p, ...attachment, march, armyId: owner.armyId }
+          : p
       ),
+      armies: owner.armies,
       selectedPathId: pathId,
     });
     return true;
   },
 
+  // Takes a unit off a march. An army's march is whoever is in the army as it sets off, so
+  // for one of those the unit leaves the army at that moment: it is off this march and the
+  // army's later ones, and stays wherever the earlier ones left it. One undo step.
   detachUnitFromPath: (pathId, unitId) => {
     const state = get();
+    const path = state.paths.find((p) => p.id === pathId);
+    if (!path) return;
+    const army = path.armyId
+      ? state.armies.find((a) => a.id === path.armyId)
+      : undefined;
+    const march = validMarch(path.march);
+    const setsOff =
+      march && march.start > state.storyStart ? march.start : undefined;
     set({
       ...withHistory(state),
-      paths: state.paths.map((path) =>
-        path.id === pathId
+      armies: army
+        ? leaveArmy(state.armies, army.id, [unitId], setsOff)
+        : state.armies,
+      paths: state.paths.map((p) =>
+        p.id === pathId
           ? {
-              ...path,
-              assignments: path.assignments.filter((a) => a.unitId !== unitId),
+              ...p,
+              assignments: p.assignments.filter((a) => a.unitId !== unitId),
             }
-          : path
+          : p
       ),
     });
   },
@@ -791,6 +878,125 @@ export const useMapStore = create<MapStore>((set, get) => ({
     });
   },
 
+  setArmies: (armies) => set({ armies }),
+
+  // Selecting an army selects the units that are in it, and on the map, at the playhead
+  selectArmy: (id) => {
+    const state = get();
+    const army = state.armies.find((a) => a.id === id);
+    if (!army) {
+      set({ selectedArmyId: null });
+      return;
+    }
+    const moment = useTimelineStore.getState().now ?? state.storyStart;
+    const present = new Set(
+      state.placedUnits
+        .filter((unit) => existsAt(unit, moment))
+        .map((unit) => unit.id)
+    );
+    set({
+      selectedArmyId: army.id,
+      selectedUnitIds: new Set(
+        membersAt(army, moment).filter((uid) => present.has(uid))
+      ),
+    });
+  },
+
+  // A new army of the selected units, from the playhead's moment. One undo step.
+  createArmyFromSelection: () => {
+    const state = get();
+    const unitIds = Array.from(state.selectedUnitIds);
+    if (unitIds.length === 0) return null;
+    const army: Army = {
+      id: newArmyId(),
+      name: nextArmyName(state.armies),
+      members: [],
+    };
+    const armies = joinArmy(
+      [...state.armies, army],
+      army.id,
+      unitIds,
+      armyMoment(state.storyStart)
+    );
+    set({ ...withHistory(state), armies, selectedArmyId: army.id });
+    return army.id;
+  },
+
+  renameArmy: (id, name) => {
+    const state = get();
+    const trimmed = name.trim();
+    const army = state.armies.find((a) => a.id === id);
+    if (!army || !trimmed || trimmed === army.name) return;
+    set({
+      ...withHistory(state),
+      armies: state.armies.map((a) =>
+        a.id === id ? { ...a, name: trimmed } : a
+      ),
+    });
+  },
+
+  // Deleting an army keeps its units and marches; the marches just no longer belong to it
+  deleteArmy: (id) => {
+    const state = get();
+    if (!state.armies.some((a) => a.id === id)) return;
+    set({
+      ...withHistory(state),
+      armies: state.armies.filter((a) => a.id !== id),
+      paths: state.paths.map((p) => {
+        if (p.armyId !== id) return p;
+        const { armyId: _owner, ...rest } = p;
+        return rest;
+      }),
+      selectedArmyId: state.selectedArmyId === id ? null : state.selectedArmyId,
+    });
+  },
+
+  // The selected units join the army at the playhead's moment (leaving any other army then)
+  addSelectedUnitsToArmy: (id) => {
+    const state = get();
+    const unitIds = Array.from(state.selectedUnitIds);
+    if (unitIds.length === 0 || !state.armies.some((a) => a.id === id)) return;
+    const armies = joinArmy(
+      state.armies,
+      id,
+      unitIds,
+      armyMoment(state.storyStart)
+    );
+    if (sameArmies(armies, state.armies)) return;
+    set({ ...withHistory(state), armies });
+  },
+
+  // Units leave the army at the playhead's moment
+  removeUnitsFromArmy: (id, unitIds) => {
+    const state = get();
+    const armies = leaveArmy(
+      state.armies,
+      id,
+      unitIds,
+      armyMoment(state.storyStart)
+    );
+    if (sameArmies(armies, state.armies)) return;
+    set({ ...withHistory(state), armies });
+  },
+
+  // Erases one stint of a unit in an army, as if it never joined for it. Any of the army's
+  // marches it was on go on without it. One undo step.
+  eraseMembership: (id, member) => {
+    const state = get();
+    const same = (m: ArmyMember) =>
+      m.unitId === member.unitId &&
+      m.joins === member.joins &&
+      m.leaves === member.leaves;
+    const army = state.armies.find((a) => a.id === id);
+    if (!army || !army.members.some(same)) return;
+    set({
+      ...withHistory(state),
+      armies: state.armies.map((a) =>
+        a.id === id ? { ...a, members: a.members.filter((m) => !same(m)) } : a
+      ),
+    });
+  },
+
   setStoryStart: (storyStart) => set({ storyStart }),
 
   setDisplayMode: (displayMode) => set({ displayMode }),
@@ -806,6 +1012,8 @@ export const useMapStore = create<MapStore>((set, get) => ({
       clipboard: [],
       placedUnits: [],
       paths: [],
+      armies: [],
+      selectedArmyId: null,
       storyStart: DEFAULT_STORY_START,
       displayMode: "months",
       pacing: [],
@@ -832,16 +1040,25 @@ export const useMapStore = create<MapStore>((set, get) => ({
   },
 }));
 
-// Keeps every chained march's start point where its units arrive, whatever changed:
-// reshaping or re-dating an earlier march, moving units, undoing, loading a project. It is
-// derived from the document, so it adds no undo steps of its own.
+// Keeps the marches consistent with the rest of the document, whatever changed: units joining
+// or leaving armies, reshaping or re-dating a march, moving units, undoing, loading a project.
+// - Every army march is made up of whoever is in its army when it sets off.
+// - Every chained march's start point is where its units arrive.
+// Both are derived from the document, so they add no undo steps of their own.
 useMapStore.subscribe((state, previous) => {
   if (
     state.paths === previous.paths &&
-    state.placedUnits === previous.placedUnits
-  )
+    state.placedUnits === previous.placedUnits &&
+    state.armies === previous.armies
+  ) {
     return;
-  const synced = syncChainedStarts(state.paths, state.placedUnits);
+  }
+  const withMembers = syncArmyMarches(
+    state.paths,
+    state.armies,
+    state.placedUnits
+  );
+  const synced = syncChainedStarts(withMembers, state.placedUnits);
   if (synced !== state.paths) useMapStore.setState({ paths: synced });
 });
 

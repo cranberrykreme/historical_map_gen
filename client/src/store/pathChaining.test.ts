@@ -183,7 +183,10 @@ test("re-dating the marches re-chains them", () => {
   expect(Array.from(chainedPathIds(useMapStore.getState().paths))).toEqual([
     first,
   ]);
-  expectChainedStartsAtArrival();
+  // The army now marches the second route first, so the first route picks up where that one
+  // ends
+  expect(pathOf(first).points[0].x).toBeCloseTo(1000, 4);
+  expect(pathOf(first).points[0].y).toBeCloseTo(1000, 4);
 });
 
 test("a project saved before starts followed their units is fixed when it loads", () => {

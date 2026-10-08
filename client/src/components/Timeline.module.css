@@ -10,10 +10,16 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   font-family: var(--font-ui);
   user-select: none;
+  /* Never taller than the window: the rows area shrinks and scrolls first */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * var(--space-md));
 }
 
 .transport {
+  flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-sm);
@@ -101,9 +107,15 @@
   flex: 1;
 }
 
-/* Room for the ruler and about seven rows before it scrolls */
+/* Room for the ruler and about seven rows before it scrolls. The height you drag the top
+   edge to is set on the element and overrides this. The columns start at the top and are
+   as tall as their rows (flex-start), rather than being stretched to the visible height,
+   so rows below the fold aren't clipped away. */
 .body {
+  flex: 0 1 auto;
+  min-height: 0;
   display: flex;
+  align-items: flex-start;
   max-height: 228px;
   overflow-y: auto;
   border-top: 1px solid var(--color-border-subtle);
@@ -325,6 +337,7 @@
 
 /* The row for typing exact dates: the selected march's, or the story's start */
 .editor {
+  flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -387,4 +400,101 @@
 .editorInput::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* Along the timeline's top edge: drag it up or down to give the rows more or less room */
+.resizeHandle {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  z-index: 5;
+  cursor: ns-resize;
+}
+
+.resizeHandle:hover::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 48px;
+  height: 2px;
+  margin-left: -24px;
+  background: var(--color-gold-dim);
+  border-radius: 1px;
+}
+
+/* An army's heading in the names column; the same height as a march's row */
+.groupLabel {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 var(--space-xs);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.groupToggle {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--color-gold);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.groupName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.groupCount {
+  flex-shrink: 0;
+  color: var(--color-text-dim);
+  font-size: 10px;
+  font-weight: normal;
+}
+
+/* A march listed under an army */
+.labelIndented {
+  padding-left: calc(var(--space-sm) + 14px);
+}
+
+/* An army's heading across the bars: one thin bar from its first march to its last */
+.groupRow {
+  position: relative;
+  height: 28px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.groupBar {
+  position: absolute;
+  top: 11px;
+  height: 6px;
+  background: var(--color-gold-dim);
+  border-radius: 3px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.groupBarActive {
+  background: var(--color-gold);
+  opacity: 1;
 }

@@ -137,10 +137,13 @@ export function attachUnits(
 
 // Switches a path between keeping its formation as placed and turning it with its units.
 // Nobody moves: the path's points stay, and the slots are re-measured against the new frame.
+// A formation that turns with its units faces the way they face on average, or the way just
+// `facingFrom` face when given (the timeline passes the units arriving from earlier marches).
 export function changeFormationMode(
   path: MapPath,
   units: FormationUnit[],
-  mode: FormationMode
+  mode: FormationMode,
+  facingFrom?: FormationUnit[]
 ): { direction: number | undefined; assignments: PathAssignment[] } {
   const byId = new Map<string, FormationUnit>(
     units.map((unit): [string, FormationUnit] => [unit.id, unit])
@@ -150,7 +153,12 @@ export function changeFormationMode(
     .filter((unit): unit is FormationUnit => unit !== undefined);
 
   const direction =
-    mode === "wheel" ? groupDirection(present, path.points) : undefined;
+    mode === "wheel"
+      ? groupDirection(
+          facingFrom && facingFrom.length > 0 ? facingFrom : present,
+          path.points
+        )
+      : undefined;
   return {
     direction,
     assignments: recordSlots(

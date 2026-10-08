@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import API_BASE_URL from "../config/api";
 import {
+  Army,
   HistoryDisplay,
   MapPath,
   PacingKey,
@@ -19,6 +20,7 @@ import { HistoryTime } from "../utils/historyTime";
 export interface ProjectSnapshot {
   units: Unit[];
   paths: MapPath[];
+  armies: Army[];
   storyStart: HistoryTime;
   displayMode: HistoryDisplay;
   pacing: PacingKey[];
@@ -35,6 +37,7 @@ function useProject(projectName: string = "default") {
         version: PROJECT_VERSION,
         units: snapshot.units,
         paths: snapshot.paths,
+        armies: snapshot.armies,
         storyStart: snapshot.storyStart,
         displayMode: snapshot.displayMode,
         pacing: snapshot.pacing,
