@@ -53,6 +53,10 @@ function rememberedHeight(): number {
     : DEFAULT_ROWS_HEIGHT;
 }
 
+// What the playhead follows: history directly, or the video, whose shots say which moment
+// of history is on screen
+export type TimelineMode = "history" | "video";
+
 interface DraftTiming {
   pathId: string;
   timing: MarchTiming;
@@ -70,6 +74,8 @@ interface TimelineStore {
   rowFilter: RowFilter; // which marches are listed
   collapsedGroups: string[]; // the army groups folded away (keys from utils/timelineRows)
   rowsHeight: number; // the rows area's height in pixels; drag the timeline's top edge
+  mode: TimelineMode;
+  videoTime: number; // the video playhead, in seconds; in video mode it sets `now`
 
   setNow: (now: HistoryTime | null) => void;
   play: () => void;
@@ -83,6 +89,8 @@ interface TimelineStore {
   expandGroup: (key: string) => void;
   setRowsHeight: (height: number) => void; // while dragging; not remembered yet
   saveRowsHeight: () => void; // when the drag ends
+  setMode: (mode: TimelineMode) => void;
+  setVideoTime: (seconds: number) => void;
   reset: () => void; // for a newly opened project: keeps the filter and the height
 }
 
@@ -96,6 +104,8 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   rowFilter: rememberedFilter(),
   collapsedGroups: [],
   rowsHeight: rememberedHeight(),
+  mode: "history",
+  videoTime: 0,
 
   setNow: (now) => set({ now }),
   play: () => set({ playing: true }),
@@ -123,6 +133,11 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   },
   setRowsHeight: (rowsHeight) => set({ rowsHeight }),
   saveRowsHeight: () => remember(HEIGHT_KEY, String(get().rowsHeight)),
+  // Switching what the playhead follows stops playback
+  setMode: (mode) => {
+    if (mode !== get().mode) set({ mode, playing: false });
+  },
+  setVideoTime: (seconds) => set({ videoTime: Math.max(seconds, 0) }),
   reset: () =>
     set({
       now: null,
@@ -130,6 +145,8 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
       draftTiming: null,
       view: null,
       collapsedGroups: [],
+      mode: "history",
+      videoTime: 0,
     }),
 }));
 

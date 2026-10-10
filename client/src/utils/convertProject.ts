@@ -7,6 +7,7 @@ import {
   MarchTiming,
   PacingKey,
   SavedViewport,
+  Shot,
   Unit,
 } from "../types";
 import { clampDate, daysFromCivil } from "./dates";
@@ -14,6 +15,7 @@ import { HistoryTime, toHistoryTime } from "./historyTime";
 import { clampMarch } from "./marches";
 import { createPlayback } from "./pathPlayback";
 import { deriveArmies, rebuildMemberships } from "./armies";
+import { parseShots } from "./shots";
 
 // Where a new project's story starts
 export const DEFAULT_STORY_START = toHistoryTime({
@@ -34,6 +36,7 @@ export interface LoadedProject {
   storyStart: HistoryTime;
   displayMode: HistoryDisplay;
   pacing: PacingKey[];
+  shots: Shot[];
   selectedMapFilename: string | null;
   viewport: SavedViewport | null;
 }
@@ -46,6 +49,7 @@ export function emptyProject(): LoadedProject {
     storyStart: DEFAULT_STORY_START,
     displayMode: "months",
     pacing: [],
+    shots: [],
     selectedMapFilename: null,
     viewport: null,
   };
@@ -90,6 +94,31 @@ export function legacyClock(
     const rate = (b.time - a.time) / (b.seconds - a.seconds);
     return a.time + (seconds - a.seconds) * rate;
   };
+}
+
+// The first shots of a project saved before shots, made from its date markers (kept as
+// pacing): one shot for each stretch between markers, playing exactly as the old video did.
+// If the first marker isn't at 0:00, a first shot covers the time before it. A project with no
+// markers, or one marker at 0:00, starts with no shots.
+export function shotsFromPacing(keys: PacingKey[]): Shot[] {
+  if (keys.length === 0) return [];
+  const clock = legacyClock(keys);
+  const points =
+    keys[0].seconds > 0 ? [{ seconds: 0, time: clock(0) }, ...keys] : keys;
+
+  const shots: Shot[] = [];
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    shots.push({
+      id: `shot-${i}`,
+      name: `Shot ${i}`,
+      seconds: b.seconds - a.seconds,
+      from: Math.min(a.time, b.time),
+      to: Math.max(a.time, b.time),
+    });
+  }
+  return shots;
 }
 
 interface LegacyPath extends MapPath {
@@ -243,7 +272,8 @@ function parsePacing(raw: unknown): PacingKey[] {
 }
 
 // Reads a project file as the app uses it. Version 1 files are converted: their marches are
-// dated, the story starts at the date 0:00 had, and the date markers are kept as pacing.
+// dated, the story starts at the date 0:00 had, and the date markers are kept as pacing and
+// become the first shots.
 export function parseProject(data: any): LoadedProject {
   if (!data || typeof data !== "object") return emptyProject();
 
@@ -268,8 +298,16 @@ export function parseProject(data: any): LoadedProject {
     : [];
   const selectedMapFilename = data.selectedMapFilename ?? null;
 
+  // Saved shots are read as they are; a project saved before shots gets them from its date
+  // markers (see shotsFromPacing)
+  const shotsFor = (pacing: PacingKey[]): Shot[] =>
+    Array.isArray(data.shots)
+      ? parseShots(data.shots)
+      : shotsFromPacing(pacing);
+
   const version = isNumber(data.version) ? data.version : 1;
   if (version >= 2) {
+    const pacing = parsePacing(data.pacing);
     return withArmies(
       {
         units,
@@ -280,7 +318,8 @@ export function parseProject(data: any): LoadedProject {
         displayMode: DISPLAYS.includes(data.displayMode)
           ? data.displayMode
           : "months",
-        pacing: parsePacing(data.pacing),
+        pacing,
+        shots: shotsFor(pacing),
         selectedMapFilename,
         viewport,
       },
@@ -297,6 +336,7 @@ export function parseProject(data: any): LoadedProject {
       storyStart: legacyClock(pacing)(0),
       displayMode: data.dateMode === "days" ? "days" : "months",
       pacing,
+      shots: shotsFor(pacing),
       selectedMapFilename,
       viewport,
     },

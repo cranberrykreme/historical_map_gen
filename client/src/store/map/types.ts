@@ -8,6 +8,7 @@ import {
   MarchTiming,
   PacingKey,
   PathPoint,
+  Shot,
   TravelMode,
 } from "../../types";
 import { FormationMode } from "../../utils/formation";
@@ -146,12 +147,24 @@ export interface ArmiesSlice {
   eraseMembership: (id: string, member: ArmyMember) => void;
 }
 
+// The video's shots, in the order they play (setShots is for loading and bypasses history)
+export interface ShotsSlice {
+  shots: Shot[];
+  selectedShotId: string | null;
+  setShots: (shots: Shot[]) => void;
+  selectShot: (id: string | null) => void;
+  addShot: (spec?: Partial<Omit<Shot, "id">>) => string;
+  updateShot: (id: string, patch: Partial<Omit<Shot, "id">>) => void;
+  deleteShot: (id: string) => void;
+  moveShotTo: (id: string, index: number) => void;
+}
+
 export interface StorySlice {
   // The story in history. The placed units stand as they are at `storyStart`. These load
   // with the project and bypass undo.
   storyStart: HistoryTime;
   displayMode: HistoryDisplay;
-  pacing: PacingKey[]; // from older projects' date markers, for the first shot later
+  pacing: PacingKey[]; // from older projects' date markers (they became their first shots)
   setStoryStart: (storyStart: HistoryTime) => void;
   setDisplayMode: (mode: HistoryDisplay) => void;
   setPacing: (pacing: PacingKey[]) => void;
@@ -170,4 +183,5 @@ export type MapStore = HistorySlice &
   UnitsSlice &
   PathsSlice &
   ArmiesSlice &
+  ShotsSlice &
   StorySlice;

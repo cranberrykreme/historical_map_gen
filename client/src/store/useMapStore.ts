@@ -7,6 +7,7 @@ import { createSelectionSlice } from "./map/selectionSlice";
 import { createUnitsSlice } from "./map/unitsSlice";
 import { createPathsSlice } from "./map/pathsSlice";
 import { createArmiesSlice } from "./map/armiesSlice";
+import { createShotsSlice } from "./map/shotsSlice";
 import { createStorySlice } from "./map/storySlice";
 
 // The map document store. Each slice in store/map/ owns one part of it; they all share
@@ -17,6 +18,7 @@ export const useMapStore = create<MapStore>((...a) => ({
   ...createUnitsSlice(...a),
   ...createPathsSlice(...a),
   ...createArmiesSlice(...a),
+  ...createShotsSlice(...a),
   ...createStorySlice(...a),
 }));
 

@@ -51,3 +51,29 @@ test("remembering the filter and the height never throws, with or without browse
   expect(() => timeline().saveRowsHeight()).not.toThrow();
   expect(timeline().rowFilter).toBe("view");
 });
+
+test("switching between history and video stops playback; the video playhead never goes below 0", () => {
+  timeline().play();
+  timeline().setMode("video");
+  expect(timeline().mode).toBe("video");
+  expect(timeline().playing).toBe(false);
+
+  // Choosing the mode it is already in changes nothing
+  timeline().play();
+  timeline().setMode("video");
+  expect(timeline().playing).toBe(true);
+  timeline().pause();
+
+  timeline().setVideoTime(-3);
+  expect(timeline().videoTime).toBe(0);
+  timeline().setVideoTime(12.5);
+  expect(timeline().videoTime).toBe(12.5);
+});
+
+test("opening another project goes back to history mode at the video's start", () => {
+  timeline().setMode("video");
+  timeline().setVideoTime(30);
+  timeline().reset();
+  expect(timeline().mode).toBe("history");
+  expect(timeline().videoTime).toBe(0);
+});

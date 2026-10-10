@@ -84,6 +84,12 @@
   cursor: pointer;
 }
 
+/* Greyed out when it can't be pressed, such as Video before there are any shots */
+.speedButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .speedButton:first-child {
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
@@ -497,4 +503,193 @@
 .groupBarActive {
   background: var(--color-gold);
   opacity: 1;
+}
+
+/* The video strip: the shots in the order they play, above the history rows. Its label
+   column matches the names column below, so the two tracks line up. */
+.videoStrip {
+  flex-shrink: 0;
+  display: flex;
+  height: 30px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.videoLabel {
+  width: 140px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+.videoTitle {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.addShot {
+  flex-shrink: 0;
+  margin-right: var(--space-xs);
+  padding: 1px 6px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-gold);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.addShot:hover {
+  border-color: var(--color-gold);
+}
+
+.videoTrack {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.videoEmpty {
+  padding: 7px var(--space-sm);
+  color: var(--color-text-dim);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shotBlock {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  min-width: 6px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 6px;
+  overflow: hidden;
+  background: rgba(110, 160, 220, 0.18);
+  border: 1px solid rgba(110, 160, 220, 0.5);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  cursor: grab;
+}
+
+.shotActive {
+  background: rgba(200, 168, 75, 0.25);
+  border-color: var(--color-gold);
+  color: var(--color-text-primary);
+}
+
+/* A held shot (history stands still) is striped */
+.shotHeld {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.07) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+.shotDragging {
+  opacity: 0.5;
+}
+
+.shotName {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shotSeconds {
+  flex-shrink: 0;
+  color: var(--color-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The right edge of a shot: drag it to change the shot's length */
+.shotHandle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.shotHandle:hover {
+  background: rgba(200, 168, 75, 0.4);
+}
+
+/* Where a shot being dragged will land */
+.shotInsert {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  z-index: 2;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--color-gold);
+  pointer-events: none;
+}
+
+/* The selected shot's stretch of history, shaded across the history rows */
+.shotBand {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  min-width: 2px;
+  box-sizing: border-box;
+  background: rgba(200, 168, 75, 0.12);
+  border-left: 1px solid rgba(200, 168, 75, 0.6);
+  border-right: 1px solid rgba(200, 168, 75, 0.6);
+  pointer-events: none;
+}
+
+.editorCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+/* In video mode the strip is for scrubbing the video playhead */
+.videoScrub,
+.videoScrub .shotBlock {
+  cursor: pointer;
+}
+
+.videoPlayhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 2px;
+  margin-left: -1px;
+  background: #e8e0d0;
+  pointer-events: none;
+}
+
+/* The video playhead and the video's length, in video mode */
+.videoClock {
+  color: var(--color-gold);
+  font-size: var(--font-size-md);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }

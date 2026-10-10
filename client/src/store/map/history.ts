@@ -1,18 +1,21 @@
 import { StateCreator } from "zustand";
-import { Army, MapPath, Unit } from "../../types";
+import { Army, MapPath, Shot, Unit } from "../../types";
 import { HistorySlice, MapStore } from "./types";
 
-// One undo step: the whole document, so units, paths and armies move through history together
+// One undo step: the whole document, so units, paths, armies and shots move through history
+// together
 export interface Snapshot {
   units: Unit[];
   paths: MapPath[];
   armies: Army[];
+  shots: Shot[];
 }
 
 export const snapshotOf = (state: MapStore): Snapshot => ({
   units: state.placedUnits,
   paths: state.paths,
   armies: state.armies,
+  shots: state.shots,
 });
 
 // Records the current document as an undo step and clears redo.
@@ -65,10 +68,14 @@ export const createHistorySlice: StateCreator<
       placedUnits: previous.units,
       paths: previous.paths,
       armies: previous.armies,
+      shots: previous.shots,
       future: [snapshotOf(state), ...state.future],
       ...reconcileSelection(state, previous.units, previous.paths),
       selectedArmyId: previous.armies.some((a) => a.id === state.selectedArmyId)
         ? state.selectedArmyId
+        : null,
+      selectedShotId: previous.shots.some((s) => s.id === state.selectedShotId)
+        ? state.selectedShotId
         : null,
     });
   },
@@ -82,10 +89,14 @@ export const createHistorySlice: StateCreator<
       placedUnits: next.units,
       paths: next.paths,
       armies: next.armies,
+      shots: next.shots,
       future: state.future.slice(1),
       ...reconcileSelection(state, next.units, next.paths),
       selectedArmyId: next.armies.some((a) => a.id === state.selectedArmyId)
         ? state.selectedArmyId
+        : null,
+      selectedShotId: next.shots.some((s) => s.id === state.selectedShotId)
+        ? state.selectedShotId
         : null,
     });
   },

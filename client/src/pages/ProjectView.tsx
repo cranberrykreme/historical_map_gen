@@ -35,6 +35,7 @@ function ProjectView() {
   const setStoryStart = useMapStore((state) => state.setStoryStart);
   const setDisplayMode = useMapStore((state) => state.setDisplayMode);
   const setPacing = useMapStore((state) => state.setPacing);
+  const setShots = useMapStore((state) => state.setShots);
   const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
   const setSelectedMap = useMapStore((state) => state.setSelectedMap);
   const cleanupDeletedAsset = useMapStore((state) => state.cleanupDeletedAsset);
@@ -75,12 +76,14 @@ function ProjectView() {
         storyStart,
         displayMode,
         pacing,
+        shots,
         selectedMapFilename: loadedMap,
         viewport,
       }) => {
         setStoryStart(storyStart);
         setDisplayMode(displayMode);
         setPacing(pacing);
+        setShots(shots);
         if (units.length > 0) {
           setPlacedUnits(units);
         }
@@ -104,6 +107,7 @@ function ProjectView() {
     setStoryStart,
     setDisplayMode,
     setPacing,
+    setShots,
     setSelectedMap,
   ]);
 
@@ -119,6 +123,7 @@ function ProjectView() {
       storyStart: state.storyStart,
       displayMode: state.displayMode,
       pacing: state.pacing,
+      shots: state.shots,
       selectedMapFilename: state.selectedMapFilename,
       viewport: viewportApiRef.current?.get(),
     });
@@ -190,6 +195,7 @@ function ProjectView() {
       storyStart: state.storyStart,
       displayMode: state.displayMode,
       pacing: state.pacing,
+      shots: state.shots,
       selectedMapFilename: state.selectedMapFilename,
     });
   };

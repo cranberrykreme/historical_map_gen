@@ -50,10 +50,24 @@ export interface MarchTiming {
 }
 
 // A moment on the video paired with a moment in history. Kept from the date markers of
-// older projects, ready to become the first shot.
+// older projects, which become their first shots.
 export interface PacingKey {
   seconds: number;
   time: number;
+}
+
+// A stretch of the video showing a stretch of history. Shots play one after another, so the
+// story can jump back and forth in time. Over its `seconds`, history runs from `from` to `to`
+// (days since 1 January 1970, see utils/historyTime); a shot whose `from` and `to` are the
+// same holds that moment, for a title or a pause.
+export interface Shot {
+  id: string;
+  name: string;
+  seconds: number;
+  from: number;
+  to: number;
+  ease?: boolean; // eases in and out rather than running at a steady rate
+  hideDate?: boolean; // hides the on-screen date while this shot is on screen
 }
 
 // How the date reads: "October 1066", "14 October 1066", or with the time of day too
@@ -73,6 +87,7 @@ export interface ProjectData {
   storyStart?: number;
   displayMode?: HistoryDisplay;
   pacing?: PacingKey[];
+  shots?: Shot[];
   selectedMapFilename?: string | null;
   viewport?: SavedViewport | null;
 }

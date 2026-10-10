@@ -1,9 +1,14 @@
 import React from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
-import { isPastStart, useTimelineStore } from "../../store/useTimelineStore";
+import {
+  isPastStart,
+  TimelineMode,
+  useTimelineStore,
+} from "../../store/useTimelineStore";
 import { formatHistoryTime, HistoryTime, HOUR } from "../../utils/historyTime";
 import { RowFilter } from "../../utils/timelineRows";
+import { formatSeconds, videoLength } from "../../utils/shots";
 import { HistoryDisplay } from "../../types";
 import styles from "./Timeline.module.css";
 
@@ -23,6 +28,19 @@ const DISPLAYS: { mode: HistoryDisplay; label: string }[] = [
   { mode: "times", label: "Times" },
 ];
 
+const MODES: { mode: TimelineMode; label: string; hint: string }[] = [
+  {
+    mode: "history",
+    label: "History",
+    hint: "Play and scrub through history at the chosen pace",
+  },
+  {
+    mode: "video",
+    label: "Video",
+    hint: "Play the video: the shots in order, in real time, as the viewer will see them",
+  },
+];
+
 const FILTERS: { filter: RowFilter; label: string; hint: string }[] = [
   { filter: "all", label: "All", hint: "List every march" },
   {
@@ -37,8 +55,8 @@ const FILTERS: { filter: RowFilter; label: string; hint: string }[] = [
   },
 ];
 
-// The timeline's control strip: play and rewind, the pace, how dates are shown, Fit, which
-// marches are listed, and the button that folds the timeline away
+// The timeline's control strip: play and rewind, history or video, the pace, how dates are
+// shown, Fit, which marches are listed, and the button that folds the timeline away
 function Transport({
   current,
   hasMarches,
@@ -51,6 +69,7 @@ function Transport({
   const storyStart = useMapStore((state) => state.storyStart);
   const displayMode = useMapStore((state) => state.displayMode);
   const setDisplayMode = useMapStore((state) => state.setDisplayMode);
+  const shots = useMapStore((state) => state.shots);
 
   const now = useTimelineStore((state) => state.now);
   const playing = useTimelineStore((state) => state.playing);
@@ -65,6 +84,13 @@ function Transport({
   const setView = useTimelineStore((state) => state.setView);
   const rowFilter = useTimelineStore((state) => state.rowFilter);
   const setRowFilter = useTimelineStore((state) => state.setRowFilter);
+  const mode = useTimelineStore((state) => state.mode);
+  const setMode = useTimelineStore((state) => state.setMode);
+  const videoTime = useTimelineStore((state) => state.videoTime);
+  const setVideoTime = useTimelineStore((state) => state.setVideoTime);
+
+  const videoEnd = videoLength(shots);
+  const inVideo = mode === "video";
 
   const handlePlay = () => {
     if (playing) {
@@ -72,13 +98,18 @@ function Transport({
       return;
     }
     usePathToolStore.getState().clearPreview(); // the timeline and a path preview never both play
-    if (storyEnd !== null && current >= storyEnd - 1e-9) setNow(null);
+    if (inVideo) {
+      if (videoTime >= videoEnd - 1e-9) setVideoTime(0);
+    } else if (storyEnd !== null && current >= storyEnd - 1e-9) {
+      setNow(null);
+    }
     play();
   };
 
   const handleRewind = () => {
     pause();
-    setNow(null);
+    if (inVideo) setVideoTime(0);
+    else setNow(null);
   };
 
   return (
@@ -86,31 +117,62 @@ function Transport({
       <button
         className={styles.iconButton}
         onClick={handleRewind}
-        title="Back to the start of the story (units can be edited there)"
+        title={
+          inVideo
+            ? "Back to the start of the video"
+            : "Back to the start of the story (units can be edited there)"
+        }
       >
         {"⏮︎"}
       </button>
       <button
         className={styles.playButton}
         onClick={handlePlay}
-        disabled={!hasMarches}
+        disabled={inVideo ? videoEnd <= 0 : !hasMarches}
         title={playing ? "Pause" : "Play"}
       >
         {playing ? "❚❚" : "▶︎"}
       </button>
+      {inVideo && (
+        <span
+          className={styles.videoClock}
+          title="Video playhead / video length"
+        >
+          {formatSeconds(videoTime)} / {formatSeconds(videoEnd)}
+        </span>
+      )}
       <span className={styles.time}>{formatHistoryTime(current, "times")}</span>
-      <span className={styles.modeLabel}>Per second</span>
-      <div className={styles.speed}>
-        {PACES.map(({ days, label }) => (
+      <div className={styles.speed} title="What the playhead follows">
+        {MODES.map(({ mode: option, label, hint }) => (
           <button
-            key={label}
-            className={`${styles.speedButton} ${pace === days ? styles.speedActive : ""}`}
-            onClick={() => setPace(days)}
+            key={option}
+            title={
+              option === "video" && videoEnd <= 0 ? "Add a shot first" : hint
+            }
+            disabled={option === "video" && videoEnd <= 0}
+            className={`${styles.speedButton} ${mode === option ? styles.speedActive : ""}`}
+            onClick={() => setMode(option)}
           >
             {label}
           </button>
         ))}
       </div>
+      {!inVideo && (
+        <>
+          <span className={styles.modeLabel}>Per second</span>
+          <div className={styles.speed}>
+            {PACES.map(({ days, label }) => (
+              <button
+                key={label}
+                className={`${styles.speedButton} ${pace === days ? styles.speedActive : ""}`}
+                onClick={() => setPace(days)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <span className={styles.modeLabel}>Date</span>
       <div className={styles.speed} title="How the date is shown on screen">
         {DISPLAYS.map(({ mode, label }) => (

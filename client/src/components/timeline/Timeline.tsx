@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
-import {
-  currentMoment,
-  useTimelineStore,
-} from "../../store/useTimelineStore";
+import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
 import { fitView, getTimeline, HistoryView } from "../../utils/timeline";
+import { shotAt, videoLength } from "../../utils/shots";
 import {
   groupKeyOf,
   groupRows,
@@ -13,10 +11,13 @@ import {
   RowGroup,
 } from "../../utils/timelineRows";
 import MarchEditor from "./MarchEditor";
+import ShotEditor from "./ShotEditor";
 import StoryStartEditor from "./StoryStartEditor";
+import VideoStrip from "./VideoStrip";
 import Transport from "./Transport";
 import TimelineRows from "./TimelineRows";
 import { usePlayback } from "./usePlayback";
+import { useVideoClock } from "./useVideoClock";
 import { useRowsHeight } from "./useRowsHeight";
 import { useSelectionReveal } from "./useSelectionReveal";
 import { useTimelineWheel } from "./useTimelineWheel";
@@ -29,6 +30,9 @@ function Timeline() {
   const storyStart = useMapStore((state) => state.storyStart);
   const armies = useMapStore((state) => state.armies);
   const selectedArmyId = useMapStore((state) => state.selectedArmyId);
+  const shots = useMapStore((state) => state.shots);
+  const selectedShotId = useMapStore((state) => state.selectedShotId);
+  const selectShot = useMapStore((state) => state.selectShot);
 
   const now = useTimelineStore((state) => state.now);
   const playing = useTimelineStore((state) => state.playing);
@@ -39,6 +43,8 @@ function Timeline() {
   const setView = useTimelineStore((state) => state.setView);
   const rowFilter = useTimelineStore((state) => state.rowFilter);
   const collapsedGroups = useTimelineStore((state) => state.collapsedGroups);
+  const mode = useTimelineStore((state) => state.mode);
+  const videoTime = useTimelineStore((state) => state.videoTime);
 
   const trackRef = useRef<HTMLDivElement>(null);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -98,6 +104,12 @@ function Timeline() {
 
   const { startResize, resetHeight, fittedHeight } = useRowsHeight();
 
+  // A shot and a march are never both selected: the editor row shows one or the other
+  const selectedShot = shots.find((shot) => shot.id === selectedShotId);
+  useEffect(() => {
+    if (selectedPathId !== null) selectShot(null);
+  }, [selectedPathId, selectShot]);
+
   // Keep track of the bar's width, for spacing the ruler's labels
   useEffect(() => {
     const track = trackRef.current;
@@ -110,7 +122,15 @@ function Timeline() {
 
   useTimelineWheel(trackRef, shown, expanded, setView);
 
-  usePlayback(playing, storyStart, storyEnd, pause);
+  usePlayback(playing, storyStart, storyEnd, pause, mode, videoLength(shots));
+  useVideoClock(mode, videoTime, shots, storyStart);
+
+  // The stretch of history shaded on the rows: the selected shot's, or in video mode the
+  // shot on screen
+  const band =
+    selectedShot ??
+    (mode === "video" ? shotAt(shots, videoTime)?.shot : undefined) ??
+    null;
 
   return (
     <div className={styles.timeline}>
@@ -129,7 +149,9 @@ function Timeline() {
       />
 
       {expanded &&
-        (selectedRow ? (
+        (selectedShot ? (
+          <ShotEditor shot={selectedShot} />
+        ) : selectedRow ? (
           <MarchEditor
             path={selectedRow.path}
             timing={timeline.timings.get(selectedRow.path.id)!}
@@ -137,6 +159,8 @@ function Timeline() {
         ) : (
           <StoryStartEditor firstMarch={timeline.start} />
         ))}
+
+      {expanded && <VideoStrip storyEnd={storyEnd} />}
 
       {expanded && (
         <TimelineRows
@@ -151,6 +175,7 @@ function Timeline() {
           trackWidth={trackWidth}
           rowRefs={rowRefs}
           headerRefs={headerRefs}
+          band={band}
         />
       )}
     </div>

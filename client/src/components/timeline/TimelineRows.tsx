@@ -30,6 +30,7 @@ function TimelineRows({
   trackWidth,
   rowRefs,
   headerRefs,
+  band,
 }: {
   groups: RowGroup[];
   grouped: boolean;
@@ -42,6 +43,8 @@ function TimelineRows({
   trackWidth: number;
   rowRefs: React.RefObject<Map<string, HTMLDivElement>>;
   headerRefs: React.RefObject<Map<string, HTMLDivElement>>;
+  // The selected shot's stretch of history, shaded across the rows
+  band: { from: HistoryTime; to: HistoryTime } | null;
 }) {
   const selectedPathId = useMapStore((state) => state.selectedPathId);
   const selectPath = useMapStore((state) => state.selectPath);
@@ -53,6 +56,7 @@ function TimelineRows({
   const pause = useTimelineStore((state) => state.pause);
   const rowFilter = useTimelineStore((state) => state.rowFilter);
   const toggleGroup = useTimelineStore((state) => state.toggleGroup);
+  const setMode = useTimelineStore((state) => state.setMode);
 
   const span = shown.to - shown.from;
   const percent = (t: HistoryTime) => ((t - shown.from) / span) * 100;
@@ -73,12 +77,14 @@ function TimelineRows({
     return t <= storyStart || clientX - startX < START_SNAP ? null : t;
   };
 
-  // Clicking or dragging on the ruler or an empty part of a row moves the playhead
+  // Clicking or dragging on the ruler or an empty part of a row moves the playhead. It goes
+  // back to following history, since the video no longer decides the moment.
   const startScrub = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
     usePathToolStore.getState().clearPreview();
     pause();
+    setMode("history");
     setNow(momentAt(e.clientX));
 
     const onMove = (ev: MouseEvent) => setNow(momentAt(ev.clientX));
@@ -179,6 +185,16 @@ function TimelineRows({
             className={styles.beforeStart}
             style={{ width: `${Math.min(startShare, 100)}%` }}
             title="Before the story starts"
+          />
+        )}
+
+        {band && band.to >= shown.from && band.from <= shown.to && (
+          <div
+            className={styles.shotBand}
+            style={{
+              left: `${percent(band.from)}%`,
+              width: `${percent(band.to) - percent(band.from)}%`,
+            }}
           />
         )}
 

@@ -29,6 +29,8 @@ export const createStorySlice: StateCreator<MapStore, [], [], StorySlice> = (
       paths: [],
       armies: [],
       selectedArmyId: null,
+      shots: [],
+      selectedShotId: null,
       storyStart: DEFAULT_STORY_START,
       displayMode: "months",
       pacing: [],
