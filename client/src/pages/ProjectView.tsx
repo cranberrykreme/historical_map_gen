@@ -36,6 +36,8 @@ function ProjectView() {
   const setDisplayMode = useMapStore((state) => state.setDisplayMode);
   const setPacing = useMapStore((state) => state.setPacing);
   const setShots = useMapStore((state) => state.setShots);
+  const setVideoFrame = useMapStore((state) => state.setVideoFrame);
+  const setSavedViewport = useMapStore((state) => state.setSavedViewport);
   const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
   const setSelectedMap = useMapStore((state) => state.setSelectedMap);
   const cleanupDeletedAsset = useMapStore((state) => state.cleanupDeletedAsset);
@@ -77,6 +79,7 @@ function ProjectView() {
         displayMode,
         pacing,
         shots,
+        videoFrame,
         selectedMapFilename: loadedMap,
         viewport,
       }) => {
@@ -84,6 +87,7 @@ function ProjectView() {
         setDisplayMode(displayMode);
         setPacing(pacing);
         setShots(shots);
+        setVideoFrame(videoFrame);
         if (units.length > 0) {
           setPlacedUnits(units);
         }
@@ -94,6 +98,7 @@ function ProjectView() {
         if (loadedMap) {
           setSelectedMap(loadedMap);
         }
+        setSavedViewport(viewport);
         if (viewport) {
           viewportApiRef.current?.apply(viewport);
         }
@@ -108,6 +113,8 @@ function ProjectView() {
     setDisplayMode,
     setPacing,
     setShots,
+    setVideoFrame,
+    setSavedViewport,
     setSelectedMap,
   ]);
 
@@ -116,6 +123,7 @@ function ProjectView() {
   const handleSave = useCallback(async () => {
     setSaveStatus("saving");
     const state = useMapStore.getState();
+    const viewport = viewportApiRef.current?.get();
     const saved = await saveProject({
       units: state.placedUnits,
       paths: state.paths,
@@ -124,9 +132,12 @@ function ProjectView() {
       displayMode: state.displayMode,
       pacing: state.pacing,
       shots: state.shots,
+      videoFrame: state.videoFrame,
       selectedMapFilename: state.selectedMapFilename,
-      viewport: viewportApiRef.current?.get(),
+      viewport,
     });
+    // The video's camera opens on the view just saved
+    if (saved && viewport) state.setSavedViewport(viewport);
     setSaveStatus(saved ? "saved" : "failed");
     window.setTimeout(() => setSaveStatus("idle"), 1500);
   }, [saveProject]);
@@ -196,6 +207,7 @@ function ProjectView() {
       displayMode: state.displayMode,
       pacing: state.pacing,
       shots: state.shots,
+      videoFrame: state.videoFrame,
       selectedMapFilename: state.selectedMapFilename,
     });
   };

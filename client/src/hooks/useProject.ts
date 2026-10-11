@@ -10,6 +10,7 @@ import {
   SavedViewport,
   Shot,
   Unit,
+  VideoFrame,
 } from "../types";
 import {
   emptyProject,
@@ -26,6 +27,7 @@ export interface ProjectSnapshot {
   displayMode: HistoryDisplay;
   pacing: PacingKey[];
   shots: Shot[];
+  videoFrame: VideoFrame;
   selectedMapFilename: string | null;
   // Left out (undefined) for auto-saves; Flask then keeps the last saved view
   viewport?: SavedViewport | null;
@@ -44,6 +46,7 @@ function useProject(projectName: string = "default") {
         displayMode: snapshot.displayMode,
         pacing: snapshot.pacing,
         shots: snapshot.shots,
+        videoFrame: snapshot.videoFrame,
         selectedMapFilename: snapshot.selectedMapFilename,
         viewport: snapshot.viewport,
       };

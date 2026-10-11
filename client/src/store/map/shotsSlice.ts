@@ -3,9 +3,12 @@ import { Shot } from "../../types";
 import {
   clampShot,
   DEFAULT_SHOT_SECONDS,
+  MIN_TRANSITION_SECONDS,
   moveShot,
   newShotId,
   nextShotName,
+  sameTransition,
+  sameView,
 } from "../../utils/shots";
 import { withHistory } from "./history";
 import { MapStore, ShotsSlice } from "./types";
@@ -19,7 +22,13 @@ const sameShot = (a: Shot, b: Shot) =>
   a.from === b.from &&
   a.to === b.to &&
   !!a.ease === !!b.ease &&
-  !!a.hideDate === !!b.hideDate;
+  !!a.hideDate === !!b.hideDate &&
+  sameView(a.startView, b.startView) &&
+  sameView(a.endView, b.endView) &&
+  !!a.followOn === !!b.followOn &&
+  sameTransition(a.transition, b.transition) &&
+  (a.fadeOut ?? 0) === (b.fadeOut ?? 0) &&
+  (a.follow ?? "") === (b.follow ?? "");
 
 export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
   set,
@@ -64,8 +73,9 @@ export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
     return shot.id;
   },
 
-  // Changes a shot's name, length, history or options. One undo step; nothing changes (and
-  // no undo step is added) if the shot ends up the same.
+  // Changes a shot's name, length, history, camera, army followed, transition, fade out or
+  // options. Passing undefined for a view, the army, the transition or the fade out clears it.
+  // One undo step; nothing changes (and no undo step is added) if the shot ends up the same.
   updateShot: (id, patch) => {
     const state = get();
     const current = state.shots.find((shot) => shot.id === id);
@@ -75,6 +85,23 @@ export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
       merged.name = merged.name.trim() || current.name;
     if (!merged.ease) delete merged.ease;
     if (!merged.hideDate) delete merged.hideDate;
+    if (!merged.followOn) delete merged.followOn;
+    if (!merged.startView) delete merged.startView;
+    if (!merged.endView) delete merged.endView;
+    if (!merged.follow) delete merged.follow;
+    if (!merged.fadeOut || merged.fadeOut <= 0) delete merged.fadeOut;
+    else merged.fadeOut = Math.max(merged.fadeOut, MIN_TRANSITION_SECONDS);
+    if (!merged.transition || merged.transition.kind === "cut") {
+      delete merged.transition;
+    } else {
+      // Only a wipe has a direction, and a transition is never shorter than the minimum
+      const { direction, ...rest } = merged.transition;
+      merged.transition = {
+        ...rest,
+        seconds: Math.max(rest.seconds, MIN_TRANSITION_SECONDS),
+        ...(rest.kind === "wipe" && direction ? { direction } : {}),
+      };
+    }
     const next = clampShot(merged);
     if (sameShot(next, current)) return;
     set({

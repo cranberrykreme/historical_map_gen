@@ -76,6 +76,9 @@ interface TimelineStore {
   rowsHeight: number; // the rows area's height in pixels; drag the timeline's top edge
   mode: TimelineMode;
   videoTime: number; // the video playhead, in seconds; in video mode it sets `now`
+  // How far down the window the timeline's top edge is, in pixels, so the video frame can
+  // sit above it. Null until the timeline has been measured.
+  timelineTop: number | null;
 
   setNow: (now: HistoryTime | null) => void;
   play: () => void;
@@ -91,7 +94,8 @@ interface TimelineStore {
   saveRowsHeight: () => void; // when the drag ends
   setMode: (mode: TimelineMode) => void;
   setVideoTime: (seconds: number) => void;
-  reset: () => void; // for a newly opened project: keeps the filter and the height
+  setTimelineTop: (top: number | null) => void;
+  reset: () => void; // for a newly opened project: keeps the filter, the height and where the timeline is
 }
 
 export const useTimelineStore = create<TimelineStore>((set, get) => ({
@@ -106,6 +110,7 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   rowsHeight: rememberedHeight(),
   mode: "history",
   videoTime: 0,
+  timelineTop: null,
 
   setNow: (now) => set({ now }),
   play: () => set({ playing: true }),
@@ -138,6 +143,9 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
     if (mode !== get().mode) set({ mode, playing: false });
   },
   setVideoTime: (seconds) => set({ videoTime: Math.max(seconds, 0) }),
+  setTimelineTop: (timelineTop) => {
+    if (timelineTop !== get().timelineTop) set({ timelineTop });
+  },
   reset: () =>
     set({
       now: null,

@@ -45,7 +45,9 @@ function Timeline() {
   const collapsedGroups = useTimelineStore((state) => state.collapsedGroups);
   const mode = useTimelineStore((state) => state.mode);
   const videoTime = useTimelineStore((state) => state.videoTime);
+  const inVideo = mode === "video";
 
+  const rootRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [trackWidth, setTrackWidth] = useState(0);
 
@@ -110,17 +112,56 @@ function Timeline() {
     if (selectedPathId !== null) selectShot(null);
   }, [selectedPathId, selectShot]);
 
-  // Keep track of the bar's width, for spacing the ruler's labels
+  // Keep track of the bar's width, for spacing the ruler's labels (on the next frame, for the
+  // same reason as below)
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
-    const observer = new ResizeObserver(() => setTrackWidth(track.clientWidth));
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setTrackWidth(track.clientWidth));
+    });
     observer.observe(track);
     setTrackWidth(track.clientWidth);
-    return () => observer.disconnect();
-  }, [expanded]);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [expanded, inVideo]);
 
-  useTimelineWheel(trackRef, shown, expanded, setView);
+  // Tell the map where the timeline's top edge is, so the video frame can sit above it. The
+  // measuring waits for the next frame: changing the layout from inside a ResizeObserver
+  // callback makes the browser report a "ResizeObserver loop" error.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    let frame = 0;
+    const publish = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() =>
+        useTimelineStore
+          .getState()
+          .setTimelineTop(Math.round(root.getBoundingClientRect().top))
+      );
+    };
+    publish();
+    window.addEventListener("resize", publish);
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(publish)
+        : null;
+    observer?.observe(root);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", publish);
+      observer?.disconnect();
+      useTimelineStore.getState().setTimelineTop(null);
+    };
+  }, []);
+
+  // The rows (and so the bars to scroll and pinch) are only there outside video mode
+  useTimelineWheel(trackRef, shown, expanded && !inVideo, setView);
 
   usePlayback(playing, storyStart, storyEnd, pause, mode, videoLength(shots));
   useVideoClock(mode, videoTime, shots, storyStart);
@@ -129,12 +170,12 @@ function Timeline() {
   // shot on screen
   const band =
     selectedShot ??
-    (mode === "video" ? shotAt(shots, videoTime)?.shot : undefined) ??
+    (inVideo ? shotAt(shots, videoTime)?.shot : undefined) ??
     null;
 
   return (
-    <div className={styles.timeline}>
-      {expanded && (
+    <div className={styles.timeline} ref={rootRef}>
+      {expanded && !inVideo && (
         <div
           className={styles.resizeHandle}
           onMouseDown={startResize}
@@ -162,7 +203,8 @@ function Timeline() {
 
       {expanded && <VideoStrip storyEnd={storyEnd} />}
 
-      {expanded && (
+      {/* Video mode is for arranging shots: the marches are tucked away */}
+      {expanded && !inVideo && (
         <TimelineRows
           groups={groups}
           grouped={grouped}

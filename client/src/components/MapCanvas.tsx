@@ -6,6 +6,9 @@ import useAssetDrop from "../hooks/useAssetDrop";
 import UnitLayer from "./UnitLayer";
 import PathLayer from "./PathLayer";
 import PathDrawOverlay from "./PathDrawOverlay";
+import FrameOverlay from "./FrameOverlay";
+import useCamera from "../hooks/useCamera";
+import useVideoCamera from "../hooks/useVideoCamera";
 import API_BASE_URL from "../config/api";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
@@ -18,6 +21,7 @@ import {
 } from "../store/useTimelineStore";
 import { existsAt, getTimeline } from "../utils/timeline";
 import { editableAt } from "../utils/lifespans";
+import { videoDarkness } from "../utils/camera";
 
 function MapCanvas({
   viewportApiRef,
@@ -59,6 +63,11 @@ function MapCanvas({
   const storyStart = useMapStore((state) => state.storyStart);
   const now = useTimelineStore((state) => state.now);
   const draftTiming = useTimelineStore((state) => state.draftTiming);
+  const inVideo = useTimelineStore((state) => state.mode === "video");
+  const shotSelected = useMapStore((state) => state.selectedShotId !== null);
+  const videoFrame = useMapStore((state) => state.videoFrame);
+  const shots = useMapStore((state) => state.shots);
+  const videoTime = useTimelineStore((state) => state.videoTime);
 
   // Everything about the paths (sampling, pivots, who is where when) is worked out once per
   // change, and each frame just looks it up
@@ -211,6 +220,12 @@ function MapCanvas({
     };
   }, [viewportApiRef]);
 
+  // The video frame, shown in video mode and while a shot is selected (to set its views). In
+  // video mode the camera moves the map, and fades darken the frame.
+  const frame = useCamera(containerRef, mapRef, positionRef, scaleRef);
+  useVideoCamera(frame);
+  const darkness = inVideo ? videoDarkness(shots, videoTime) : 0;
+
   const { startSelection, boxStyle } = useSelectionBox({
     containerRef,
     scaleRef,
@@ -291,6 +306,9 @@ function MapCanvas({
           isDraggingUnit={isDraggingUnit}
         />
       </div>
+      {frame && (inVideo || shotSelected) && (
+        <FrameOverlay frame={frame} shape={videoFrame} darkness={darkness} />
+      )}
       {isDrawingPath && (
         <PathDrawOverlay
           containerRef={containerRef}

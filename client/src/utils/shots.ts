@@ -1,4 +1,11 @@
-import { Shot } from "../types";
+import {
+  CameraView,
+  Shot,
+  ShotTransition,
+  TransitionKind,
+  VideoFrame,
+  WipeDirection,
+} from "../types";
 import { HistoryTime } from "./historyTime";
 import { easeTravel } from "./pathPlayback";
 
@@ -7,6 +14,10 @@ export const MIN_SHOT_SECONDS = 0.5;
 
 // How long a new shot is, in seconds of video
 export const DEFAULT_SHOT_SECONDS = 10;
+
+// The shortest a transition can be, and how long a new one is, in seconds of video
+export const MIN_TRANSITION_SECONDS = 0.1;
+export const DEFAULT_TRANSITION_SECONDS = 1;
 
 const isNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -141,6 +152,16 @@ export function parseShots(raw: unknown): Shot[] {
       };
       if (s.ease === true) shot.ease = true;
       if (s.hideDate === true) shot.hideDate = true;
+      const startView = parseView(s.startView);
+      const endView = parseView(s.endView);
+      const transition = parseTransition(s.transition);
+      if (startView) shot.startView = startView;
+      if (endView) shot.endView = endView;
+      if (s.followOn === true) shot.followOn = true;
+      if (transition) shot.transition = transition;
+      if (typeof s.follow === "string" && s.follow) shot.follow = s.follow;
+      if (isNumber(s.fadeOut) && s.fadeOut > 0)
+        shot.fadeOut = Math.max(s.fadeOut, MIN_TRANSITION_SECONDS);
       return clampShot(shot);
     });
 }
@@ -179,3 +200,54 @@ export function videoMoment(
 // Whether the on-screen date is hidden at a moment of the video
 export const dateHiddenAt = (shots: Shot[], seconds: number): boolean =>
   !!shotAt(shots, seconds)?.shot.hideDate;
+
+export const sameView = (
+  a: CameraView | undefined | null,
+  b: CameraView | undefined | null
+): boolean =>
+  a === b ||
+  (!!a &&
+    !!b &&
+    a.centerX === b.centerX &&
+    a.centerY === b.centerY &&
+    a.height === b.height);
+
+// Reads a saved camera view, or undefined if it isn't one
+export function parseView(raw: unknown): CameraView | undefined {
+  const v = raw as CameraView | null;
+  const ok = (n: unknown) => typeof n === "number" && Number.isFinite(n);
+  if (!v || !ok(v.centerX) || !ok(v.centerY) || !ok(v.height) || v.height <= 0)
+    return undefined;
+  return { centerX: v.centerX, centerY: v.centerY, height: v.height };
+}
+
+const KINDS: TransitionKind[] = ["cut", "fade", "dissolve", "wipe"];
+const DIRECTIONS: WipeDirection[] = ["left", "right", "up", "down"];
+
+// Reads a saved transition, or undefined for a cut or anything that isn't one
+export function parseTransition(raw: unknown): ShotTransition | undefined {
+  const t = raw as ShotTransition | null;
+  if (!t || !KINDS.includes(t.kind) || t.kind === "cut") return undefined;
+  const seconds =
+    typeof t.seconds === "number" && Number.isFinite(t.seconds)
+      ? Math.max(t.seconds, MIN_TRANSITION_SECONDS)
+      : DEFAULT_TRANSITION_SECONDS;
+  const transition: ShotTransition = { kind: t.kind, seconds };
+  if (t.kind === "wipe" && DIRECTIONS.includes(t.direction as WipeDirection))
+    transition.direction = t.direction;
+  return transition;
+}
+
+export const sameTransition = (
+  a: ShotTransition | undefined,
+  b: ShotTransition | undefined
+): boolean =>
+  a === b ||
+  (!!a &&
+    !!b &&
+    a.kind === b.kind &&
+    a.seconds === b.seconds &&
+    (a.direction ?? "left") === (b.direction ?? "left"));
+
+export const parseVideoFrame = (raw: unknown): VideoFrame =>
+  raw === "portrait" ? "portrait" : "landscape";

@@ -9,13 +9,14 @@ import {
   SavedViewport,
   Shot,
   Unit,
+  VideoFrame,
 } from "../types";
 import { clampDate, daysFromCivil } from "./dates";
 import { HistoryTime, toHistoryTime } from "./historyTime";
 import { clampMarch } from "./marches";
 import { createPlayback } from "./pathPlayback";
 import { deriveArmies, rebuildMemberships } from "./armies";
-import { parseShots } from "./shots";
+import { parseShots, parseVideoFrame } from "./shots";
 
 // Where a new project's story starts
 export const DEFAULT_STORY_START = toHistoryTime({
@@ -37,6 +38,7 @@ export interface LoadedProject {
   displayMode: HistoryDisplay;
   pacing: PacingKey[];
   shots: Shot[];
+  videoFrame: VideoFrame;
   selectedMapFilename: string | null;
   viewport: SavedViewport | null;
 }
@@ -50,6 +52,7 @@ export function emptyProject(): LoadedProject {
     displayMode: "months",
     pacing: [],
     shots: [],
+    videoFrame: "landscape",
     selectedMapFilename: null,
     viewport: null,
   };
@@ -297,6 +300,7 @@ export function parseProject(data: any): LoadedProject {
     ? data.paths.map(parsePath)
     : [];
   const selectedMapFilename = data.selectedMapFilename ?? null;
+  const videoFrame = parseVideoFrame(data.videoFrame);
 
   // Saved shots are read as they are; a project saved before shots gets them from its date
   // markers (see shotsFromPacing)
@@ -320,6 +324,7 @@ export function parseProject(data: any): LoadedProject {
           : "months",
         pacing,
         shots: shotsFor(pacing),
+        videoFrame,
         selectedMapFilename,
         viewport,
       },
@@ -337,6 +342,7 @@ export function parseProject(data: any): LoadedProject {
       displayMode: data.dateMode === "days" ? "days" : "months",
       pacing,
       shots: shotsFor(pacing),
+      videoFrame,
       selectedMapFilename,
       viewport,
     },

@@ -77,3 +77,12 @@ test("opening another project goes back to history mode at the video's start", (
   expect(timeline().mode).toBe("history");
   expect(timeline().videoTime).toBe(0);
 });
+
+test("where the timeline's top edge is survives opening another project", () => {
+  timeline().setTimelineTop(640);
+  expect(timeline().timelineTop).toBe(640);
+  timeline().reset();
+  expect(timeline().timelineTop).toBe(640);
+  timeline().setTimelineTop(null);
+  expect(timeline().timelineTop).toBeNull();
+});

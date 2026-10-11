@@ -69,3 +69,13 @@ test("a project saved before shots gets them from its pacing; saved shots are ke
     parseProject({ version: 3, units: [], pacing, shots: [] }).shots
   ).toEqual([]);
 });
+
+test("the video's shape loads with the project, landscape when not saved", () => {
+  expect(parseProject({ version: 3, units: [] }).videoFrame).toBe("landscape");
+  expect(
+    parseProject({ version: 3, units: [], videoFrame: "portrait" }).videoFrame
+  ).toBe("portrait");
+  expect(parseProject({ units: [], videoFrame: "portrait" }).videoFrame).toBe(
+    "portrait"
+  );
+});

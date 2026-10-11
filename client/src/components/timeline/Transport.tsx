@@ -9,7 +9,7 @@ import {
 import { formatHistoryTime, HistoryTime, HOUR } from "../../utils/historyTime";
 import { RowFilter } from "../../utils/timelineRows";
 import { formatSeconds, videoLength } from "../../utils/shots";
-import { HistoryDisplay } from "../../types";
+import { HistoryDisplay, VideoFrame } from "../../types";
 import styles from "./Timeline.module.css";
 
 // How much history plays per second of preview
@@ -41,6 +41,19 @@ const MODES: { mode: TimelineMode; label: string; hint: string }[] = [
   },
 ];
 
+const FRAMES: { frame: VideoFrame; label: string; hint: string }[] = [
+  {
+    frame: "landscape",
+    label: "16:9",
+    hint: "Landscape video (1920×1080), for YouTube",
+  },
+  {
+    frame: "portrait",
+    label: "9:16",
+    hint: "Portrait video (1080×1920), for shorts",
+  },
+];
+
 const FILTERS: { filter: RowFilter; label: string; hint: string }[] = [
   { filter: "all", label: "All", hint: "List every march" },
   {
@@ -55,8 +68,9 @@ const FILTERS: { filter: RowFilter; label: string; hint: string }[] = [
   },
 ];
 
-// The timeline's control strip: play and rewind, history or video, the pace, how dates are
-// shown, Fit, which marches are listed, and the button that folds the timeline away
+// The timeline's control strip: play and rewind, history or video, the video's shape, the
+// pace, how dates are shown, Fit, which marches are listed, and the button that folds the
+// timeline away
 function Transport({
   current,
   hasMarches,
@@ -70,6 +84,8 @@ function Transport({
   const displayMode = useMapStore((state) => state.displayMode);
   const setDisplayMode = useMapStore((state) => state.setDisplayMode);
   const shots = useMapStore((state) => state.shots);
+  const videoFrame = useMapStore((state) => state.videoFrame);
+  const setVideoFrame = useMapStore((state) => state.setVideoFrame);
 
   const now = useTimelineStore((state) => state.now);
   const playing = useTimelineStore((state) => state.playing);
@@ -157,6 +173,20 @@ function Transport({
           </button>
         ))}
       </div>
+      {shots.length > 0 && (
+        <div className={styles.speed} title="The video's shape">
+          {FRAMES.map(({ frame, label, hint }) => (
+            <button
+              key={frame}
+              title={hint}
+              className={`${styles.speedButton} ${videoFrame === frame ? styles.speedActive : ""}`}
+              onClick={() => setVideoFrame(frame)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       {!inVideo && (
         <>
           <span className={styles.modeLabel}>Per second</span>

@@ -8,11 +8,11 @@ import {
   formatSeconds,
   isHeld,
   MIN_SHOT_SECONDS,
-  shotAt,
   shotStarts,
   videoLength,
 } from "../../utils/shots";
 import { barPlacement, fitView, viewShowing } from "../../utils/timeline";
+import { transitionSpans } from "../../utils/camera";
 import styles from "./Timeline.module.css";
 
 const SNAP_SECONDS = 0.5; // dragging a shot's end snaps to half seconds
@@ -31,6 +31,9 @@ export function describeShot(shot: Shot): string {
     span,
     shot.ease ? "Eases in and out" : "",
     shot.hideDate ? "Date hidden" : "",
+    shot.transition ? `In: ${shot.transition.kind}` : "",
+    shot.startView || shot.endView ? "Camera set" : "",
+    shot.follow ? "Follows an army" : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -43,8 +46,7 @@ type Drag =
 
 // The video strip: the shots in the order they play, each as wide as its share of the video.
 // Click a shot to select it, drag it sideways to reorder, drag its right edge to change its
-// length. In video mode a press on the strip scrubs the video playhead instead (a click
-// without dragging still selects the shot under it).
+// length. In video mode, grab the playhead to scrub the video.
 function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
   const shots = useMapStore((state) => state.shots);
   const selectedShotId = useMapStore((state) => state.selectedShotId);
@@ -117,32 +119,22 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
     window.addEventListener("mouseup", onUp);
   };
 
-  // Video mode: press and drag along the strip to move the video playhead
+  // Video mode: grab the playhead and drag it along the strip to scrub the video
   const startScrub = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
-    const timeline = useTimelineStore.getState();
-    timeline.pause();
+    e.stopPropagation();
+    useTimelineStore.getState().pause();
     const end = videoLength(shots);
     const scrubTo = (clientX: number) =>
       useTimelineStore
         .getState()
         .setVideoTime(Math.min(Math.max(secondsAt(clientX), 0), end));
-    scrubTo(e.clientX);
-    const startX = e.clientX;
-    let moved = false;
 
-    const onMove = (ev: MouseEvent) => {
-      if (Math.abs(ev.clientX - startX) >= DRAG_THRESHOLD) moved = true;
-      scrubTo(ev.clientX);
-    };
-    const onUp = (ev: MouseEvent) => {
+    const onMove = (ev: MouseEvent) => scrubTo(ev.clientX);
+    const onUp = () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      if (!moved) {
-        const place = shotAt(shots, secondsAt(ev.clientX));
-        if (place) select(place.shot);
-      }
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -219,11 +211,7 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
           + Shot
         </button>
       </div>
-      <div
-        className={`${styles.videoTrack} ${inVideo ? styles.videoScrub : ""}`}
-        ref={trackRef}
-        onMouseDown={inVideo ? startScrub : undefined}
-      >
+      <div className={styles.videoTrack} ref={trackRef}>
         {shots.length === 0 && (
           <div className={styles.videoEmpty}>
             No shots yet. A shot is a stretch of video showing a stretch of
@@ -246,7 +234,7 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
               width: `${percent(shot.seconds)}%`,
             }}
             title={describeShot(shot)}
-            onMouseDown={inVideo ? undefined : (e) => startMove(e, shot)}
+            onMouseDown={(e) => startMove(e, shot)}
           >
             <span className={styles.shotName}>{shot.name}</span>
             <span className={styles.shotSeconds}>
@@ -260,10 +248,24 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
             />
           </div>
         ))}
+        {transitionSpans(shown).map((span, i) => (
+          <div
+            key={i}
+            className={`${styles.shotTransition} ${
+              span.kind === "fadeOut" ? styles.shotFadeOut : ""
+            }`}
+            style={{
+              left: `${percent(span.from)}%`,
+              width: `${percent(span.to - span.from)}%`,
+            }}
+          />
+        ))}
         {inVideo && shots.length > 0 && (
           <div
             className={styles.videoPlayhead}
             style={{ left: `${percent(Math.min(videoTime, total))}%` }}
+            onMouseDown={startScrub}
+            title="Drag to scrub the video"
           />
         )}
         {insertAt !== null && (

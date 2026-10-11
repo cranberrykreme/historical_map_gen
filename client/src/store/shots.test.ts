@@ -1,6 +1,6 @@
 import { useMapStore } from "./useMapStore";
 import { DEFAULT_STORY_START } from "../utils/convertProject";
-import { MIN_SHOT_SECONDS } from "../utils/shots";
+import { MIN_SHOT_SECONDS, MIN_TRANSITION_SECONDS } from "../utils/shots";
 
 const S = DEFAULT_STORY_START;
 const store = () => useMapStore.getState();
@@ -101,4 +101,86 @@ test("loading shots bypasses undo, and starting a new project clears them", () =
 
   store().resetMapState();
   expect(store().shots).toEqual([]);
+});
+
+test("a shot's camera views and transition are one undo step each, and can be cleared", () => {
+  const id = store().addShot();
+  const view = { centerX: 10, centerY: 20, height: 300 };
+  const steps = store().past.length;
+
+  store().updateShot(id, { startView: view });
+  expect(store().shots[0].startView).toEqual(view);
+  expect(store().past.length).toBe(steps + 1);
+
+  // The same view again is not a change
+  store().updateShot(id, { startView: { ...view } });
+  expect(store().past.length).toBe(steps + 1);
+
+  store().updateShot(id, {
+    transition: { kind: "fade", seconds: 0, direction: "up" },
+    followOn: true,
+  });
+  // Only wipes keep a direction, and a transition is never shorter than the minimum
+  expect(store().shots[0].transition).toEqual({
+    kind: "fade",
+    seconds: MIN_TRANSITION_SECONDS,
+  });
+  expect(store().shots[0].followOn).toBe(true);
+
+  // Clearing: no start view, a cut, and not following on leave nothing stored
+  store().updateShot(id, {
+    startView: undefined,
+    transition: { kind: "cut", seconds: 1 },
+    followOn: false,
+  });
+  const cleared = store().shots[0];
+  expect("startView" in cleared).toBe(false);
+  expect("transition" in cleared).toBe(false);
+  expect("followOn" in cleared).toBe(false);
+
+  store().undo();
+  expect(store().shots[0].transition?.kind).toBe("fade");
+  store().undo();
+  store().undo();
+  expect(store().shots[0].startView).toBeUndefined();
+});
+
+test("the video's shape is set without an undo step, and a new project starts landscape", () => {
+  store().setVideoFrame("portrait");
+  expect(store().videoFrame).toBe("portrait");
+  expect(store().past).toHaveLength(0);
+  store().resetMapState();
+  expect(store().videoFrame).toBe("landscape");
+});
+
+test("a fade out is one undo step, never shorter than the minimum, and clears away", () => {
+  const id = store().addShot();
+  const steps = store().past.length;
+  store().updateShot(id, { fadeOut: 0.01 });
+  expect(store().shots[0].fadeOut).toBe(MIN_TRANSITION_SECONDS);
+  store().updateShot(id, { fadeOut: 2 });
+  store().updateShot(id, { fadeOut: 2 }); // no change, no step
+  expect(store().past.length).toBe(steps + 2);
+  store().updateShot(id, { fadeOut: undefined });
+  expect("fadeOut" in store().shots[0]).toBe(false);
+  store().undo();
+  expect(store().shots[0].fadeOut).toBe(2);
+});
+
+test("the saved view is remembered without an undo step, and cleared for a new project", () => {
+  store().setSavedViewport({ centerX: 1, centerY: 2, scale: 3 });
+  expect(store().savedViewport).toEqual({ centerX: 1, centerY: 2, scale: 3 });
+  expect(store().past).toHaveLength(0);
+  store().resetMapState();
+  expect(store().savedViewport).toBeNull();
+});
+
+test("following an army is one undo step, and choosing nobody clears it", () => {
+  const id = store().addShot();
+  store().updateShot(id, { follow: "army-1" });
+  expect(store().shots[0].follow).toBe("army-1");
+  store().updateShot(id, { follow: undefined });
+  expect("follow" in store().shots[0]).toBe(false);
+  store().undo();
+  expect(store().shots[0].follow).toBe("army-1");
 });

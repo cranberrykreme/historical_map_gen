@@ -2,14 +2,18 @@ import { Shot } from "../types";
 import {
   clampShot,
   dateHiddenAt,
+  DEFAULT_TRANSITION_SECONDS,
   dropIndex,
   formatSeconds,
   historyAt,
   isHeld,
   MIN_SHOT_SECONDS,
+  MIN_TRANSITION_SECONDS,
   moveShot,
   nextShotName,
   parseShots,
+  parseTransition,
+  parseVideoFrame,
   shotAt,
   shotStart,
   shotStarts,
@@ -148,4 +152,73 @@ test("a shot can hide the on-screen date while it is on screen", () => {
   expect(dateHiddenAt(titled, 4)).toBe(false);
   expect(dateHiddenAt(titled, 12)).toBe(true);
   expect(dateHiddenAt([], 0)).toBe(false);
+});
+
+test("saved camera views, following on and transitions are read back", () => {
+  const [a, b] = parseShots([
+    {
+      id: "a",
+      name: "Landing",
+      seconds: 10,
+      from: S,
+      to: S + 1,
+      startView: { centerX: 1, centerY: 2, height: 300 },
+      endView: { centerX: 3, centerY: 4, height: -5 },
+      followOn: true,
+      transition: { kind: "wipe", seconds: 0.01, direction: "up" },
+    },
+    {
+      id: "b",
+      name: "March",
+      seconds: 10,
+      from: S,
+      to: S + 1,
+      startView: "here",
+      followOn: "yes",
+      transition: { kind: "fade", direction: "up" },
+    },
+  ]);
+  expect(a.startView).toEqual({ centerX: 1, centerY: 2, height: 300 });
+  expect(a.endView).toBeUndefined(); // a height must be more than nothing
+  expect(a.followOn).toBe(true);
+  expect(a.transition).toEqual({
+    kind: "wipe",
+    seconds: MIN_TRANSITION_SECONDS,
+    direction: "up",
+  });
+  expect(b.startView).toBeUndefined();
+  expect(b.followOn).toBeUndefined();
+  // Only wipes have a direction; a missing length is the default
+  expect(b.transition).toEqual({
+    kind: "fade",
+    seconds: DEFAULT_TRANSITION_SECONDS,
+  });
+  expect(parseTransition({ kind: "cut", seconds: 1 })).toBeUndefined();
+  expect(parseTransition({ kind: "spin", seconds: 1 })).toBeUndefined();
+});
+
+test("the video frame is landscape unless saved as portrait", () => {
+  expect(parseVideoFrame("portrait")).toBe("portrait");
+  expect(parseVideoFrame("square")).toBe("landscape");
+  expect(parseVideoFrame(undefined)).toBe("landscape");
+});
+
+test("a saved fade out is read back, never shorter than the minimum", () => {
+  const [a, b, c] = parseShots([
+    { id: "a", name: "A", seconds: 5, from: S, to: S, fadeOut: 2 },
+    { id: "b", name: "B", seconds: 5, from: S, to: S, fadeOut: 0.01 },
+    { id: "c", name: "C", seconds: 5, from: S, to: S, fadeOut: -1 },
+  ]);
+  expect(a.fadeOut).toBe(2);
+  expect(b.fadeOut).toBe(MIN_TRANSITION_SECONDS);
+  expect(c.fadeOut).toBeUndefined();
+});
+
+test("the army a shot follows is read back", () => {
+  const [a, b] = parseShots([
+    { id: "a", name: "A", seconds: 5, from: S, to: S, follow: "army-1" },
+    { id: "b", name: "B", seconds: 5, from: S, to: S, follow: 7 },
+  ]);
+  expect(a.follow).toBe("army-1");
+  expect(b.follow).toBeUndefined();
 });

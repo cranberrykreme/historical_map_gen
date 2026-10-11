@@ -9,6 +9,8 @@ export const createStorySlice: StateCreator<MapStore, [], [], StorySlice> = (
   storyStart: DEFAULT_STORY_START,
   displayMode: "months",
   pacing: [],
+  videoFrame: "landscape",
+  savedViewport: null,
   selectedMapFilename: null,
 
   setStoryStart: (storyStart) => set({ storyStart }),
@@ -16,6 +18,10 @@ export const createStorySlice: StateCreator<MapStore, [], [], StorySlice> = (
   setDisplayMode: (displayMode) => set({ displayMode }),
 
   setPacing: (pacing) => set({ pacing }),
+
+  setVideoFrame: (videoFrame) => set({ videoFrame }),
+
+  setSavedViewport: (savedViewport) => set({ savedViewport }),
 
   setSelectedMap: (filename) => set({ selectedMapFilename: filename }),
 
@@ -34,6 +40,8 @@ export const createStorySlice: StateCreator<MapStore, [], [], StorySlice> = (
       storyStart: DEFAULT_STORY_START,
       displayMode: "months",
       pacing: [],
+      videoFrame: "landscape",
+      savedViewport: null,
       selectedUnitIds: new Set(),
       selectedPathId: null,
       dragPosition: null,

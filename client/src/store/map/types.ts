@@ -8,8 +8,10 @@ import {
   MarchTiming,
   PacingKey,
   PathPoint,
+  SavedViewport,
   Shot,
   TravelMode,
+  VideoFrame,
 } from "../../types";
 import { FormationMode } from "../../utils/formation";
 import { HistoryTime } from "../../utils/historyTime";
@@ -168,6 +170,15 @@ export interface StorySlice {
   setStoryStart: (storyStart: HistoryTime) => void;
   setDisplayMode: (mode: HistoryDisplay) => void;
   setPacing: (pacing: PacingKey[]) => void;
+
+  // The video's shape (landscape or portrait). Loads with the project and bypasses undo.
+  videoFrame: VideoFrame;
+  setVideoFrame: (frame: VideoFrame) => void;
+
+  // The map view last saved with the project. The video's camera opens on it until a shot
+  // sets its own view. Not part of undo.
+  savedViewport: SavedViewport | null;
+  setSavedViewport: (viewport: SavedViewport | null) => void;
 
   // Track Map files
   selectedMapFilename: string | null;

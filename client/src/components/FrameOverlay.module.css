@@ -1,0 +1,27 @@
+/* The video frame: a thin gold edge, with everything outside it dimmed by a wide shadow */
+.frame {
+    position: absolute;
+    z-index: 5;
+    box-sizing: border-box;
+    border: 1px solid rgba(200, 168, 75, 0.9);
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+  }
+  
+  /* The picture going dark during a fade */
+  .black {
+    position: absolute;
+    inset: 0;
+    background: #000;
+  }
+  
+  .label {
+    position: absolute;
+    top: -20px;
+    left: 0;
+    color: var(--color-gold);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }

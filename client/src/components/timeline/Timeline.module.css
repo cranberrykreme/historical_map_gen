@@ -669,21 +669,36 @@
   cursor: pointer;
 }
 
-/* In video mode the strip is for scrubbing the video playhead */
-.videoScrub,
-.videoScrub .shotBlock {
-  cursor: pointer;
-}
-
+/* The video playhead: grab it (anywhere along its height, or its knob) to scrub the video */
 .videoPlayhead {
   position: absolute;
   top: 0;
   bottom: 0;
   z-index: 3;
+  width: 12px;
+  margin-left: -6px;
+  cursor: ew-resize;
+}
+
+.videoPlayhead::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
   width: 2px;
-  margin-left: -1px;
   background: #e8e0d0;
-  pointer-events: none;
+}
+
+.videoPlayhead::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 1px;
+  width: 10px;
+  height: 6px;
+  background: #e8e0d0;
+  border-radius: 0 0 3px 3px;
 }
 
 /* The video playhead and the video's length, in video mode */
@@ -692,4 +707,25 @@
   font-size: var(--font-size-md);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Where a transition sits on the video strip: across the cut, or the fade out at the end */
+.shotTransition {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  z-index: 2;
+  min-width: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(232, 224, 208, 0.45),
+    transparent
+  );
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.shotFadeOut {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.7));
 }
