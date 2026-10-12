@@ -9,6 +9,7 @@ import {
 } from "../../utils/shots";
 import { openingView } from "../../hooks/useVideoCamera";
 import useArmyTracker from "../../hooks/useArmyTracker";
+import { useTimelineStore } from "../../store/useTimelineStore";
 import { NumberField } from "./fields";
 import styles from "./Timeline.module.css";
 
@@ -34,6 +35,7 @@ function ViewControls({
   locked,
   lockedHint,
   emptyHint,
+  canSet,
   onSet,
   onClear,
 }: {
@@ -43,6 +45,7 @@ function ViewControls({
   locked: boolean;
   lockedHint: string;
   emptyHint: string;
+  canSet: boolean; // the frame is only on screen in video mode
   onSet: () => void;
   onClear: () => void;
 }) {
@@ -55,11 +58,13 @@ function ViewControls({
       <button
         className={styles.textButton}
         onClick={onSet}
-        disabled={locked}
+        disabled={locked || !canSet}
         title={
           locked
             ? lockedHint
-            : `Use what the frame shows now as this shot's ${label.toLowerCase()} view`
+            : !canSet
+              ? "Switch to Video mode to see the frame and set this view"
+              : `Use what the frame shows now as this shot's ${label.toLowerCase()} view`
         }
       >
         Set
@@ -101,6 +106,7 @@ function ShotCamera({ shot }: { shot: Shot }) {
   const savedViewport = useMapStore((state) => state.savedViewport);
   const armies = useMapStore((state) => state.armies);
   const api = useCameraStore((state) => state.api);
+  const inVideo = useTimelineStore((state) => state.mode === "video");
   const tracker = useArmyTracker();
 
   const index = shots.findIndex((s) => s.id === shot.id);
@@ -150,6 +156,7 @@ function ShotCamera({ shot }: { shot: Shot }) {
         emptyHint={
           first ? (savedViewport ? "project view" : "not set") : "carries on"
         }
+        canSet={inVideo}
         onSet={() => setView("startView")}
         onClear={() => updateShot(shot.id, { startView: undefined })}
       />
@@ -160,6 +167,7 @@ function ShotCamera({ shot }: { shot: Shot }) {
         locked={false}
         lockedHint=""
         emptyHint="holds"
+        canSet={inVideo}
         onSet={() => setView("endView")}
         onClear={() => updateShot(shot.id, { endView: undefined })}
       />

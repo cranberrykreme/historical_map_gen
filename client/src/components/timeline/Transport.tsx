@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
+import FramePreview from "../render/FramePreview";
+import RenderButton from "../render/RenderButton";
 import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import {
@@ -107,6 +109,7 @@ function Transport({
 
   const videoEnd = videoLength(shots);
   const inVideo = mode === "video";
+  const [previewAt, setPreviewAt] = useState<number | null>(null);
 
   const handlePlay = () => {
     if (playing) {
@@ -156,6 +159,22 @@ function Transport({
         >
           {formatSeconds(videoTime)} / {formatSeconds(videoEnd)}
         </span>
+      )}
+      {inVideo && (
+        <button
+          className={styles.textButton}
+          onClick={() => {
+            pause();
+            setPreviewAt(useTimelineStore.getState().videoTime);
+          }}
+          title="Draw this moment exactly as the finished video will show it, at full size"
+        >
+          Preview frame
+        </button>
+      )}
+      <RenderButton inVideo={inVideo} />
+      {previewAt !== null && (
+        <FramePreview seconds={previewAt} onClose={() => setPreviewAt(null)} />
       )}
       <span className={styles.time}>{formatHistoryTime(current, "times")}</span>
       <div className={styles.speed} title="What the playhead follows">

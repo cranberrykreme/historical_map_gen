@@ -17,6 +17,7 @@ import {
 function useCamera(
   containerRef: React.RefObject<HTMLDivElement | null>,
   mapRef: React.RefObject<HTMLDivElement | null>,
+  svgRef: React.RefObject<HTMLDivElement | null>,
   positionRef: React.RefObject<{ x: number; y: number }>,
   scaleRef: React.RefObject<number>
 ): FrameRect | null {
@@ -38,6 +39,34 @@ function useCamera(
     return frameRect(room, useMapStore.getState().videoFrame);
   }, [containerRef]);
 
+  // Tell the rest of the app where the frame is on the screen (the date sits in its corner)
+  const publishOnScreen = useCallback(
+    (frame: FrameRect | null) => {
+      const container = containerRef.current;
+      const { frameOnScreen, setFrameOnScreen } = useCameraStore.getState();
+      if (!frame || !container) {
+        if (frameOnScreen) setFrameOnScreen(null);
+        return;
+      }
+      const box = container.getBoundingClientRect();
+      const next = {
+        left: box.left + frame.left,
+        top: box.top + frame.top,
+        width: frame.width,
+        height: frame.height,
+      };
+      if (
+        !frameOnScreen ||
+        frameOnScreen.left !== next.left ||
+        frameOnScreen.top !== next.top ||
+        frameOnScreen.width !== next.width ||
+        frameOnScreen.height !== next.height
+      )
+        setFrameOnScreen(next);
+    },
+    [containerRef]
+  );
+
   // Follow the map area's size, the timeline's height and the video's shape. Measuring waits
   // for the next frame: changing the layout from inside a ResizeObserver callback makes the
   // browser report a "ResizeObserver loop" error.
@@ -45,6 +74,7 @@ function useCamera(
     let pending = 0;
     const measureNow = () => {
       const next = measure();
+      publishOnScreen(next);
       setFrame((current) =>
         current &&
         next &&
@@ -73,7 +103,12 @@ function useCamera(
       window.removeEventListener("resize", update);
       observer?.disconnect();
     };
-  }, [measure, containerRef, videoFrame, timelineTop]);
+  }, [measure, publishOnScreen, containerRef, videoFrame, timelineTop]);
+
+  // Leaving the map takes the frame off the screen
+  useEffect(() => {
+    return () => useCameraStore.getState().setFrameOnScreen(null);
+  }, []);
 
   // Let the shot editor (and, when playing, the video) read and set what the frame shows
   useEffect(() => {
@@ -109,13 +144,30 @@ function useCamera(
           now
         );
       },
+      // Measured from the drawing as it is on screen: wherever the map lays it out, at whatever
+      // size, the renderer puts it in the same place
+      mapBox: () => {
+        const svg = svgRef.current?.shadowRoot?.querySelector("svg");
+        const map = mapRef.current;
+        if (!svg || !map) return null;
+        const scale = scaleRef.current ?? 1;
+        const drawing = svg.getBoundingClientRect();
+        const origin = map.getBoundingClientRect();
+        if (drawing.width === 0 || drawing.height === 0) return null;
+        return {
+          x: (drawing.left - origin.left) / scale,
+          y: (drawing.top - origin.top) / scale,
+          width: drawing.width / scale,
+          height: drawing.height / scale,
+        };
+      },
     };
     useCameraStore.getState().setApi(api);
     return () => {
       if (useCameraStore.getState().api === api)
         useCameraStore.getState().setApi(null);
     };
-  }, [measure, containerRef, mapRef, positionRef, scaleRef]);
+  }, [measure, containerRef, mapRef, svgRef, positionRef, scaleRef]);
 
   return frame;
 }

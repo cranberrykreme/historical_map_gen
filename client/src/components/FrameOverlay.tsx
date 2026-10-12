@@ -5,7 +5,7 @@ import styles from "./FrameOverlay.module.css";
 
 // The video frame drawn over the map: what's inside is what the video shows, and the map
 // around it is dimmed. During a fade the inside goes dark too (0 clear, 1 black). It never
-// gets in the way of the mouse.
+// gets in the way of the mouse. (The date in its corner is drawn by DateDisplay.)
 function FrameOverlay({
   frame,
   shape,

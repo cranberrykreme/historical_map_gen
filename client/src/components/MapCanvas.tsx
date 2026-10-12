@@ -64,7 +64,6 @@ function MapCanvas({
   const now = useTimelineStore((state) => state.now);
   const draftTiming = useTimelineStore((state) => state.draftTiming);
   const inVideo = useTimelineStore((state) => state.mode === "video");
-  const shotSelected = useMapStore((state) => state.selectedShotId !== null);
   const videoFrame = useMapStore((state) => state.videoFrame);
   const shots = useMapStore((state) => state.shots);
   const videoTime = useTimelineStore((state) => state.videoTime);
@@ -220,9 +219,9 @@ function MapCanvas({
     };
   }, [viewportApiRef]);
 
-  // The video frame, shown in video mode and while a shot is selected (to set its views). In
-  // video mode the camera moves the map, and fades darken the frame.
-  const frame = useCamera(containerRef, mapRef, positionRef, scaleRef);
+  // The video frame is only drawn in video mode, where the camera moves the map and fades
+  // darken it. It is still measured in history mode, so Go can move the map to a shot's views.
+  const frame = useCamera(containerRef, mapRef, svgRef, positionRef, scaleRef);
   useVideoCamera(frame);
   const darkness = inVideo ? videoDarkness(shots, videoTime) : 0;
 
@@ -306,7 +305,7 @@ function MapCanvas({
           isDraggingUnit={isDraggingUnit}
         />
       </div>
-      {frame && (inVideo || shotSelected) && (
+      {frame && inVideo && (
         <FrameOverlay frame={frame} shape={videoFrame} darkness={darkness} />
       )}
       {isDrawingPath && (
