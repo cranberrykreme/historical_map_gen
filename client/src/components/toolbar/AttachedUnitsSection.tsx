@@ -1,13 +1,14 @@
 import React from "react";
 import { useMapStore } from "../../store/useMapStore";
-import { useAssetStore } from "../../store/useAssetStore";
 import { MapPath, Unit } from "../../types";
-import API_BASE_URL from "../../config/api";
 import PathPreview from "./PathPreview";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PathsPanel.module.css";
+import UnitIcon from "../blocks/UnitIcon";
+import { unitLabel } from "../../utils/blocks";
 
-const displayName = (unit: Unit) => unit.filename.replace(/\.[^/.]+$/, "");
+// What a unit is called in the list: a block by its name, a picture by its file
+const displayName = unitLabel;
 
 const FORMATION_MODES: {
   mode: "keep" | "wheel";
@@ -44,7 +45,6 @@ function AttachedUnitsSection({
     (state) => state.refreshPathFormation
   );
   const setFormationMode = useMapStore((state) => state.setFormationMode);
-  const currentProjectName = useAssetStore((state) => state.currentProjectName);
 
   const attachedUnits = selectedPath.assignments
     .map((a) => placedUnits.find((unit) => unit.id === a.unitId))
@@ -68,12 +68,7 @@ function AttachedUnitsSection({
       )}
       {attachedUnits.map((unit) => (
         <div key={unit.id} className={styles.unitRow}>
-          <img
-            src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.path ?? unit.filename}`}
-            alt={unit.filename}
-            className={styles.unitThumb}
-            draggable={false}
-          />
+          <UnitIcon unit={unit} className={styles.unitThumb} />
           <span className={styles.unitName}>{displayName(unit)}</span>
           <button
             onClick={() => detachUnitFromPath(selectedPath.id, unit.id)}

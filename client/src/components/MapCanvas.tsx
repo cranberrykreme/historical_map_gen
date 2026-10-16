@@ -7,12 +7,22 @@ import UnitLayer from "./UnitLayer";
 import PathLayer from "./PathLayer";
 import PathDrawOverlay from "./PathDrawOverlay";
 import FrameOverlay from "./FrameOverlay";
+import BattleGround from "./BattleGround";
+import SceneBadge from "./SceneBadge";
+import TerrainHandles from "./terrain/TerrainHandles";
+import TerrainDrawOverlay from "./terrain/TerrainDrawOverlay";
+import TerrainBrushOverlay from "./terrain/TerrainBrushOverlay";
+import TerrainHint from "./terrain/TerrainHint";
+import BlockPlaceOverlay from "./blocks/BlockPlaceOverlay";
 import useCamera from "../hooks/useCamera";
 import useVideoCamera from "../hooks/useVideoCamera";
+import useFullscreenKeys from "../hooks/useFullscreenKeys";
 import API_BASE_URL from "../config/api";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
 import { usePathToolStore } from "../store/usePathToolStore";
+import { useTerrainToolStore } from "../store/useTerrainToolStore";
+import { useBlockToolStore } from "../store/useBlockToolStore";
 import { ViewportApi } from "../types";
 import {
   currentMoment,
@@ -22,6 +32,7 @@ import {
 import { existsAt, getTimeline } from "../utils/timeline";
 import { editableAt } from "../utils/lifespans";
 import { videoDarkness } from "../utils/camera";
+import { fitBox } from "../utils/scenes";
 
 function MapCanvas({
   viewportApiRef,
@@ -67,6 +78,15 @@ function MapCanvas({
   const videoFrame = useMapStore((state) => state.videoFrame);
   const shots = useMapStore((state) => state.shots);
   const videoTime = useTimelineStore((state) => state.videoTime);
+  const activeSceneId = useMapStore((state) => state.activeSceneId);
+  // The battle being edited, if it's a battle rather than the main map
+  const battle = useMapStore(
+    (state) => state.battles.find((b) => b.id === state.activeSceneId) ?? null
+  );
+  const inBattle = battle !== null;
+  const drawingTerrain = useTerrainToolStore((state) => state.drawing !== null);
+  const brushing = useTerrainToolStore((state) => state.brush !== null);
+  const placingBlock = useBlockToolStore((state) => state.placing);
 
   // Everything about the paths (sampling, pivots, who is where when) is worked out once per
   // change, and each frame just looks it up
@@ -155,8 +175,52 @@ function MapCanvas({
     const host = svgRef.current;
     if (!host) return;
     const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
-    root.innerHTML = svgContent ?? "";
-  }, [svgContent]);
+    // A battle shows its own ground instead of the map
+    root.innerHTML = inBattle ? "" : (svgContent ?? "");
+  }, [svgContent, inBattle]);
+
+  // Each scene keeps its own view while you move between them: leaving a scene remembers
+  // where the map was, and coming back puts it there again. A battle opened for the first
+  // time is fitted into the space above the timeline.
+  const sceneViews = useRef(
+    new Map<string, { x: number; y: number; scale: number }>()
+  );
+  const lastScene = useRef(activeSceneId);
+  useEffect(() => {
+    const previous = lastScene.current;
+    if (previous === activeSceneId) return;
+    lastScene.current = activeSceneId;
+    // Terrain and block tools belong to the scene they were used in
+    useTerrainToolStore.getState().reset();
+    useBlockToolStore.getState().stopPlacing();
+    sceneViews.current.set(previous, {
+      ...positionRef.current,
+      scale: scaleRef.current,
+    });
+    const container = containerRef.current;
+    let place = sceneViews.current.get(activeSceneId) ?? null;
+    if (!place && battle && container && container.clientWidth > 0) {
+      const top = useTimelineStore.getState().timelineTop;
+      const room =
+        top === null
+          ? container.clientHeight
+          : Math.min(
+              container.clientHeight,
+              top - container.getBoundingClientRect().top
+            );
+      place = fitBox(
+        { x: 0, y: 0, width: battle.width, height: battle.height },
+        container.clientWidth,
+        Math.max(room, 100)
+      );
+    }
+    if (!place) return;
+    positionRef.current = { x: place.x, y: place.y };
+    scaleRef.current = place.scale;
+    if (mapRef.current) {
+      mapRef.current.style.transform = `translate(${place.x}px, ${place.y}px) scale(${place.scale})`;
+    }
+  }, [activeSceneId, battle]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -177,6 +241,9 @@ function MapCanvas({
   useEffect(() => {
     return () => usePathToolStore.getState().cancelDrawing();
   }, []);
+
+  // ⇧F for full screen that keeps Esc for the editor
+  useFullscreenKeys();
 
   useMapInteraction(
     containerRef,
@@ -267,7 +334,8 @@ function MapCanvas({
         height: "100%",
         overflow: "hidden",
         cursor: isShiftHeld ? "default" : activeCursor,
-        background: selectedMapFilename ? "transparent" : "#3a3a3a",
+        background:
+          selectedMapFilename && !inBattle ? "transparent" : "#3a3a3a",
       }}
       onMouseDown={handleMouseDown}
       onDragOver={handleDragOver}
@@ -276,11 +344,12 @@ function MapCanvas({
       {(activeCursor === "alias" || activeCursor === "nwse-resize") && (
         <style>{`div, img { cursor: ${activeCursor} !important; }`}</style>
       )}
-      {selectedMapFilename && !svgContent && <p>Loading map...</p>}
+      {selectedMapFilename && !svgContent && !inBattle && <p>Loading map...</p>}
       <div
         ref={mapRef}
         style={{ transformOrigin: "0 0", willChange: "transform" }}
       >
+        {battle && <BattleGround battle={battle} />}
         <div ref={svgRef} />
         <PathLayer
           mode="lines"
@@ -304,9 +373,37 @@ function MapCanvas({
           containerRef={containerRef}
           isDraggingUnit={isDraggingUnit}
         />
+        {battle && (
+          <TerrainHandles
+            battle={battle}
+            mapRef={mapRef}
+            scaleRef={scaleRef}
+            isDraggingUnit={isDraggingUnit}
+          />
+        )}
       </div>
       {frame && inVideo && (
         <FrameOverlay frame={frame} shape={videoFrame} darkness={darkness} />
+      )}
+      <SceneBadge />
+      {battle && drawingTerrain && (
+        <TerrainDrawOverlay
+          battle={battle}
+          mapRef={mapRef}
+          scaleRef={scaleRef}
+        />
+      )}
+      {battle && brushing && (
+        <TerrainBrushOverlay
+          battle={battle}
+          mapRef={mapRef}
+          scaleRef={scaleRef}
+          isDraggingUnit={isDraggingUnit}
+        />
+      )}
+      {battle && <TerrainHint battleId={battle.id} />}
+      {placingBlock && !drawingTerrain && !brushing && (
+        <BlockPlaceOverlay mapRef={mapRef} scaleRef={scaleRef} />
       )}
       {isDrawingPath && (
         <PathDrawOverlay

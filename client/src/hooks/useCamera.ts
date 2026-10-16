@@ -145,8 +145,13 @@ function useCamera(
         );
       },
       // Measured from the drawing as it is on screen: wherever the map lays it out, at whatever
-      // size, the renderer puts it in the same place
+      // size, the renderer puts it in the same place. In a battle, the battle's own area.
       mapBox: () => {
+        // A battle's ground is its whole area, from (0, 0)
+        const state = useMapStore.getState();
+        const battle = state.battles.find((b) => b.id === state.activeSceneId);
+        if (battle)
+          return { x: 0, y: 0, width: battle.width, height: battle.height };
         const svg = svgRef.current?.shadowRoot?.querySelector("svg");
         const map = mapRef.current;
         if (!svg || !map) return null;

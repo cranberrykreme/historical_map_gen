@@ -9,14 +9,14 @@ import PortraitEditor from "../components/portrait-editor/PortraitEditor";
 import ProjectHeader, { SaveStatus } from "../components/ProjectHeader";
 import Timeline from "../components/Timeline";
 import DateDisplay from "../components/DateDisplay";
-import { AssetType, ViewportApi } from "../types";
+import { AssetType, MAP_SCENE, ViewportApi } from "../types";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
 import { usePathToolStore } from "../store/usePathToolStore";
 import { useTimelineStore } from "../store/useTimelineStore";
 import useHistory from "../hooks/useHistory";
 import useProjectShortcuts from "../hooks/useProjectShortcuts";
-import useProject from "../hooks/useProject";
+import useProject, { projectSnapshot } from "../hooks/useProject";
 import API_BASE_URL from "../config/api";
 import styles from "../App.module.css";
 
@@ -38,6 +38,7 @@ function ProjectView() {
   const setShots = useMapStore((state) => state.setShots);
   const setVideoFrame = useMapStore((state) => state.setVideoFrame);
   const setSavedViewport = useMapStore((state) => state.setSavedViewport);
+  const setBattles = useMapStore((state) => state.setBattles);
   const selectedMapFilename = useMapStore((state) => state.selectedMapFilename);
   const setSelectedMap = useMapStore((state) => state.setSelectedMap);
   const cleanupDeletedAsset = useMapStore((state) => state.cleanupDeletedAsset);
@@ -82,6 +83,7 @@ function ProjectView() {
         videoFrame,
         selectedMapFilename: loadedMap,
         viewport,
+        battles,
       }) => {
         setStoryStart(storyStart);
         setDisplayMode(displayMode);
@@ -95,6 +97,16 @@ function ProjectView() {
           setPaths(loadedPaths);
         }
         setArmies(armies);
+        // Each battle's units, paths and armies wait in the stash until it's opened
+        setBattles(
+          battles.map(({ units, paths, armies, ...battle }) => battle),
+          Object.fromEntries(
+            battles.map(({ id, units, paths, armies }) => [
+              id,
+              { units, paths, armies },
+            ])
+          )
+        );
         if (loadedMap) {
           setSelectedMap(loadedMap);
         }
@@ -116,6 +128,7 @@ function ProjectView() {
     setVideoFrame,
     setSavedViewport,
     setSelectedMap,
+    setBattles,
   ]);
 
   // One save for both ⌘S and the Save button. It reads the store directly, so it always
@@ -123,19 +136,12 @@ function ProjectView() {
   const handleSave = useCallback(async () => {
     setSaveStatus("saving");
     const state = useMapStore.getState();
-    const viewport = viewportApiRef.current?.get();
-    const saved = await saveProject({
-      units: state.placedUnits,
-      paths: state.paths,
-      armies: state.armies,
-      storyStart: state.storyStart,
-      displayMode: state.displayMode,
-      pacing: state.pacing,
-      shots: state.shots,
-      videoFrame: state.videoFrame,
-      selectedMapFilename: state.selectedMapFilename,
-      viewport,
-    });
+    // The saved view is the main map's, so saving while a battle is open keeps the last one
+    const viewport =
+      state.activeSceneId === MAP_SCENE
+        ? viewportApiRef.current?.get()
+        : undefined;
+    const saved = await saveProject(projectSnapshot(viewport));
     // The video's camera opens on the view just saved
     if (saved && viewport) state.setSavedViewport(viewport);
     setSaveStatus(saved ? "saved" : "failed");
@@ -198,31 +204,25 @@ function ProjectView() {
   // Rename and delete change files on disk, so they auto-save the project.
   // The viewport is left out on purpose: Flask keeps the last saved view.
   const autoSaveFromStore = () => {
-    const state = useMapStore.getState();
-    saveProject({
-      units: state.placedUnits,
-      paths: state.paths,
-      armies: state.armies,
-      storyStart: state.storyStart,
-      displayMode: state.displayMode,
-      pacing: state.pacing,
-      shots: state.shots,
-      videoFrame: state.videoFrame,
-      selectedMapFilename: state.selectedMapFilename,
-    });
+    saveProject(projectSnapshot());
   };
 
+  // Renaming or deleting an asset reaches units in every scene, battles included
   const handleAssetRenamed = (
     oldPath: string,
     newPath: string,
     assetType: AssetType
   ) => {
-    cleanupRenamedAsset(oldPath, newPath, assetType);
+    useMapStore
+      .getState()
+      .inEveryScene(() => cleanupRenamedAsset(oldPath, newPath, assetType));
     autoSaveFromStore();
   };
 
   const handleAssetDeleted = (path: string, assetType: AssetType) => {
-    cleanupDeletedAsset(path, assetType);
+    useMapStore
+      .getState()
+      .inEveryScene(() => cleanupDeletedAsset(path, assetType));
     autoSaveFromStore();
   };
 

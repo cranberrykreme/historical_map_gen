@@ -1,5 +1,6 @@
 import { StateCreator } from "zustand";
 import { Unit, AssetType, MapPath } from "../../types";
+import { blockUnit, tidyBlock } from "../../utils/blocks";
 import { reanchorPaths } from "../../utils/formation";
 import { chainedPathIds } from "../../utils/timeline";
 import { HistoryTime } from "../../utils/historyTime";
@@ -247,6 +248,33 @@ export const createUnitsSlice: StateCreator<MapStore, [], [], UnitsSlice> = (
     set({
       ...withHistory(state),
       placedUnits: [...state.placedUnits, newUnit],
+    });
+  },
+
+  // A formation block placed on the map (one undo step), appearing at the playhead like any
+  // newly placed unit. Returns its id.
+  addBlockAtPosition: (block, x, y) => {
+    const state = get();
+    const unit = { ...blockUnit(block, x, y), ...appearsNow(state.storyStart) };
+    set({
+      ...withHistory(state),
+      placedUnits: [...state.placedUnits, unit],
+    });
+    return unit.id;
+  },
+
+  // Changes a formation block's look, size or label (one undo step)
+  updateBlock: (unitId, patch) => {
+    const state = get();
+    const unit = state.placedUnits.find((u) => u.id === unitId);
+    if (!unit?.block) return;
+    const block = tidyBlock({ ...unit.block, ...patch });
+    if (JSON.stringify(block) === JSON.stringify(unit.block)) return;
+    set({
+      ...withHistory(state),
+      placedUnits: state.placedUnits.map((u) =>
+        u.id === unitId ? { ...u, block } : u
+      ),
     });
   },
 

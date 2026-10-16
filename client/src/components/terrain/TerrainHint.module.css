@@ -1,0 +1,50 @@
+/* Top left, under the battle's badge, above the map */
+.hint {
+    position: fixed;
+    top: calc(var(--space-md) + 104px);
+    left: var(--space-md);
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    max-width: min(640px, 60vw);
+    padding: var(--space-xs) var(--space-sm) var(--space-xs) var(--space-md);
+    background: rgba(26, 18, 37, 0.9);
+    border: 1px solid var(--color-gold-dim);
+    border-radius: var(--radius-md);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-sm);
+  }
+  
+  .title {
+    color: var(--color-gold);
+    white-space: nowrap;
+  }
+  
+  .text {
+    flex: 1;
+    min-width: 200px;
+    color: var(--color-text-secondary);
+  }
+  
+  .button {
+    padding: 2px var(--space-sm);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    font-family: var(--font-ui);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+  }
+  
+  .button:hover:not(:disabled) {
+    border-color: var(--color-gold);
+    color: var(--color-gold);
+  }
+  
+  .button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }

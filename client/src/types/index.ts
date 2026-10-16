@@ -23,6 +23,39 @@ export interface Unit {
   // Missing means it is there from the start of the story, and never leaves.
   appears?: number;
   leaves?: number;
+  // A formation block instead of a picture: a labelled, coloured rectangle as history books
+  // draw troops (see utils/blocks). Blocks keep scale 1 and are sized by their own width and
+  // depth; their front is the top edge, so they face up like unit art.
+  block?: FormationBlock;
+}
+
+// What a formation block stands for, shown by the symbol inside it: foot soldiers (a cross),
+// horsemen (one diagonal), archers (a row of dots along the front), or no symbol
+export type BlockKind = "foot" | "horse" | "archers" | "plain";
+
+// The faction colours, the same nine as the unit art's palette
+export type BlockColour =
+  | "purple"
+  | "red"
+  | "blue"
+  | "green"
+  | "yellow"
+  | "orange"
+  | "pink"
+  | "grey"
+  | "cyan";
+
+export interface FormationBlock {
+  kind: BlockKind;
+  colour: BlockColour;
+  width: number; // along the front, in map units
+  depth: number; // front to back, in map units
+  // How far the middle of the block bows forward (positive) or back (negative), in map units:
+  // 0 is a straight rectangle, positive a curve with its middle out front, negative a crescent
+  // with its ends forward
+  bend?: number;
+  name?: string; // "Breton cavalry"
+  size?: string; // "c. 2,000"
 }
 
 // A unit's time in an army: from `joins` until `leaves` (days since 1 January 1970, see
@@ -112,6 +145,81 @@ export interface ShotTransition {
   direction?: WipeDirection; // wipes only; left when missing
 }
 
+// A battle is a scene of its own, separate from the main map: a close-up battlefield of land
+// or open sea, `width` by `height` map units, with its own units, paths and armies. The video
+// can cut between the main map and its battles.
+export type BattleKind = "land" | "sea";
+
+export interface Battle {
+  id: string;
+  name: string;
+  kind: BattleKind;
+  width: number;
+  height: number;
+  // The battleground's features, bottom to top within each kind (see utils/terrain). Missing
+  // on battles made before terrain.
+  terrain?: TerrainFeature[];
+}
+
+// What can be drawn on a battleground. Areas are closed shapes (a smooth curve through their
+// points, back to the start); lines are open ones (streams, roads).
+export type TerrainKind =
+  // water
+  | "deep"
+  | "shallows"
+  | "lake"
+  | "reef"
+  // ground
+  | "land"
+  | "sand"
+  | "field"
+  | "scrub"
+  | "marsh"
+  | "snow"
+  // high ground
+  | "rocks"
+  | "hill"
+  | "mountain"
+  // woods and settlements
+  | "forest"
+  | "pines"
+  | "orchard"
+  | "town"
+  | "walled"
+  // lines
+  | "river"
+  | "stream"
+  | "ditch"
+  | "road"
+  | "bridge"
+  | "ridge"
+  | "cliff"
+  | "wall"
+  | "palisade";
+
+export interface TerrainFeature {
+  id: string;
+  kind: TerrainKind;
+  points: PathPoint[]; // map units, inside the battle's area
+  name?: string; // shown in the terrain list; "Hill 1" and so on when not set
+  // An area's holes, each a smooth closed curve through its points like the area's edge: a
+  // clearing in a forest, an island in a lake. Made by the eraser; missing when there are none.
+  holes?: PathPoint[][];
+}
+
+// Everything placed in one scene (the main map, or a battle)
+export interface SceneContent {
+  units: Unit[];
+  paths: MapPath[];
+  armies: Army[];
+}
+
+// The id of the main map among the scenes; every other scene is a battle, by its id
+export const MAP_SCENE = "map";
+
+// A battle as saved in the project file: the battle and what's in it
+export interface SavedBattle extends Battle, SceneContent {}
+
 // How the date reads: "October 1066", "14 October 1066", or with the time of day too
 export type HistoryDisplay = "months" | "days" | "times";
 
@@ -133,9 +241,18 @@ export interface ProjectData {
   videoFrame?: VideoFrame; // landscape when missing
   selectedMapFilename?: string | null;
   viewport?: SavedViewport | null;
+  // The battles, each with its own units, paths and armies. The units, paths and armies above
+  // are the main map's.
+  battles?: SavedBattle[];
 }
 
-export type ToolbarTabId = "assets" | "psd" | "portrait" | "paths" | "armies";
+export type ToolbarTabId =
+  | "assets"
+  | "psd"
+  | "portrait"
+  | "paths"
+  | "armies"
+  | "battles";
 
 export interface AssetFile {
   path: string;

@@ -1,4 +1,5 @@
 import { StateCreator } from "zustand";
+import { MAP_SCENE } from "../../types";
 import { DEFAULT_STORY_START } from "../../utils/convertProject";
 import { MapStore, StorySlice } from "./types";
 
@@ -37,6 +38,9 @@ export const createStorySlice: StateCreator<MapStore, [], [], StorySlice> = (
       selectedArmyId: null,
       shots: [],
       selectedShotId: null,
+      battles: [],
+      activeSceneId: MAP_SCENE,
+      sceneStash: {},
       storyStart: DEFAULT_STORY_START,
       displayMode: "months",
       pacing: [],

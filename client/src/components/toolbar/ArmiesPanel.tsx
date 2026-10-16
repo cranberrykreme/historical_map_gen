@@ -1,15 +1,16 @@
 import React, { useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
-import { useAssetStore } from "../../store/useAssetStore";
 import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
 import { ArmyMember, Unit } from "../../types";
 import { memberAt, membersAt } from "../../utils/armies";
 import { formatHistoryTime } from "../../utils/historyTime";
-import API_BASE_URL from "../../config/api";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PathsPanel.module.css";
+import UnitIcon from "../blocks/UnitIcon";
+import { unitLabel } from "../../utils/blocks";
 
-const displayName = (unit: Unit) => unit.filename.replace(/\.[^/.]+$/, "");
+// What a unit is called in the list: a block by its name, a picture by its file
+const displayName = unitLabel;
 
 // Small extras on top of the Paths panel's styles, inline so no CSS file changes
 const DATES: React.CSSProperties = {
@@ -63,7 +64,6 @@ function ArmiesPanel() {
   );
   const removeUnitsFromArmy = useMapStore((state) => state.removeUnitsFromArmy);
   const eraseMembership = useMapStore((state) => state.eraseMembership);
-  const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const now = useTimelineStore((state) => state.now);
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -233,12 +233,7 @@ function ArmiesPanel() {
                     active ? undefined : "Not in this army at the playhead"
                   }
                 >
-                  <img
-                    src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.path ?? unit.filename}`}
-                    alt={unit.filename}
-                    className={styles.unitThumb}
-                    draggable={false}
-                  />
+                  <UnitIcon unit={unit} className={styles.unitThumb} />
                   <span style={MEMBER_TEXT}>
                     <span
                       className={styles.unitName}

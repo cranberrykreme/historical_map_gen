@@ -1,5 +1,15 @@
 import { CameraView } from "../types";
 import { placementFor } from "../utils/camera";
+import {
+  BLOCK_FONT,
+  blockColours,
+  blockFront,
+  blockLabel,
+  blockLineWidths,
+  blockOutline,
+  blockSymbol,
+  BlockStep,
+} from "../utils/blocks";
 import { Blend, DrawUnit, Scene } from "./scene";
 
 // What fills the frame wherever the map doesn't reach, the same grey as the editor
@@ -71,9 +81,13 @@ export type FrameContext = Pick<
   | "fillRect"
   | "drawImage"
   | "fillText"
+  | "strokeText"
   | "measureText"
   | "beginPath"
   | "moveTo"
+  | "lineTo"
+  | "quadraticCurveTo"
+  | "arc"
   | "arcTo"
   | "closePath"
   | "rect"
@@ -83,6 +97,8 @@ export type FrameContext = Pick<
   | "fillStyle"
   | "strokeStyle"
   | "lineWidth"
+  | "lineCap"
+  | "lineJoin"
   | "globalAlpha"
   | "font"
   | "textBaseline"
@@ -107,6 +123,86 @@ function drawUnit(
   ctx.scale(unit.scale, unit.scale);
   if (unit.flipped) ctx.scale(-1, 1);
   ctx.drawImage(picture.image, -width / 2, -height / 2, width, height);
+  ctx.restore();
+}
+
+// Follows a block's outline steps as a path
+function followSteps(ctx: FrameContext, steps: BlockStep[]): void {
+  for (const step of steps) {
+    if (step.op === "move") ctx.moveTo(step.to.x, step.to.y);
+    else if (step.op === "line") ctx.lineTo(step.to.x, step.to.y);
+    else
+      ctx.quadraticCurveTo(
+        step.control.x,
+        step.control.y,
+        step.to.x,
+        step.to.y
+      );
+  }
+}
+
+// A formation block, exactly as the editor draws it (see BlockShape): filled in its colour with
+// a darker edge, its symbol, a thick front edge, and its name kept the right way up
+function drawBlock(ctx: FrameContext, unit: DrawUnit): void {
+  const block = unit.block;
+  if (!block) return;
+  const { fill, edge } = blockColours(block.colour);
+  const widths = blockLineWidths(block);
+  ctx.save();
+  ctx.translate(unit.x, unit.y);
+  ctx.rotate((unit.rotation * Math.PI) / 180);
+  ctx.scale(unit.scale, unit.scale);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  followSteps(ctx, blockOutline(block));
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = widths.edge;
+  ctx.stroke();
+  const symbol = blockSymbol(block);
+  if (symbol.lines.length > 0) {
+    ctx.globalAlpha = 0.75;
+    ctx.lineWidth = widths.symbol;
+    ctx.beginPath();
+    for (const line of symbol.lines)
+      line.forEach((p, i) =>
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+      );
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  if (symbol.dots.length > 0) {
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = edge;
+    for (const dot of symbol.dots) {
+      ctx.beginPath();
+      ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.lineWidth = widths.front;
+  ctx.beginPath();
+  followSteps(ctx, blockFront(block));
+  ctx.stroke();
+  const label = blockLabel(block, unit.rotation);
+  if (label) {
+    ctx.translate(0, label.y);
+    if (label.flip) ctx.rotate(Math.PI);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const line of label.lines) {
+      ctx.font = `${line.bold ? 700 : 500} ${line.size}px ${BLOCK_FONT}`;
+      ctx.lineWidth = line.size * 0.22;
+      ctx.strokeStyle = "rgba(26, 20, 16, 0.75)";
+      ctx.strokeText(line.text, 0, line.y);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(line.text, 0, line.y);
+    }
+  }
   ctx.restore();
 }
 
@@ -199,7 +295,9 @@ export function drawFrame(
       ctx.fillStyle = OUTSIDE_MAP;
       ctx.fill("evenodd");
     }
-    for (const unit of scene.units) drawUnit(ctx, unit, assets);
+    for (const unit of scene.units)
+      if (unit.block) drawBlock(ctx, unit);
+      else drawUnit(ctx, unit, assets);
     ctx.restore();
   }
 

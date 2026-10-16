@@ -82,6 +82,8 @@ export async function prepareRender(): Promise<RenderJob> {
   >();
   const wanted = new Map<string, string>();
   for (const unit of state.placedUnits) {
+    // formation blocks are drawn, not pictures
+    if (unit.block) continue;
     const key = unitImageKey({
       assetType: unit.assetType,
       path: unit.path ?? unit.filename,

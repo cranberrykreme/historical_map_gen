@@ -1,14 +1,19 @@
 import { StateCreator } from "zustand";
-import { Army, MapPath, Shot, Unit } from "../../types";
+import { Army, Battle, MapPath, SceneContent, Shot, Unit } from "../../types";
+import { allScenes, existingScene, openScene } from "../../utils/scenes";
 import { HistorySlice, MapStore } from "./types";
 
 // One undo step: the whole document, so units, paths, armies and shots move through history
-// together
+// together. It holds every scene (the one being edited, as units/paths/armies, and the others
+// in the stash), so undoing never loses or mixes up what's in another scene.
 export interface Snapshot {
   units: Unit[];
   paths: MapPath[];
   armies: Army[];
   shots: Shot[];
+  scene: string; // which scene the units, paths and armies belong to
+  stash: Record<string, SceneContent>;
+  battles: Battle[];
 }
 
 export const snapshotOf = (state: MapStore): Snapshot => ({
@@ -16,6 +21,9 @@ export const snapshotOf = (state: MapStore): Snapshot => ({
   paths: state.paths,
   armies: state.armies,
   shots: state.shots,
+  scene: state.activeSceneId,
+  stash: state.sceneStash,
+  battles: state.battles,
 });
 
 // Records the current document as an undo step and clears redo.
@@ -44,6 +52,38 @@ export function reconcileSelection(
   };
 }
 
+// The document as it was at a snapshot, opened at the scene being edited now (or the main
+// map, if undoing takes away the battle that's open)
+function restore(state: MapStore, snapshot: Snapshot) {
+  const scene = existingScene(state.activeSceneId, snapshot.battles);
+  const { content, stash } = openScene(
+    allScenes({
+      activeSceneId: snapshot.scene,
+      sceneStash: snapshot.stash,
+      placedUnits: snapshot.units,
+      paths: snapshot.paths,
+      armies: snapshot.armies,
+    }),
+    scene
+  );
+  return {
+    placedUnits: content.units,
+    paths: content.paths,
+    armies: content.armies,
+    shots: snapshot.shots,
+    battles: snapshot.battles,
+    activeSceneId: scene,
+    sceneStash: stash,
+    ...reconcileSelection(state, content.units, content.paths),
+    selectedArmyId: content.armies.some((a) => a.id === state.selectedArmyId)
+      ? state.selectedArmyId
+      : null,
+    selectedShotId: snapshot.shots.some((s) => s.id === state.selectedShotId)
+      ? state.selectedShotId
+      : null,
+  };
+}
+
 export const createHistorySlice: StateCreator<
   MapStore,
   [],
@@ -65,18 +105,8 @@ export const createHistorySlice: StateCreator<
     const previous = state.past[state.past.length - 1];
     set({
       past: state.past.slice(0, -1),
-      placedUnits: previous.units,
-      paths: previous.paths,
-      armies: previous.armies,
-      shots: previous.shots,
       future: [snapshotOf(state), ...state.future],
-      ...reconcileSelection(state, previous.units, previous.paths),
-      selectedArmyId: previous.armies.some((a) => a.id === state.selectedArmyId)
-        ? state.selectedArmyId
-        : null,
-      selectedShotId: previous.shots.some((s) => s.id === state.selectedShotId)
-        ? state.selectedShotId
-        : null,
+      ...restore(state, previous),
     });
   },
 
@@ -86,18 +116,8 @@ export const createHistorySlice: StateCreator<
     const next = state.future[0];
     set({
       past: [...state.past, snapshotOf(state)],
-      placedUnits: next.units,
-      paths: next.paths,
-      armies: next.armies,
-      shots: next.shots,
       future: state.future.slice(1),
-      ...reconcileSelection(state, next.units, next.paths),
-      selectedArmyId: next.armies.some((a) => a.id === state.selectedArmyId)
-        ? state.selectedArmyId
-        : null,
-      selectedShotId: next.shots.some((s) => s.id === state.selectedShotId)
-        ? state.selectedShotId
-        : null,
+      ...restore(state, next),
     });
   },
 });

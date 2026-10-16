@@ -1,5 +1,6 @@
 import {
   CameraView,
+  FormationBlock,
   HistoryDisplay,
   Shot,
   Unit,
@@ -26,6 +27,7 @@ export interface DrawUnit {
   rotation: number; // degrees
   scale: number;
   flipped: boolean;
+  block?: FormationBlock; // a formation block, drawn instead of a picture
 }
 
 // Everything that goes into one frame of the video, worked out from the project alone. Paths,
@@ -77,6 +79,7 @@ export function unitsAt(
         rotation: state ? state.rotation : unit.rotation,
         scale: unit.scale,
         flipped: state ? state.flipped : !!unit.flipped,
+        ...(unit.block ? { block: unit.block } : {}),
       };
     });
 }

@@ -1,6 +1,12 @@
 import {
   Army,
   ArmyMember,
+  Battle,
+  FormationBlock,
+  PathPoint as Point,
+  SceneContent,
+  TerrainFeature,
+  TerrainKind,
   Unit,
   AssetType,
   HistoryDisplay,
@@ -13,6 +19,7 @@ import {
   TravelMode,
   VideoFrame,
 } from "../../types";
+import { TerrainEdit } from "../../utils/terrainBrush";
 import { FormationMode } from "../../utils/formation";
 import { HistoryTime } from "../../utils/historyTime";
 import { Snapshot } from "./history";
@@ -85,6 +92,9 @@ export interface UnitsSlice {
     x: number,
     y: number
   ) => void;
+  // Formation blocks (each an undo step). addBlockAtPosition returns the new block's id.
+  addBlockAtPosition: (block: FormationBlock, x: number, y: number) => string;
+  updateBlock: (unitId: string, patch: Partial<FormationBlock>) => void;
   cleanupRenamedAsset: (
     oldPath: string,
     newPath: string,
@@ -161,6 +171,39 @@ export interface ShotsSlice {
   moveShotTo: (id: string, index: number) => void;
 }
 
+// The scenes: the main map and its battles. The scene being edited holds the usual units,
+// paths and armies; the others wait in `sceneStash`, by scene id, until they're opened.
+export interface ScenesSlice {
+  battles: Battle[];
+  activeSceneId: string; // MAP_SCENE, or a battle's id
+  sceneStash: Record<string, SceneContent>;
+  setBattles: (
+    battles: Battle[],
+    contents: Record<string, SceneContent>
+  ) => void;
+  addBattle: (spec?: Partial<Omit<Battle, "id">>) => string;
+  updateBattle: (id: string, patch: Partial<Omit<Battle, "id">>) => void;
+  deleteBattle: (id: string) => void;
+  switchScene: (sceneId: string) => void;
+  // A battle's terrain (each an undo step). addTerrain returns the new feature's id, or null
+  // if there aren't enough points for its shape.
+  addTerrain: (
+    battleId: string,
+    kind: TerrainKind,
+    points: Point[]
+  ) => string | null;
+  updateTerrain: (
+    battleId: string,
+    featureId: string,
+    patch: Partial<Omit<TerrainFeature, "id">>
+  ) => void;
+  deleteTerrain: (battleId: string, featureId: string) => void;
+  // A brush or eraser stroke's changes, as one undo step (see utils/terrainBrush)
+  editTerrain: (battleId: string, edit: TerrainEdit) => void;
+  sceneContents: () => Record<string, SceneContent>;
+  inEveryScene: (edit: () => void) => void;
+}
+
 export interface StorySlice {
   // The story in history. The placed units stand as they are at `storyStart`. These load
   // with the project and bypass undo.
@@ -195,4 +238,5 @@ export type MapStore = HistorySlice &
   PathsSlice &
   ArmiesSlice &
   ShotsSlice &
+  ScenesSlice &
   StorySlice;

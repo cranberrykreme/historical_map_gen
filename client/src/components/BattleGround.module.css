@@ -1,0 +1,18 @@
+/* The battlefield, the size of the battle in map units, scaled with the map. Nothing on it
+   takes the mouse unless terrain is being edited (see BattleGround), so the map pans as usual. */
+   .ground {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+  
+  /* The editing handles, over the units */
+  .handles {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: visible;
+    pointer-events: none;
+  }

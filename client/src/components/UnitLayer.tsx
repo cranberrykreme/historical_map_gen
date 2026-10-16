@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import API_BASE_URL from "../config/api";
-import { Unit } from "../types";
+import { FormationBlock, Unit } from "../types";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
 import { usePathToolStore } from "../store/usePathToolStore";
@@ -9,6 +9,8 @@ import {
   forwardFromPointer,
   unitFacing,
 } from "../utils/unitFacing";
+import { BlockHandle, blockHandles, dragBlockHandle } from "../utils/blocks";
+import BlockShape from "./BlockShape";
 
 interface UnitLayerProps {
   units: Unit[];
@@ -23,6 +25,7 @@ interface UnitLayerProps {
 }
 
 const ARROW_LENGTH = 64; // in the unit's own space, so it scales with the unit
+const GOLD = "#c8a84b";
 const FADED_OPACITY = 0.35; // while a path is being drawn or a point dragged
 
 function UnitLayer({
@@ -49,12 +52,19 @@ function UnitLayer({
   const commitGroupRotate = useMapStore((state) => state.commitGroupRotate);
   const commitGroupScale = useMapStore((state) => state.commitGroupScale);
   const setUnitForward = useMapStore((state) => state.setUnitForward);
+  const updateBlock = useMapStore((state) => state.updateBlock);
 
   // While a path is being drawn or one of its points dragged, units fade so you can see the
   // map underneath and place the point exactly
   const pathEditing = usePathToolStore(
     (state) => state.drawingPoints !== null || state.draftPath !== null
   );
+
+  // A formation block being reshaped by one of its handles, before it's committed
+  const [blockDraft, setBlockDraft] = useState<{
+    id: string;
+    block: FormationBlock;
+  } | null>(null);
 
   // The arrow shows the angle being dragged before it is committed
   const [forwardDraft, setForwardDraft] = useState<{
@@ -269,6 +279,51 @@ function UnitLayer({
     window.addEventListener("mouseup", handleMouseUp);
   };
 
+  // Drags one of a formation block's handles: the sides widen it, the back deepens it, the
+  // front bends it. One undo step when it's let go.
+  const handleBlockHandleMouseDown = (
+    e: React.MouseEvent,
+    unit: Unit,
+    handle: BlockHandle
+  ) => {
+    if (e.button !== 0 || e.shiftKey || !unit.block) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const wrapper = (e.currentTarget as Element).closest("[data-unit]");
+    if (!wrapper) return;
+    const rect = wrapper.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    isDraggingUnit.current = true;
+    const original = unit.block;
+    let latest = original;
+    const turn = (-unit.rotation * Math.PI) / 180;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      // the pointer in the block's own space: unturned and unscaled
+      const k = (scaleRef.current ?? 1) * unit.scale;
+      const dx = (moveEvent.clientX - centerX) / k;
+      const dy = (moveEvent.clientY - centerY) / k;
+      const at = {
+        x: dx * Math.cos(turn) - dy * Math.sin(turn),
+        y: dx * Math.sin(turn) + dy * Math.cos(turn),
+      };
+      latest = dragBlockHandle(original, handle, at);
+      setBlockDraft({ id: unit.id, block: latest });
+    };
+
+    const handleMouseUp = () => {
+      isDraggingUnit.current = false;
+      setBlockDraft(null);
+      if (latest !== original) updateBlock(unit.id, latest);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
   return (
     <div
       style={{
@@ -285,7 +340,14 @@ function UnitLayer({
       {units.map((unit) => {
         const isSelected = selectedUnitIds.has(unit.id);
         const locked = lockedIds.has(unit.id);
-        const showForward = isSelected && selectedUnitIds.size === 1 && !locked;
+        const block =
+          unit.block && blockDraft?.id === unit.id
+            ? blockDraft.block
+            : unit.block;
+        const showForward =
+          isSelected && selectedUnitIds.size === 1 && !locked && !block;
+        const showBlockHandles =
+          !!block && isSelected && selectedUnitIds.size === 1 && !locked;
         const forwardAngle =
           forwardDraft && forwardDraft.id === unit.id
             ? forwardDraft.angle
@@ -305,21 +367,86 @@ function UnitLayer({
               zIndex: isSelected ? 1000 : 1,
             }}
           >
-            <img
-              src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.path ?? unit.filename}`}
-              alt={unit.filename}
-              style={{
-                width: "48px",
-                height: "auto",
-                cursor: isShiftHeld || locked ? "default" : "move",
-                userSelect: "none",
-                display: "block",
-                transform: unit.flipped ? "scaleX(-1)" : undefined,
-                outline: isSelected ? "2px solid #c8a84b" : "none",
-              }}
-              onMouseDown={(e) => handleMouseDown(e, unit.id)}
-              draggable={false}
-            />
+            {block ? (
+              // A formation block: drawn rather than a picture, and never mirrored
+              <BlockShape
+                block={block}
+                rotation={unit.rotation}
+                selected={isSelected}
+                style={{
+                  cursor: isShiftHeld || locked ? "default" : "move",
+                  userSelect: "none",
+                }}
+                onMouseDown={(e) => handleMouseDown(e, unit.id)}
+              >
+                {showBlockHandles &&
+                  (
+                    Object.entries(blockHandles(block)) as [
+                      BlockHandle,
+                      { x: number; y: number },
+                    ][]
+                  ).map(([handle, at]) => (
+                    <g key={handle}>
+                      <title>
+                        {handle === "front"
+                          ? "Drag to bend the block (back to the middle to straighten it)"
+                          : handle === "back"
+                            ? "Drag to make the block deeper or shallower"
+                            : "Drag to make the block wider or narrower"}
+                      </title>
+                      {handle === "front" ? (
+                        <rect
+                          x={at.x - 5}
+                          y={at.y - 5}
+                          width={10}
+                          height={10}
+                          transform={`rotate(45 ${at.x} ${at.y})`}
+                          fill={GOLD}
+                          stroke="#1a1225"
+                          strokeWidth={1}
+                          style={{ cursor: "ns-resize", pointerEvents: "all" }}
+                          onMouseDown={(e) =>
+                            handleBlockHandleMouseDown(e, unit, handle)
+                          }
+                        />
+                      ) : (
+                        <circle
+                          cx={at.x}
+                          cy={at.y}
+                          r={6}
+                          fill="#fff"
+                          stroke={GOLD}
+                          strokeWidth={2}
+                          style={{
+                            cursor:
+                              handle === "back" ? "ns-resize" : "ew-resize",
+                            pointerEvents: "all",
+                          }}
+                          onMouseDown={(e) =>
+                            handleBlockHandleMouseDown(e, unit, handle)
+                          }
+                        />
+                      )}
+                    </g>
+                  ))}
+              </BlockShape>
+            ) : (
+              <img
+                src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.path ?? unit.filename}`}
+                alt={unit.filename}
+                style={{
+                  width: "48px",
+                  height: "auto",
+                  cursor: isShiftHeld || locked ? "default" : "move",
+                  userSelect: "none",
+                  display: "block",
+                  transform: unit.flipped ? "scaleX(-1)" : undefined,
+                  outline: isSelected ? "2px solid #c8a84b" : "none",
+                }}
+                onMouseDown={(e) => handleMouseDown(e, unit.id)}
+                draggable={false}
+              />
+            )}
 
             {/* Forwards arrow (drawn before the other handles so they stay on top) */}
             {showForward && (
@@ -393,19 +520,22 @@ function UnitLayer({
                     pointerEvents: "all",
                   }}
                 />
-                <div
-                  onMouseDown={(e) => handleScaleHandleMouseDown(e, unit.id)}
-                  style={{
-                    position: "absolute",
-                    bottom: "-6px",
-                    right: "-6px",
-                    width: "12px",
-                    height: "12px",
-                    background: "#c8a84b",
-                    cursor: isShiftHeld ? "default" : "nwse-resize",
-                    pointerEvents: "all",
-                  }}
-                />
+                {/* A block is sized with its own handles instead */}
+                {!block && (
+                  <div
+                    onMouseDown={(e) => handleScaleHandleMouseDown(e, unit.id)}
+                    style={{
+                      position: "absolute",
+                      bottom: "-6px",
+                      right: "-6px",
+                      width: "12px",
+                      height: "12px",
+                      background: "#c8a84b",
+                      cursor: isShiftHeld ? "default" : "nwse-resize",
+                      pointerEvents: "all",
+                    }}
+                  />
+                )}
               </>
             )}
           </div>

@@ -5,8 +5,10 @@ import {
   HistoryDisplay,
   MapPath,
   PacingKey,
+  MAP_SCENE,
   PROJECT_VERSION,
   ProjectData,
+  SavedBattle,
   SavedViewport,
   Shot,
   Unit,
@@ -18,6 +20,8 @@ import {
   parseProject,
 } from "../utils/convertProject";
 import { HistoryTime } from "../utils/historyTime";
+import { emptyScene } from "../utils/scenes";
+import { useMapStore } from "../store/useMapStore";
 
 export interface ProjectSnapshot {
   units: Unit[];
@@ -31,6 +35,33 @@ export interface ProjectSnapshot {
   selectedMapFilename: string | null;
   // Left out (undefined) for auto-saves; Flask then keeps the last saved view
   viewport?: SavedViewport | null;
+  battles: SavedBattle[];
+}
+
+// The project as it is in the store right now, ready to save: the main map's units, paths and
+// armies, and each battle with its own, whichever scene happens to be open
+export function projectSnapshot(
+  viewport?: SavedViewport | null
+): ProjectSnapshot {
+  const state = useMapStore.getState();
+  const scenes = state.sceneContents();
+  const map = scenes[MAP_SCENE] ?? emptyScene();
+  return {
+    units: map.units,
+    paths: map.paths,
+    armies: map.armies,
+    storyStart: state.storyStart,
+    displayMode: state.displayMode,
+    pacing: state.pacing,
+    shots: state.shots,
+    videoFrame: state.videoFrame,
+    selectedMapFilename: state.selectedMapFilename,
+    viewport,
+    battles: state.battles.map((battle) => ({
+      ...battle,
+      ...(scenes[battle.id] ?? emptyScene()),
+    })),
+  };
 }
 
 function useProject(projectName: string = "default") {
@@ -49,6 +80,7 @@ function useProject(projectName: string = "default") {
         videoFrame: snapshot.videoFrame,
         selectedMapFilename: snapshot.selectedMapFilename,
         viewport: snapshot.viewport,
+        battles: snapshot.battles,
       };
 
       try {

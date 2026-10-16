@@ -6,6 +6,7 @@ import {
   MapPath,
   MarchTiming,
   PacingKey,
+  SavedBattle,
   SavedViewport,
   Shot,
   Unit,
@@ -17,6 +18,7 @@ import { clampMarch } from "./marches";
 import { createPlayback } from "./pathPlayback";
 import { deriveArmies, rebuildMemberships } from "./armies";
 import { parseShots, parseVideoFrame } from "./shots";
+import { parseBattleInfo } from "./scenes";
 
 // Where a new project's story starts
 export const DEFAULT_STORY_START = toHistoryTime({
@@ -41,6 +43,7 @@ export interface LoadedProject {
   videoFrame: VideoFrame;
   selectedMapFilename: string | null;
   viewport: SavedViewport | null;
+  battles: SavedBattle[]; // each with its own units, paths and armies
 }
 
 export function emptyProject(): LoadedProject {
@@ -55,6 +58,7 @@ export function emptyProject(): LoadedProject {
     videoFrame: "landscape",
     selectedMapFilename: null,
     viewport: null,
+    battles: [],
   };
 }
 
@@ -219,10 +223,10 @@ function parseArmies(raw: unknown): Army[] {
 // - Version 3 and later: read as they are.
 // Marches that point at an army that doesn't exist no longer belong to one.
 function withArmies(
-  project: Omit<LoadedProject, "armies">,
+  project: Omit<LoadedProject, "armies" | "battles">,
   rawArmies: unknown,
   version: number
-): LoadedProject {
+): Omit<LoadedProject, "battles"> {
   if (!Array.isArray(rawArmies)) {
     const derived = deriveArmies(project.paths, project.storyStart);
     return { ...project, paths: derived.paths, armies: derived.armies };
@@ -240,6 +244,44 @@ function withArmies(
       ? parsed
       : rebuildMemberships(parsed, paths, project.storyStart);
   return { ...project, paths, armies };
+}
+
+// Reads the battles saved with a project (each a scene with its own units, paths and armies).
+// Battles came after dated marches, so their marches are always dated.
+function parseBattles(
+  raw: unknown,
+  storyStart: HistoryTime,
+  version: number
+): SavedBattle[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const battles: SavedBattle[] = [];
+  for (const entry of raw) {
+    const info = parseBattleInfo(entry);
+    if (!info || seen.has(info.id)) continue;
+    seen.add(info.id);
+    const scene = withArmies(
+      {
+        ...emptyProject(),
+        units: Array.isArray(entry.units) ? entry.units.map(parseUnit) : [],
+        paths: Array.isArray(entry.paths)
+          ? entry.paths
+              .map(parsePath)
+              .map(({ start, end, ...path }: LegacyPath) => path)
+          : [],
+        storyStart,
+      },
+      entry.armies ?? [],
+      Math.max(version, 3)
+    );
+    battles.push({
+      ...info,
+      units: scene.units,
+      paths: scene.paths,
+      armies: scene.armies,
+    });
+  }
+  return battles;
 }
 
 function parseUnit(raw: any): Unit {
@@ -312,13 +354,14 @@ export function parseProject(data: any): LoadedProject {
   const version = isNumber(data.version) ? data.version : 1;
   if (version >= 2) {
     const pacing = parsePacing(data.pacing);
-    return withArmies(
+    const storyStart = isNumber(data.storyStart)
+      ? data.storyStart
+      : DEFAULT_STORY_START;
+    const project = withArmies(
       {
         units,
         paths: rawPaths.map(({ start, end, ...path }) => path),
-        storyStart: isNumber(data.storyStart)
-          ? data.storyStart
-          : DEFAULT_STORY_START,
+        storyStart,
         displayMode: DISPLAYS.includes(data.displayMode)
           ? data.displayMode
           : "months",
@@ -331,10 +374,15 @@ export function parseProject(data: any): LoadedProject {
       data.armies,
       version
     );
+    return {
+      ...project,
+      battles: parseBattles(data.battles, storyStart, version),
+    };
   }
 
+  // Version 1 files were saved long before battles, so they have none
   const pacing = pacingFromMarkers(parseMarkers(data.dateMarkers));
-  return withArmies(
+  const legacy = withArmies(
     {
       units,
       paths: convertLegacyPaths(rawPaths, units, pacing),
@@ -349,4 +397,5 @@ export function parseProject(data: any): LoadedProject {
     data.armies,
     version
   );
+  return { ...legacy, battles: [] };
 }
