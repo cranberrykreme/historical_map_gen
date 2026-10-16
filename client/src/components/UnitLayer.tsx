@@ -9,8 +9,15 @@ import {
   forwardFromPointer,
   unitFacing,
 } from "../utils/unitFacing";
-import { BlockHandle, blockHandles, dragBlockHandle } from "../utils/blocks";
+import {
+  BlockHandle,
+  blockBox,
+  blockHandles,
+  dragBlockHandle,
+} from "../utils/blocks";
+import { ExitFrame, UNIT_IMAGE_WIDTH } from "../utils/exits";
 import BlockShape from "./BlockShape";
+import ExitPieces from "./exits/ExitPieces";
 
 interface UnitLayerProps {
   units: Unit[];
@@ -22,6 +29,9 @@ interface UnitLayerProps {
   // edited at its own moment (the story's start, or when it appears). Locked units can still
   // be selected, so they can be deleted (they leave then) or looked at in the Paths panel.
   lockedIds: ReadonlySet<string>;
+  // Units part way through leaving (dying), drawn under the rest in pieces. They can't be
+  // selected or moved.
+  leaving: { unit: Unit; frame: ExitFrame }[];
 }
 
 const ARROW_LENGTH = 64; // in the unit's own space, so it scales with the unit
@@ -35,6 +45,7 @@ function UnitLayer({
   isShiftHeld,
   setCursor,
   lockedIds,
+  leaving,
 }: UnitLayerProps) {
   const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const selectUnit = useMapStore((state) => state.selectUnit);
@@ -337,6 +348,41 @@ function UnitLayer({
         transition: "opacity 120ms ease",
       }}
     >
+      {leaving.map(({ unit, frame }) => (
+        <div
+          key={`leaving-${unit.id}`}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            transform: `translate(${unit.x}px, ${unit.y}px) translate(-50%, -50%) rotate(${unit.rotation}deg) scale(${unit.scale})`,
+            transformOrigin: "center center",
+            pointerEvents: "none",
+          }}
+        >
+          <ExitPieces
+            frame={frame}
+            width={unit.block ? blockBox(unit.block).width : UNIT_IMAGE_WIDTH}
+          >
+            {unit.block ? (
+              <BlockShape block={unit.block} rotation={unit.rotation} />
+            ) : (
+              <img
+                src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.path ?? unit.filename}`}
+                alt=""
+                draggable={false}
+                style={{
+                  width: `${UNIT_IMAGE_WIDTH}px`,
+                  height: "auto",
+                  display: "block",
+                  userSelect: "none",
+                  transform: unit.flipped ? "scaleX(-1)" : undefined,
+                }}
+              />
+            )}
+          </ExitPieces>
+        </div>
+      ))}
       {units.map((unit) => {
         const isSelected = selectedUnitIds.has(unit.id);
         const locked = lockedIds.has(unit.id);

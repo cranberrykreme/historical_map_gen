@@ -1,7 +1,8 @@
-import { CameraView } from "../types";
+import { CameraView, FormationBlock } from "../types";
 import { placementFor } from "../utils/camera";
 import {
   BLOCK_FONT,
+  blockBox,
   blockColours,
   blockFront,
   blockLabel,
@@ -10,6 +11,21 @@ import {
   blockSymbol,
   BlockStep,
 } from "../utils/blocks";
+import {
+  crossSize,
+  crossStrokes,
+  DrawMarker,
+  ExitFrame,
+  MARKER_HALO,
+  MARKER_INK,
+  PATCH_FILL,
+  patchOutline,
+  RIPPLE,
+  RIPPLE_WIDTH,
+  smoothClosed,
+  TEAR_EDGE,
+  TEAR_SHADOW,
+} from "../utils/exits";
 import { Blend, DrawUnit, Scene } from "./scene";
 
 // What fills the frame wherever the map doesn't reach, the same grey as the editor
@@ -107,10 +123,84 @@ export type FrameContext = Pick<
   | "imageSmoothingQuality"
 >;
 
+// A unit part way through leaving, in pieces (see utils/exits). The unit's own space is already
+// set up, centred on the middle of its picture's `width` by `height` box; `drawWhole` draws the
+// whole picture there. `pixel` is one pixel of the frame in this space, for lines that should
+// look the same thickness at any zoom.
+function drawPieces(
+  ctx: FrameContext,
+  frame: ExitFrame,
+  width: number,
+  height: number,
+  pixel: number,
+  drawWhole: () => void
+): void {
+  const base = ctx.globalAlpha;
+  for (const ripple of frame.ripples) {
+    ctx.save();
+    ctx.globalAlpha = base * ripple.alpha;
+    ctx.strokeStyle = RIPPLE;
+    ctx.lineWidth = RIPPLE_WIDTH * width;
+    ctx.beginPath();
+    ctx.arc(0, 0, ripple.radius * width, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  const at = (p: { x: number; y: number }) => ({
+    x: (p.x - 0.5) * width,
+    y: (p.y - 0.5) * height,
+  });
+  for (const piece of frame.pieces) {
+    if (piece.alpha <= 0) continue;
+    ctx.save();
+    ctx.globalAlpha = base * piece.alpha;
+    const origin = at(piece.origin);
+    ctx.translate(piece.x * width + origin.x, piece.y * width + origin.y);
+    ctx.rotate((piece.rotate * Math.PI) / 180);
+    ctx.scale(piece.scale, piece.scale);
+    ctx.translate(-origin.x, -origin.y);
+    if (piece.clip) {
+      ctx.beginPath();
+      piece.clip.forEach((p, i) => {
+        const q = at(p);
+        if (i === 0) ctx.moveTo(q.x, q.y);
+        else ctx.lineTo(q.x, q.y);
+      });
+      ctx.closePath();
+      ctx.clip();
+    }
+    drawWhole();
+    ctx.restore();
+  }
+  for (const tear of frame.tears) {
+    if (tear.points.length < 2) continue;
+    ctx.save();
+    ctx.globalAlpha = base * tear.alpha;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    for (const [colour, thickness] of [
+      [TEAR_SHADOW, 3.5],
+      [TEAR_EDGE, 1.8],
+    ] as const) {
+      ctx.beginPath();
+      tear.points.forEach((p, i) => {
+        const q = at(p);
+        if (i === 0) ctx.moveTo(q.x, q.y);
+        else ctx.lineTo(q.x, q.y);
+      });
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = thickness * pixel;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
 function drawUnit(
   ctx: FrameContext,
   unit: DrawUnit,
-  assets: FrameAssets
+  assets: FrameAssets,
+  pixel: number
 ): void {
   const picture = assets.unitImages.get(unitImageKey(unit));
   if (!picture) return;
@@ -121,8 +211,13 @@ function drawUnit(
   ctx.translate(unit.x, unit.y);
   ctx.rotate((unit.rotation * Math.PI) / 180);
   ctx.scale(unit.scale, unit.scale);
-  if (unit.flipped) ctx.scale(-1, 1);
-  ctx.drawImage(picture.image, -width / 2, -height / 2, width, height);
+  const drawWhole = () => {
+    if (unit.flipped) ctx.scale(-1, 1);
+    ctx.drawImage(picture.image, -width / 2, -height / 2, width, height);
+  };
+  if (unit.exit)
+    drawPieces(ctx, unit.exit, width, height, pixel / unit.scale, drawWhole);
+  else drawWhole();
   ctx.restore();
 }
 
@@ -143,15 +238,15 @@ function followSteps(ctx: FrameContext, steps: BlockStep[]): void {
 
 // A formation block, exactly as the editor draws it (see BlockShape): filled in its colour with
 // a darker edge, its symbol, a thick front edge, and its name kept the right way up
-function drawBlock(ctx: FrameContext, unit: DrawUnit): void {
-  const block = unit.block;
-  if (!block) return;
+function drawBlockBody(
+  ctx: FrameContext,
+  block: FormationBlock,
+  rotation: number
+): void {
   const { fill, edge } = blockColours(block.colour);
   const widths = blockLineWidths(block);
+  const base = ctx.globalAlpha;
   ctx.save();
-  ctx.translate(unit.x, unit.y);
-  ctx.rotate((unit.rotation * Math.PI) / 180);
-  ctx.scale(unit.scale, unit.scale);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
   ctx.beginPath();
@@ -164,7 +259,7 @@ function drawBlock(ctx: FrameContext, unit: DrawUnit): void {
   ctx.stroke();
   const symbol = blockSymbol(block);
   if (symbol.lines.length > 0) {
-    ctx.globalAlpha = 0.75;
+    ctx.globalAlpha = base * 0.75;
     ctx.lineWidth = widths.symbol;
     ctx.beginPath();
     for (const line of symbol.lines)
@@ -172,23 +267,23 @@ function drawBlock(ctx: FrameContext, unit: DrawUnit): void {
         i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
       );
     ctx.stroke();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = base;
   }
   if (symbol.dots.length > 0) {
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = base * 0.85;
     ctx.fillStyle = edge;
     for (const dot of symbol.dots) {
       ctx.beginPath();
       ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = base;
   }
   ctx.lineWidth = widths.front;
   ctx.beginPath();
   followSteps(ctx, blockFront(block));
   ctx.stroke();
-  const label = blockLabel(block, unit.rotation);
+  const label = blockLabel(block, rotation);
   if (label) {
     ctx.translate(0, label.y);
     if (label.flip) ctx.rotate(Math.PI);
@@ -201,6 +296,67 @@ function drawBlock(ctx: FrameContext, unit: DrawUnit): void {
       ctx.strokeText(line.text, 0, line.y);
       ctx.fillStyle = "#ffffff";
       ctx.fillText(line.text, 0, line.y);
+    }
+  }
+  ctx.restore();
+}
+
+// A formation block on the map: in place, or in pieces while it's leaving
+function drawBlock(ctx: FrameContext, unit: DrawUnit, pixel: number): void {
+  const block = unit.block;
+  if (!block) return;
+  ctx.save();
+  ctx.translate(unit.x, unit.y);
+  ctx.rotate((unit.rotation * Math.PI) / 180);
+  ctx.scale(unit.scale, unit.scale);
+  const drawWhole = () => drawBlockBody(ctx, block, unit.rotation);
+  if (unit.exit) {
+    const box = blockBox(block);
+    drawPieces(
+      ctx,
+      unit.exit,
+      box.width,
+      box.height,
+      pixel / unit.scale,
+      drawWhole
+    );
+  } else drawWhole();
+  ctx.restore();
+}
+
+// A marker where a unit fell: a dark patch of ground the unit's size, turned with it, or a
+// small cross that always stands upright
+function drawMarker(ctx: FrameContext, marker: DrawMarker): void {
+  ctx.save();
+  ctx.globalAlpha = Math.min(Math.max(marker.alpha, 0), 1);
+  ctx.translate(marker.x, marker.y);
+  if (marker.kind === "patch") {
+    ctx.rotate((marker.rotation * Math.PI) / 180);
+    const curve = smoothClosed(
+      patchOutline(marker.id, marker.width / 2, marker.depth / 2)
+    );
+    ctx.beginPath();
+    ctx.moveTo(curve.start.x, curve.start.y);
+    for (const c of curve.curves)
+      ctx.quadraticCurveTo(c.control.x, c.control.y, c.to.x, c.to.y);
+    ctx.closePath();
+    ctx.fillStyle = PATCH_FILL;
+    ctx.fill();
+  } else {
+    const size = crossSize(marker.width);
+    ctx.lineCap = "butt";
+    for (const [colour, thickness] of [
+      [MARKER_HALO, 0.34],
+      [MARKER_INK, 0.16],
+    ] as const) {
+      ctx.beginPath();
+      for (const [a, b] of crossStrokes(size)) {
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+      }
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = size * thickness;
+      ctx.stroke();
     }
   }
   ctx.restore();
@@ -295,9 +451,11 @@ export function drawFrame(
       ctx.fillStyle = OUTSIDE_MAP;
       ctx.fill("evenodd");
     }
+    for (const marker of scene.markers ?? []) drawMarker(ctx, marker);
+    const pixel = 1 / scale;
     for (const unit of scene.units)
-      if (unit.block) drawBlock(ctx, unit);
-      else drawUnit(ctx, unit, assets);
+      if (unit.block) drawBlock(ctx, unit, pixel);
+      else drawUnit(ctx, unit, assets, pixel);
     ctx.restore();
   }
 

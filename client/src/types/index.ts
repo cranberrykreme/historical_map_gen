@@ -27,6 +27,25 @@ export interface Unit {
   // draw troops (see utils/blocks). Blocks keep scale 1 and are sized by their own width and
   // depth; their front is the top edge, so they face up like unit art.
   block?: FormationBlock;
+  // How the unit goes when it leaves (see utils/exits): a death or other leaving animation,
+  // and a marker left where it went. Missing means it simply vanishes.
+  exit?: UnitExit;
+}
+
+// The ways a unit can go when it leaves: fades away, topples over, breaks into pieces, goes
+// under the water, breaks and runs, or tears like paper into an X
+export type ExitStyle = "fade" | "fall" | "shatter" | "sink" | "rout" | "tear";
+
+// What's left where a unit went: a small cross, or a dark patch of ground
+export type MarkerKind = "cross" | "patch";
+
+export interface UnitExit {
+  style: ExitStyle;
+  seconds?: number; // how long it takes, in seconds of video; each style has its own default
+  marker?: MarkerKind;
+  // The marker fades this many seconds of video after the unit has gone. Missing means it
+  // stays for good.
+  markerFades?: number;
 }
 
 // What a formation block stands for, shown by the symbol inside it: foot soldiers (a cross),
@@ -56,6 +75,17 @@ export interface FormationBlock {
   bend?: number;
   name?: string; // "Breton cavalry"
   size?: string; // "c. 2,000"
+  // Losses over time: the block thins (its back edge comes forward) and any number in its size
+  // counts down. Missing when it loses nobody.
+  losses?: BlockLoss[];
+}
+
+// A block losing `share` of its starting strength (0.3 is 30%) steadily from `start` to `end`
+// (days since 1 January 1970, see utils/historyTime)
+export interface BlockLoss {
+  start: number;
+  end: number;
+  share: number;
 }
 
 // A unit's time in an army: from `joins` until `leaves` (days since 1 January 1970, see
@@ -252,7 +282,8 @@ export type ToolbarTabId =
   | "portrait"
   | "paths"
   | "armies"
-  | "battles";
+  | "battles"
+  | "animations";
 
 export interface AssetFile {
   path: string;

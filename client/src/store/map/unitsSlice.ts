@@ -1,10 +1,15 @@
 import { StateCreator } from "zustand";
 import { Unit, AssetType, MapPath } from "../../types";
 import { blockUnit, tidyBlock } from "../../utils/blocks";
+import { defaultExit, tidyExit } from "../../utils/exits";
 import { reanchorPaths } from "../../utils/formation";
 import { chainedPathIds } from "../../utils/timeline";
 import { HistoryTime } from "../../utils/historyTime";
-import { placementMoment, removeUnitsAt } from "../../utils/lifespans";
+import {
+  editableAt,
+  placementMoment,
+  removeUnitsAt,
+} from "../../utils/lifespans";
 import { forgetUnits } from "../../utils/armies";
 import { useTimelineStore } from "../useTimelineStore";
 import { Snapshot, snapshotOf, withHistory } from "./history";
@@ -276,6 +281,48 @@ export const createUnitsSlice: StateCreator<MapStore, [], [], UnitsSlice> = (
         u.id === unitId ? { ...u, block } : u
       ),
     });
+  },
+
+  // How the units go when they leave (one undo step). Null makes them simply vanish; a function
+  // works each unit's out from the one it has.
+  setUnitsExit: (unitIds, exit) => {
+    const state = get();
+    const ids = new Set(unitIds);
+    let changed = false;
+    const placedUnits = state.placedUnits.map((unit) => {
+      if (!ids.has(unit.id)) return unit;
+      const tidy = tidyExit(
+        typeof exit === "function" ? exit(unit.exit) : exit
+      );
+      if (JSON.stringify(unit.exit) === JSON.stringify(tidy)) return unit;
+      changed = true;
+      const { exit: _old, ...rest } = unit;
+      return tidy ? { ...rest, exit: tidy } : rest;
+    });
+    if (!changed) return;
+    set({ ...withHistory(state), placedUnits });
+  },
+
+  // The selected units die at the playhead's moment (one undo step): they leave then, with
+  // their leaving animation, or the usual one for their kind if they have none. Units can't die
+  // at the moment they appear (or at the story's start); those are left alone. Returns how
+  // many died.
+  killSelectedUnits: () => {
+    const state = get();
+    const now = useTimelineStore.getState().now;
+    if (now === null || now <= state.storyStart) return 0;
+    let count = 0;
+    const placedUnits = state.placedUnits.map((unit) => {
+      if (!state.selectedUnitIds.has(unit.id)) return unit;
+      if (editableAt(unit, now, state.storyStart)) return unit;
+      if ((unit.appears ?? -Infinity) > now) return unit;
+      if (unit.leaves !== undefined && unit.leaves <= now) return unit;
+      count++;
+      return { ...unit, leaves: now, exit: unit.exit ?? defaultExit(unit) };
+    });
+    if (count === 0) return 0;
+    set({ ...withHistory(state), placedUnits, selectedUnitIds: new Set() });
+    return count;
   },
 
   copySelectedUnits: () => {

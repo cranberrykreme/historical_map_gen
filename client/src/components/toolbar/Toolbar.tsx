@@ -6,6 +6,7 @@ import PortraitPanel from "./PortraitPanel";
 import PathsPanel from "./PathsPanel";
 import ArmiesPanel from "./ArmiesPanel";
 import BattlesPanel from "./BattlesPanel";
+import AnimationsPanel from "./AnimationsPanel";
 import { AssetType, ToolbarTabId } from "../../types";
 import styles from "./Toolbar.module.css";
 
@@ -30,6 +31,7 @@ const TABS: ToolbarTab[] = [
   { id: "paths", icon: "↝", label: "Paths" },
   { id: "armies", icon: "⚑", label: "Armies" },
   { id: "battles", icon: "⚔", label: "Battles" },
+  { id: "animations", icon: "✦", label: "Animations" },
 ];
 
 function Toolbar({
@@ -68,6 +70,7 @@ function Toolbar({
           {activeTab === "paths" && <PathsPanel />}
           {activeTab === "armies" && <ArmiesPanel />}
           {activeTab === "battles" && <BattlesPanel />}
+          {activeTab === "animations" && <AnimationsPanel />}
         </div>
       )}
 

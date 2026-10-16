@@ -1,5 +1,9 @@
 import { FormationBlock } from "../types";
 import {
+  blockStrength,
+  sizeAtStrength,
+  thinnedBlock,
+  unitAt,
   blockHandles,
   blockLabel,
   blockOutline,
@@ -126,4 +130,44 @@ test("dragging the handles widens, deepens and bends the block", () => {
   expect(
     dragBlockHandle(block({ bend: 20 }), "back", { x: 0, y: 10 }).depth
   ).toBe(60);
+});
+
+test("losses thin a block steadily from the back and count down its size", () => {
+  const b = block({
+    size: "c. 2,000",
+    losses: [{ start: 10, end: 20, share: 0.4 }],
+  });
+  expect(blockStrength(b, 5)).toBe(1);
+  expect(blockStrength(b, 15)).toBeCloseTo(0.8, 5);
+  expect(blockStrength(b, 30)).toBeCloseTo(0.6, 5);
+  expect(thinnedBlock(b, 5)).toBeNull();
+  const thin = thinnedBlock(b, 30)!;
+  expect(thin.block.depth).toBeCloseTo(36, 5);
+  expect(thin.forward).toBeCloseTo(12, 5); // its front stays put
+  expect(thin.block.size).toBe("c. 1,200");
+  // a block facing right (turned 90°) moves its middle right, towards its front
+  const moved = unitAt({ x: 0, y: 0, rotation: 90, scale: 1, block: b }, 30);
+  expect(moved.x).toBeCloseTo(12, 5);
+  expect(moved.y).toBeCloseTo(0, 5);
+});
+
+test("sizes count down the way troop numbers are rounded, and losses are kept sensible", () => {
+  expect(sizeAtStrength("c. 2,000", 0.63)).toBe("c. 1,250");
+  expect(sizeAtStrength("800 men", 0.5)).toBe("400 men");
+  expect(sizeAtStrength("Many", 0.5)).toBe("Many");
+  // backwards dates are turned round, and all together they never take more than 95%
+  const tidy = tidyBlock(
+    block({
+      losses: [
+        { start: 20, end: 10, share: 0.8 },
+        { start: 5, end: 6, share: 0.8 },
+      ],
+    })
+  );
+  expect(tidy.losses![0]).toMatchObject({ start: 5, end: 6 });
+  expect(tidy.losses![1]).toMatchObject({ start: 10, end: 20 });
+  expect(tidy.losses!.reduce((sum, l) => sum + l.share, 0)).toBeLessThanOrEqual(
+    0.95
+  );
+  expect(tidyBlock(block({ losses: [] })).losses).toBeUndefined();
 });

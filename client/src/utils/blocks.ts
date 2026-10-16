@@ -1,10 +1,12 @@
 import {
   BlockColour,
   BlockKind,
+  BlockLoss,
   FormationBlock,
   PathPoint,
   Unit,
 } from "../types";
+import { HistoryTime } from "./historyTime";
 import { normalizeDegrees } from "./unitFacing";
 
 // Formation blocks: troops drawn as history books draw them, a rectangle in the faction's
@@ -85,12 +87,120 @@ export function tidyBlock(block: FormationBlock): FormationBlock {
   );
   const rawBend = clamp(block.bend ?? 0, -maxBend(width), maxBend(width));
   const bend = Math.abs(rawBend) < BEND_SNAP ? 0 : Math.round(rawBend);
-  const { bend: _old, name, size, ...rest } = block;
+  const { bend: _old, name, size, losses, ...rest } = block;
   const out: FormationBlock = { ...rest, width, depth };
   if (bend !== 0) out.bend = bend;
   if (name?.trim()) out.name = name.trim();
   if (size?.trim()) out.size = size.trim();
+  const kept = tidyLosses(losses);
+  if (kept.length > 0) out.losses = kept;
   return out;
+}
+
+// ---- Losses ----
+
+// The most a block can lose, all its losses together: something is always left to see
+export const MAX_LOSS = 0.95;
+// The smallest single loss
+export const MIN_LOSS = 0.01;
+
+const isNumber = (n: unknown): n is number =>
+  typeof n === "number" && Number.isFinite(n);
+
+// A block's losses made usable: real dates the right way round, each share in range, all of
+// them together no more than MAX_LOSS (scaled down evenly if they'd be more), in date order
+export function tidyLosses(losses: BlockLoss[] | undefined): BlockLoss[] {
+  if (!Array.isArray(losses)) return [];
+  const usable = losses
+    .filter(
+      (l) => l && isNumber(l.start) && isNumber(l.end) && isNumber(l.share)
+    )
+    .map((l) => ({
+      start: Math.min(l.start, l.end),
+      end: Math.max(l.start, l.end),
+      share: clamp(l.share, MIN_LOSS, MAX_LOSS),
+    }))
+    .sort((a, b) => a.start - b.start);
+  const total = usable.reduce((sum, l) => sum + l.share, 0);
+  if (total <= MAX_LOSS)
+    return usable.map((l) => ({
+      ...l,
+      share: Math.round(l.share * 100) / 100,
+    }));
+  return usable.map((l) => ({
+    ...l,
+    share: Math.floor((l.share * MAX_LOSS * 100) / total) / 100,
+  }));
+}
+
+// How much of a block is left at a moment: 1 at full strength, less as its losses go by
+// (each a steady loss from its start to its end)
+export function blockStrength(b: FormationBlock, t: HistoryTime): number {
+  let lost = 0;
+  for (const l of b.losses ?? []) {
+    const through =
+      t <= l.start
+        ? 0
+        : t >= l.end || l.end <= l.start
+          ? 1
+          : (t - l.start) / (l.end - l.start);
+    lost += l.share * through;
+  }
+  return clamp(1 - lost, 1 - MAX_LOSS, 1);
+}
+
+// The number in a size, counted down to a share of itself and rounded the way people round
+// troop numbers: "c. 2,000" at 0.6 reads "c. 1,200". Text with no number stays as it is.
+export function sizeAtStrength(size: string, strength: number): string {
+  const match = /\d[\d,]*/.exec(size);
+  if (!match || strength >= 1) return size;
+  const n = Number(match[0].replace(/,/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return size;
+  const step = n >= 1000 ? 50 : n >= 100 ? 10 : 1;
+  const value = Math.max(0, Math.round((n * strength) / step) * step);
+  const text =
+    match[0].includes(",") || value >= 10000
+      ? value.toLocaleString("en-US")
+      : String(value);
+  return (
+    size.slice(0, match.index) +
+    text +
+    size.slice(match.index + match[0].length)
+  );
+}
+
+// How a block looks at a moment once its losses are counted: thinner from the back (its front
+// stays where it was) with its size counted down. `forward` is how far its middle has moved
+// towards its front as its back edge comes up, in its own space. Null while it's at full
+// strength.
+export function thinnedBlock(
+  b: FormationBlock,
+  t: HistoryTime
+): { block: FormationBlock; forward: number } | null {
+  const strength = blockStrength(b, t);
+  if (strength >= 1) return null;
+  const depth = Math.max(4, b.depth * strength);
+  const block: FormationBlock = { ...b, depth };
+  if (b.size) block.size = sizeAtStrength(b.size, strength);
+  return { block, forward: (b.depth - depth) / 2 };
+}
+
+// A unit as it stands at a moment, its block thinned by its losses: the block, and its middle
+// moved towards its front as its back edge comes up (turned with the unit)
+export function unitAt<
+  T extends Pick<Unit, "x" | "y" | "rotation" | "scale" | "block">,
+>(unit: T, t: HistoryTime): T {
+  if (!unit.block?.losses) return unit;
+  const thin = thinnedBlock(unit.block, t);
+  if (!thin) return unit;
+  const turn = (unit.rotation * Math.PI) / 180;
+  const forward = thin.forward * unit.scale;
+  return {
+    ...unit,
+    block: thin.block,
+    x: unit.x + Math.sin(turn) * forward,
+    y: unit.y - Math.cos(turn) * forward,
+  };
 }
 
 // What a new block starts as
@@ -337,6 +447,19 @@ export function dragBlockHandle(
     case "front":
       return tidyBlock({ ...b, bend: -at.y - b.depth / 2 });
   }
+}
+
+// Room round a block's picture for its thick front edge and a selection outline
+export const BLOCK_PAD = 6;
+
+// The box a block's picture fills, centred on the block (see BlockShape). Leaving animations
+// are worked out over this box, so they look the same in the editor and the video.
+export function blockBox(b: FormationBlock): { width: number; height: number } {
+  const { halfWidth, halfHeight } = blockReach(b);
+  return {
+    width: 2 * (halfWidth + BLOCK_PAD),
+    height: 2 * (halfHeight + BLOCK_PAD),
+  };
 }
 
 // How far the block reaches from its middle, up and down and to the sides: the size of the

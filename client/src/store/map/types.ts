@@ -8,6 +8,7 @@ import {
   TerrainFeature,
   TerrainKind,
   Unit,
+  UnitExit,
   AssetType,
   HistoryDisplay,
   MapPath,
@@ -95,6 +96,12 @@ export interface UnitsSlice {
   // Formation blocks (each an undo step). addBlockAtPosition returns the new block's id.
   addBlockAtPosition: (block: FormationBlock, x: number, y: number) => string;
   updateBlock: (unitId: string, patch: Partial<FormationBlock>) => void;
+  // How units go when they leave, and deaths at the playhead (each an undo step)
+  setUnitsExit: (
+    unitIds: string[],
+    exit: UnitExit | null | ((current: UnitExit | undefined) => UnitExit | null)
+  ) => void;
+  killSelectedUnits: () => number;
   cleanupRenamedAsset: (
     oldPath: string,
     newPath: string,

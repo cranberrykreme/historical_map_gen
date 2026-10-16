@@ -16,6 +16,17 @@ import {
 import { formatHistoryTime, HistoryTime } from "../utils/historyTime";
 import { dateHiddenAt, videoMoment } from "../utils/shots";
 import { existsAt, Timeline } from "../utils/timeline";
+import { unitAt } from "../utils/blocks";
+import {
+  backAngle,
+  DrawMarker,
+  ExitFrame,
+  exitFrame,
+  leavingAt,
+  markersAt,
+  pictureAspect,
+  videoExitAge,
+} from "../utils/exits";
 
 // One unit as the video shows it: where it is, which way it turns and faces, and how big it is
 export interface DrawUnit {
@@ -28,6 +39,8 @@ export interface DrawUnit {
   scale: number;
   flipped: boolean;
   block?: FormationBlock; // a formation block, drawn instead of a picture
+  // Part way through leaving (a death or other leaving animation): how to draw it, in pieces
+  exit?: ExitFrame;
 }
 
 // Everything that goes into one frame of the video, worked out from the project alone. Paths,
@@ -35,6 +48,7 @@ export interface DrawUnit {
 export interface Scene {
   view: CameraView | null; // what the camera sees; null when nothing says
   units: DrawUnit[]; // bottom to top
+  markers?: DrawMarker[]; // where units fell, under the units
   date: string | null; // the on-screen date, or null when the shot hides it
   darkness: number; // 0 the picture as it is, 1 black (fades)
 }
@@ -57,39 +71,71 @@ export function sceneMoment(input: SceneInput, seconds: number): HistoryTime {
   );
 }
 
-// The units on the map at a moment, where the marches have taken them. Before the story starts
-// moving every unit stands where it was placed, as in the editor.
+const drawUnit = (unit: Unit, exit?: ExitFrame): DrawUnit => ({
+  id: unit.id,
+  assetType: unit.assetType,
+  path: unit.path ?? unit.filename,
+  x: unit.x,
+  y: unit.y,
+  rotation: unit.rotation,
+  scale: unit.scale,
+  flipped: !!unit.flipped,
+  ...(unit.block ? { block: unit.block } : {}),
+  ...(exit ? { exit } : {}),
+});
+
+// The units on the map at a moment, where the marches have taken them, blocks thinned by their
+// losses. Before the story starts moving every unit stands where it was placed, as in the
+// editor. With `ageOf` (how many seconds of video ago a unit left), units part way through
+// leaving are there too, under the rest, frozen where they left and breaking up.
 export function unitsAt(
   units: Unit[],
   timeline: Timeline,
   moment: HistoryTime,
-  storyStart: HistoryTime
+  storyStart: HistoryTime,
+  ageOf?: (unit: Unit) => number | null
 ): DrawUnit[] {
   const states = moment > storyStart ? timeline.stateAt(moment) : null;
-  return units
+  const leaving = ageOf
+    ? leavingAt(units, timeline, moment, ageOf).map(({ unit, progress }) =>
+        drawUnit(
+          unit,
+          exitFrame(
+            unit.exit!.style,
+            progress,
+            unit.id,
+            backAngle(unit),
+            pictureAspect(unit)
+          )
+        )
+      )
+    : [];
+  const here = units
     .filter((unit) => existsAt(unit, moment))
     .map((unit) => {
       const state = states?.get(unit.id);
-      return {
-        id: unit.id,
-        assetType: unit.assetType,
-        path: unit.path ?? unit.filename,
-        x: state ? state.x : unit.x,
-        y: state ? state.y : unit.y,
-        rotation: state ? state.rotation : unit.rotation,
-        scale: unit.scale,
-        flipped: state ? state.flipped : !!unit.flipped,
-        ...(unit.block ? { block: unit.block } : {}),
-      };
+      return drawUnit(unitAt(state ? { ...unit, ...state } : unit, moment));
     });
+  return [...leaving, ...here];
 }
 
 // What the video shows at a moment of the video
 export function sceneAt(input: SceneInput, seconds: number): Scene {
   const moment = sceneMoment(input, seconds);
+  const ageOf = (unit: Unit) =>
+    unit.leaves === undefined
+      ? null
+      : videoExitAge(input.shots, seconds, unit.leaves);
   return {
     view: cameraAt(input.shots, seconds, input.opening, input.tracker),
-    units: unitsAt(input.units, input.timeline, moment, input.storyStart),
+    units: unitsAt(
+      input.units,
+      input.timeline,
+      moment,
+      input.storyStart,
+      ageOf
+    ),
+    markers: markersAt(input.units, input.timeline, moment, ageOf),
     date: dateHiddenAt(input.shots, seconds)
       ? null
       : formatHistoryTime(moment, input.displayMode),

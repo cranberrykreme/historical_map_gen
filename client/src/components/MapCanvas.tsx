@@ -14,6 +14,7 @@ import TerrainDrawOverlay from "./terrain/TerrainDrawOverlay";
 import TerrainBrushOverlay from "./terrain/TerrainBrushOverlay";
 import TerrainHint from "./terrain/TerrainHint";
 import BlockPlaceOverlay from "./blocks/BlockPlaceOverlay";
+import MarkerLayer from "./exits/MarkerLayer";
 import useCamera from "../hooks/useCamera";
 import useVideoCamera from "../hooks/useVideoCamera";
 import useFullscreenKeys from "../hooks/useFullscreenKeys";
@@ -23,7 +24,7 @@ import { useAssetStore } from "../store/useAssetStore";
 import { usePathToolStore } from "../store/usePathToolStore";
 import { useTerrainToolStore } from "../store/useTerrainToolStore";
 import { useBlockToolStore } from "../store/useBlockToolStore";
-import { ViewportApi } from "../types";
+import { Unit, ViewportApi } from "../types";
 import {
   currentMoment,
   isPastStart,
@@ -33,6 +34,28 @@ import { existsAt, getTimeline } from "../utils/timeline";
 import { editableAt } from "../utils/lifespans";
 import { videoDarkness } from "../utils/camera";
 import { fitBox } from "../utils/scenes";
+import { unitAt } from "../utils/blocks";
+import {
+  backAngle,
+  exitFrame,
+  historyExitAge,
+  leavingAt,
+  markersAt,
+  pictureAspect,
+  videoExitAge,
+} from "../utils/exits";
+
+// Whether a key press is someone typing into a box, rather than a shortcut
+const isTyping = (target: EventTarget | null) => {
+  const el = target as HTMLElement | null;
+  return (
+    !!el &&
+    (el.tagName === "INPUT" ||
+      el.tagName === "TEXTAREA" ||
+      el.tagName === "SELECT" ||
+      el.isContentEditable)
+  );
+};
 
 function MapCanvas({
   viewportApiRef,
@@ -78,6 +101,7 @@ function MapCanvas({
   const videoFrame = useMapStore((state) => state.videoFrame);
   const shots = useMapStore((state) => state.shots);
   const videoTime = useTimelineStore((state) => state.videoTime);
+  const pace = useTimelineStore((state) => state.pace);
   const activeSceneId = useMapStore((state) => state.activeSceneId);
   // The battle being edited, if it's a battle rather than the main map
   const battle = useMapStore(
@@ -166,8 +190,36 @@ function MapCanvas({
           5
         );
       }
-      return display;
+      // A block thins as it takes losses
+      return unitAt(display, moment);
     });
+
+  // Units dying (or otherwise leaving) at the playhead, part way through their animation, and
+  // the markers left where units fell. In video mode the animation runs in seconds of video, as
+  // the render does; in history mode it runs at the playback pace, so scrubbing shows it.
+  const ageOf = (unit: Unit) =>
+    unit.leaves === undefined
+      ? null
+      : inVideo
+        ? videoExitAge(shots, videoTime, unit.leaves)
+        : historyExitAge(moment, unit.leaves, pace);
+  const leaving = preview
+    ? []
+    : leavingAt(placedUnits, timeline, moment, ageOf).map(
+        ({ unit, progress }) => ({
+          unit,
+          frame: exitFrame(
+            unit.exit!.style,
+            progress,
+            unit.id,
+            backAngle(unit),
+            pictureAspect(unit)
+          ),
+        })
+      );
+  const markers = preview
+    ? []
+    : markersAt(placedUnits, timeline, moment, ageOf);
 
   // The map is placed in a shadow root so the styles inside the SVG file can't leak out
   // and restyle the rest of the app (path lines, portrait editor, ...)
@@ -225,6 +277,16 @@ function MapCanvas({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Shift") setIsShiftHeld(true);
+      // K: the selected units die at the playhead
+      if (
+        (e.key === "k" || e.key === "K") &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !isTyping(e.target)
+      ) {
+        useMapStore.getState().killSelectedUnits();
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === "Shift") setIsShiftHeld(false);
@@ -351,6 +413,7 @@ function MapCanvas({
       >
         {battle && <BattleGround battle={battle} />}
         <div ref={svgRef} />
+        <MarkerLayer markers={markers} />
         <PathLayer
           mode="lines"
           scaleRef={scaleRef}
@@ -365,6 +428,7 @@ function MapCanvas({
           isShiftHeld={isShiftHeld}
           setCursor={setCursor}
           lockedIds={lockedIds}
+          leaving={leaving}
         />
         <PathLayer
           mode="markers"

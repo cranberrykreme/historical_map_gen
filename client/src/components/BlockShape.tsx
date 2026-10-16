@@ -6,14 +6,11 @@ import {
   blockFront,
   blockLabel,
   blockLineWidths,
+  blockBox,
   blockOutline,
-  blockReach,
   blockSymbol,
   stepsPath,
 } from "../utils/blocks";
-
-// Room round the block for its thick front edge and a selection outline
-const PAD = 6;
 
 const polyline = (points: { x: number; y: number }[]) =>
   points
@@ -135,9 +132,7 @@ function BlockShape({
   onMouseDown?: (e: React.MouseEvent) => void;
   children?: React.ReactNode; // more drawing on top, in the block's space (handles)
 }) {
-  const { halfWidth, halfHeight } = blockReach(block);
-  const w = 2 * (halfWidth + PAD);
-  const h = 2 * (halfHeight + PAD);
+  const { width: w, height: h } = blockBox(block);
   const k = fit ? Math.min(fit.width / w, fit.height / h) : 1;
   return (
     <svg
