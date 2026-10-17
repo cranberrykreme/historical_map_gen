@@ -195,7 +195,21 @@ export interface Battle {
   // The battleground's features, bottom to top within each kind (see utils/terrain). Missing
   // on battles made before terrain.
   terrain?: TerrainFeature[];
+  // How the terrain looks (see utils/terrainStyles). Missing means "painted".
+  style?: TerrainStyle;
 }
+
+// A battle's look: the same terrain drawn in full colour, in another season or light, or as
+// an old or textbook map
+export type TerrainStyle =
+  | "painted"
+  | "autumn"
+  | "winter"
+  | "arid"
+  | "night"
+  | "parchment"
+  | "ink"
+  | "textbook";
 
 // What can be drawn on a battleground. Areas are closed shapes (a smooth curve through their
 // points, back to the start); lines are open ones (streams, roads).

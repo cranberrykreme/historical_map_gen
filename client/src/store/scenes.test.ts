@@ -94,6 +94,14 @@ test("renaming and resizing a battle are undoable; a blank name keeps the old on
   expect(store().battles[0]).toMatchObject({ name: "Hastings", width: 1600 });
 });
 
+test("changing a battle's terrain style is undoable", () => {
+  const id = store().addBattle();
+  store().updateBattle(id, { style: "winter" });
+  expect(store().battles[0].style).toBe("winter");
+  store().undo();
+  expect(store().battles[0].style).toBeUndefined();
+});
+
 test("deleting the open battle goes back to the map and throws its contents away", () => {
   const id = store().addBattle();
   store().switchScene(id);

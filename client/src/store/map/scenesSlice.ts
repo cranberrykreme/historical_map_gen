@@ -68,7 +68,8 @@ export const createScenesSlice: StateCreator<MapStore, [], [], ScenesSlice> = (
       next.name === battle.name &&
       next.kind === battle.kind &&
       next.width === battle.width &&
-      next.height === battle.height
+      next.height === battle.height &&
+      next.style === battle.style
     )
       return;
     set({

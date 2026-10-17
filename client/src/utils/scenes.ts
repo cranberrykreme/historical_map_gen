@@ -1,5 +1,6 @@
 import { Battle, BattleKind, MAP_SCENE, SceneContent } from "../types";
 import { parseTerrain } from "./terrain";
+import { isTerrainStyle } from "./terrainStyles";
 
 // The sizes a new battle can be, in map units (a unit is 48 map units wide)
 export const BATTLE_SIZES: { label: string; width: number; height: number }[] =
@@ -100,5 +101,6 @@ export function parseBattleInfo(raw: any): Battle | null {
     width: size(raw.width, BATTLE_SIZES[0].width),
     height: size(raw.height, BATTLE_SIZES[0].height),
     terrain: parseTerrain(raw.terrain),
+    ...(isTerrainStyle(raw.style) ? { style: raw.style } : {}),
   };
 }

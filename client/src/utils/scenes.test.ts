@@ -78,3 +78,12 @@ test("saved battles are read carefully", () => {
   });
   expect(parseBattleInfo({ name: "no id" })).toBeNull();
 });
+
+test("a saved battle's terrain style is kept, and an unknown one dropped", () => {
+  expect(parseBattleInfo({ id: "b", style: "parchment" })?.style).toBe(
+    "parchment"
+  );
+  expect(parseBattleInfo({ id: "b", style: "neon" })).not.toHaveProperty(
+    "style"
+  );
+});

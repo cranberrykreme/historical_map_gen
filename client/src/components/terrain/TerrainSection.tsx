@@ -12,7 +12,10 @@ import {
   TERRAIN_GROUPS,
 } from "../../utils/terrain";
 import { BRUSH_MAX, BRUSH_MIN } from "../../utils/terrainBrush";
+import { styleInfo } from "../../utils/terrainStyles";
 import AddTerrainDialog from "./AddTerrainDialog";
+import TerrainStyleDialog from "./TerrainStyleDialog";
+import TerrainStylePreview from "./TerrainStylePreview";
 import TerrainSwatch from "./TerrainSwatch";
 import CollapsibleSection from "../toolbar/CollapsibleSection";
 import deleteStyles from "../toolbar/DeleteButton.module.css";
@@ -57,7 +60,11 @@ const SIZE_VALUE: React.CSSProperties = {
 };
 // Fills the section's width, padding and border included, so it never runs past the panel
 
-// The open battle's terrain: a button to add a feature (it opens a picker with every kind),
+// The little picture of the battle's style
+const STYLE_PICTURE: React.CSSProperties = { width: 64, flexShrink: 0 };
+
+// The open battle's terrain: its style (how the whole battlefield looks, picked from a popup
+// of pictures), a button to add a feature (it opens a picker with every kind),
 // a switch to edit what's drawn on the map, the brush and eraser (with the kind they work
 // with, their size, and whether the eraser rubs out every kind), and the features grouped by
 // type. Click one to select it, double-click its name to rename it, × to delete it; the
@@ -68,6 +75,7 @@ function TerrainSection({ battle }: { battle: Battle }) {
   const selectedId = useTerrainToolStore((state) => state.selectedId);
   const tool = useTerrainToolStore.getState;
   const updateTerrain = useMapStore((state) => state.updateTerrain);
+  const updateBattle = useMapStore((state) => state.updateBattle);
   const deleteTerrain = useMapStore((state) => state.deleteTerrain);
   const selectUnit = useMapStore((state) => state.selectUnit);
   const brush = useTerrainToolStore((state) => state.brush);
@@ -75,7 +83,9 @@ function TerrainSection({ battle }: { battle: Battle }) {
   const brushSize = useTerrainToolStore((state) => state.brushSize);
   const eraseAll = useTerrainToolStore((state) => state.eraseAll);
 
-  const [picker, setPicker] = useState<"add" | "change" | "brush" | null>(null);
+  const [picker, setPicker] = useState<
+    "add" | "change" | "brush" | "style" | null
+  >(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
@@ -109,6 +119,19 @@ function TerrainSection({ battle }: { battle: Battle }) {
 
   return (
     <CollapsibleSection id="terrain" title={`Terrain: ${battle.name}`}>
+      <div style={TYPE_ROW} title={styleInfo(battle.style).hint}>
+        <div style={STYLE_PICTURE}>
+          <TerrainStylePreview style={battle.style} height={22} />
+        </div>
+        <span style={TYPE_NAME}>Style: {styleInfo(battle.style).label}</span>
+        <button
+          className={styles.cancelButton}
+          title="Pick how this battle's terrain looks: a season, night, or an old or textbook map"
+          onClick={() => setPicker("style")}
+        >
+          Change…
+        </button>
+      </div>
       {drawing ? (
         <div className={styles.actions}>
           <span className={styles.hint} style={{ flex: 1 }}>
@@ -161,7 +184,7 @@ function TerrainSection({ battle }: { battle: Battle }) {
       {brush && (
         <>
           <div style={TYPE_ROW}>
-            <TerrainSwatch kind={brushKind} />
+            <TerrainSwatch kind={brushKind} style={battle.style} />
             <span style={TYPE_NAME}>{brushLabel}</span>
             <button
               className={styles.cancelButton}
@@ -231,7 +254,7 @@ function TerrainSection({ battle }: { battle: Battle }) {
                       tool().select(active ? null : f.id);
                     }}
                   >
-                    <TerrainSwatch kind={f.kind} />
+                    <TerrainSwatch kind={f.kind} style={battle.style} />
                     {renamingId === f.id ? (
                       <input
                         autoFocus
@@ -280,7 +303,7 @@ function TerrainSection({ battle }: { battle: Battle }) {
 
       {selected && (
         <div style={TYPE_ROW}>
-          <TerrainSwatch kind={selected.kind} />
+          <TerrainSwatch kind={selected.kind} style={battle.style} />
           <span style={TYPE_NAME}>{kindInfo(selected.kind).label}</span>
           <button
             className={styles.cancelButton}
@@ -295,6 +318,7 @@ function TerrainSection({ battle }: { battle: Battle }) {
       {picker === "add" && (
         <AddTerrainDialog
           title="Add terrain"
+          style={battle.style}
           onClose={() => setPicker(null)}
           onPick={(kind) => {
             setPicker(null);
@@ -306,6 +330,7 @@ function TerrainSection({ battle }: { battle: Battle }) {
         <AddTerrainDialog
           title={brush === "erase" ? "Erase…" : "Paint with…"}
           current={brushKind}
+          style={battle.style}
           onClose={() => setPicker(null)}
           onPick={(kind) => {
             setPicker(null);
@@ -318,10 +343,22 @@ function TerrainSection({ battle }: { battle: Battle }) {
           title={`Change ${labels.get(selected.id)} to…`}
           shape={kindInfo(selected.kind).shape}
           current={selected.kind}
+          style={battle.style}
           onClose={() => setPicker(null)}
           onPick={(kind) => {
             setPicker(null);
             updateTerrain(battle.id, selected.id, { kind });
+          }}
+        />
+      )}
+      {picker === "style" && (
+        <TerrainStyleDialog
+          battleName={battle.name}
+          current={battle.style}
+          onClose={() => setPicker(null)}
+          onPick={(style) => {
+            setPicker(null);
+            updateBattle(battle.id, { style });
           }}
         />
       )}

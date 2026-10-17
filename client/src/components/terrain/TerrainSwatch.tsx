@@ -1,11 +1,19 @@
 import React from "react";
-import { TerrainKind } from "../../types";
+import { TerrainKind, TerrainStyle } from "../../types";
 import { isLine } from "../../utils/terrain";
+import { styleGround } from "../../utils/terrainStyles";
 import { FeatureDrawing } from "./terrainShapes";
 
 // A small patch of a terrain kind for lists: its colour and texture filling the patch, or a
-// short straight piece of a line. The patterns it uses come from TerrainPatterns.
-function TerrainSwatch({ kind }: { kind: TerrainKind }) {
+// short straight piece of a line, in the battle's style. The patterns it uses come from
+// TerrainPatterns (in the same style).
+function TerrainSwatch({
+  kind,
+  style,
+}: {
+  kind: TerrainKind;
+  style?: TerrainStyle;
+}) {
   const line = isLine(kind);
   // Lines are wide, so they're shown from further out
   const [w, h] = line ? [100, 46] : [68, 32];
@@ -34,8 +42,15 @@ function TerrainSwatch({ kind }: { kind: TerrainKind }) {
       }}
       aria-hidden="true"
     >
-      <rect width={w} height={h} fill={line ? "#8fae62" : "none"} />
-      <FeatureDrawing feature={{ id: `swatch-${kind}`, kind, points }} />
+      <rect
+        width={w}
+        height={h}
+        fill={line ? styleGround("land", style) : "none"}
+      />
+      <FeatureDrawing
+        feature={{ id: `swatch-${kind}`, kind, points }}
+        style={style}
+      />
     </svg>
   );
 }

@@ -1,6 +1,7 @@
 import React from "react";
-import { TerrainFeature } from "../../types";
+import { TerrainFeature, TerrainStyle } from "../../types";
 import { featureStrokes, svgFill, TerrainStroke } from "../../utils/terrain";
+import { styleStrokes } from "../../utils/terrainStyles";
 
 // Strokes as SVG paths, exactly as the renderer will draw them (see strokesSvg). A stroke drawn
 // inside a shape (or any of several) gets a clip path, named from `idPrefix` so drawings on one
@@ -46,17 +47,23 @@ export function TerrainStrokes({
   );
 }
 
-// One feature's drawing on its own (the shape being drawn), without the ways it meets others
+// One feature's drawing on its own (the shape being drawn), without the ways it meets others,
+// in a terrain style
 export function FeatureDrawing({
   feature,
   opacity,
+  style,
 }: {
   feature: TerrainFeature;
   opacity?: number;
+  style?: TerrainStyle;
 }) {
   return (
     <g opacity={opacity}>
-      <TerrainStrokes strokes={featureStrokes(feature)} idPrefix="draft" />
+      <TerrainStrokes
+        strokes={styleStrokes(featureStrokes(feature), style)}
+        idPrefix="draft"
+      />
     </g>
   );
 }

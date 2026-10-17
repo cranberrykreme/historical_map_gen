@@ -4,6 +4,7 @@ import {
   PathPoint,
   TerrainFeature,
   TerrainKind,
+  TerrainStyle,
 } from "../types";
 import {
   alongLine,
@@ -34,8 +35,13 @@ import {
   strokesSvg,
   TerrainStroke,
   TERRAIN_KINDS,
-  TERRAIN_PATTERNS,
 } from "./terrain";
+import {
+  styleGround,
+  styleOverlay,
+  stylePatterns,
+  styleStrokes,
+} from "./terrainStyles";
 
 export { inPolygon };
 
@@ -881,6 +887,7 @@ export function battleStrokes(
               (area.feature.holes ?? []).map(shift).join(""),
             fill: "#2a2a10",
             opacity: 0.14,
+            shading: true,
             fillRule: area.rule,
           });
         }
@@ -982,6 +989,7 @@ export function battleStrokes(
           stroke: "#2a2a10",
           width: 46,
           opacity: 0.12,
+          shading: true,
         });
         out.push(...lineStrokes("ridge", runs));
       }
@@ -1013,6 +1021,7 @@ export function battleStrokes(
               holesPath(area.feature),
             fill: "pattern:shade",
             opacity: area.feature.kind === "hill" ? 0.5 : 0.4,
+            shading: true,
             fillRule: area.rule,
           });
       }
@@ -1031,12 +1040,14 @@ export function battleStrokes(
           stroke: "#ffffff",
           width: 24,
           opacity: 0.11,
+          shading: true,
         });
         out.push({
           d: shifted(6, 7),
           stroke: "#000000",
           width: 24,
           opacity: 0.1,
+          shading: true,
         });
       }
   }
@@ -1386,20 +1397,54 @@ export function battleStrokes(
   return out;
 }
 
+// Every stroke of a battleground in the battle's style (see terrainStyles): recoloured, with
+// whatever the style draws on top (hachures, contours, paper grain)
+export function styledBattleStrokes(
+  features: TerrainFeature[],
+  ground: BattleKind,
+  width: number,
+  height: number,
+  style?: TerrainStyle
+): TerrainStroke[] {
+  return styleBattle(
+    battleStrokes(features, ground, width, height),
+    features,
+    width,
+    height,
+    style
+  );
+}
+
+// Strokes already worked out for a battleground, put in a style
+export const styleBattle = (
+  strokes: TerrainStroke[],
+  features: TerrainFeature[],
+  width: number,
+  height: number,
+  style?: TerrainStyle
+): TerrainStroke[] =>
+  !style || style === "painted"
+    ? strokes
+    : [
+        ...styleStrokes(strokes, style),
+        ...styleOverlay(features, width, height, style),
+      ];
+
 // The whole battleground as an SVG file: the ground, every feature and the ways they meet, at
-// the battle's size in map units. The renderer draws from this (9.6), so the video matches
-// the editor.
+// the battle's size in map units, in the battle's style. The renderer draws from this (9.6),
+// so the video matches the editor.
 export function terrainSvg(battle: Battle): string {
-  const strokes = battleStrokes(
+  const strokes = styledBattleStrokes(
     battle.terrain ?? [],
     battle.kind,
     battle.width,
-    battle.height
+    battle.height,
+    battle.style
   );
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${battle.width}" height="${battle.height}" ` +
-    `viewBox="0 0 ${battle.width} ${battle.height}"><defs>${TERRAIN_PATTERNS}</defs>` +
-    `<rect width="${battle.width}" height="${battle.height}" fill="${GROUND_COLOUR[battle.kind]}"/>` +
+    `viewBox="0 0 ${battle.width} ${battle.height}"><defs>${stylePatterns(battle.style)}</defs>` +
+    `<rect width="${battle.width}" height="${battle.height}" fill="${styleGround(battle.kind, battle.style)}"/>` +
     `${strokesSvg(strokes)}</svg>`
   );
 }

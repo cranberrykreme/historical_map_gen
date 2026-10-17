@@ -555,6 +555,7 @@ export interface TerrainStroke {
   clip?: string | string[];
   clipRule?: "evenodd"; // a clip shape with holes cut in it
   fillRule?: "evenodd"; // a shape with holes cut in it
+  shading?: boolean; // light and shadow on high ground, left out by flat styles
 }
 
 const PATTERN = (name: string) => `pattern:${name}`;

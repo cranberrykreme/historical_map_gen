@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { TerrainKind } from "../../types";
+import { TerrainKind, TerrainStyle } from "../../types";
 import {
   TERRAIN_GROUPS,
   TERRAIN_KINDS,
@@ -49,8 +49,10 @@ function AddTerrainDialog({
   current,
   onPick,
   onClose,
+  style,
 }: {
   title: string;
+  style?: TerrainStyle; // the battle's style, which the pictures are drawn in
   shape?: TerrainShape; // only offer areas, or only lines
   current?: TerrainKind; // the kind it is now, outlined
   onPick: (kind: TerrainKind) => void;
@@ -90,7 +92,7 @@ function AddTerrainDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <TerrainPatterns />
+      <TerrainPatterns style={style} />
       <div className={styles.panel} role="dialog" aria-label={title}>
         <div className={styles.header}>
           <span className={styles.title}>{title}</span>
@@ -136,7 +138,7 @@ function AddTerrainDialog({
                       }
                       onClick={() => onPick(kind)}
                     >
-                      <TerrainThumb kind={kind} height={86} />
+                      <TerrainThumb kind={kind} height={86} style={style} />
                       <span className={styles.name}>{label}</span>
                       <span className={styles.hint}>{hint}</span>
                     </button>

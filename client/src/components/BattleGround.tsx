@@ -3,13 +3,12 @@ import { Battle } from "../types";
 import { useTerrainToolStore } from "../store/useTerrainToolStore";
 import {
   featurePath,
-  GROUND_COLOUR,
   isLine,
   LINE_WIDTH,
   sortedFeatures,
-  TERRAIN_PATTERNS,
 } from "../utils/terrain";
-import { battleStrokes } from "../utils/terrainScene";
+import { battleStrokes, styleBattle } from "../utils/terrainScene";
+import { styleGround, stylePatterns } from "../utils/terrainStyles";
 import { safeId, TerrainStrokes } from "./terrain/terrainShapes";
 import styles from "./BattleGround.module.css";
 
@@ -39,9 +38,16 @@ function BattleGround({ battle }: { battle: Battle }) {
       ),
     [battle.terrain, preview]
   );
-  const strokes = useMemo(
+  const plain = useMemo(
     () => battleStrokes(features, battle.kind, battle.width, battle.height),
     [features, battle.kind, battle.width, battle.height]
+  );
+  // In the battle's style (see terrainStyles): recoloured, with hachures, contours or paper
+  // grain on top
+  const strokes = useMemo(
+    () =>
+      styleBattle(plain, features, battle.width, battle.height, battle.style),
+    [plain, features, battle.width, battle.height, battle.style]
   );
 
   const isClick = (e: React.MouseEvent) =>
@@ -59,11 +65,11 @@ function BattleGround({ battle }: { battle: Battle }) {
         down.current = { x: e.clientX, y: e.clientY };
       }}
     >
-      <defs dangerouslySetInnerHTML={{ __html: TERRAIN_PATTERNS }} />
+      <defs dangerouslySetInnerHTML={{ __html: stylePatterns(battle.style) }} />
       <rect
         width={battle.width}
         height={battle.height}
-        fill={GROUND_COLOUR[battle.kind]}
+        fill={styleGround(battle.kind, battle.style)}
         style={{ pointerEvents: selectable ? "fill" : "none" }}
         onClick={(e) => {
           if (selectable && isClick(e)) select(null);

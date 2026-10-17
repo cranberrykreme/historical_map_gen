@@ -12,7 +12,7 @@ function DrawingPanel() {
   );
   return (
     <div className={styles.panel}>
-      <TerrainPatterns />
+      <TerrainPatterns style={openBattle?.style} />
       <div className={styles.list}>
         {openBattle ? (
           <TerrainSection battle={openBattle} />

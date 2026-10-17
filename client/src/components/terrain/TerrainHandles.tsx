@@ -12,6 +12,7 @@ import {
   polylinePath,
   smoothPath,
 } from "../../utils/terrain";
+import { styleColour } from "../../utils/terrainStyles";
 import { FeatureDrawing } from "./terrainShapes";
 import styles from "../BattleGround.module.css";
 
@@ -158,6 +159,7 @@ function TerrainHandles({
           <FeatureDrawing
             feature={{ id: "draft", kind: drawing, points }}
             opacity={0.75}
+            style={battle.style}
           />
         )}
         {points.length >= 2 && (
@@ -192,8 +194,11 @@ function TerrainHandles({
     const colour =
       brush === "erase"
         ? "#ffffff"
-        : (baseStrokes({ id: "brush", kind: brushKind, points: [] })[0]?.fill ??
-          GOLD);
+        : styleColour(
+            baseStrokes({ id: "brush", kind: brushKind, points: [] })[0]
+              ?.fill ?? GOLD,
+            battle.style
+          );
     const at = hover ?? (stroke ? stroke[stroke.length - 1] : null);
     brushLayer = (
       <g>
@@ -203,6 +208,7 @@ function TerrainHandles({
               <FeatureDrawing
                 feature={{ id: "stroke", kind: brushKind, points: stroke }}
                 opacity={0.8}
+                style={battle.style}
               />
             )
           ) : (
