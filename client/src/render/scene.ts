@@ -2,19 +2,22 @@ import {
   CameraView,
   FormationBlock,
   HistoryDisplay,
+  MAP_SCENE,
   Shot,
   Unit,
   WipeDirection,
 } from "../types";
 import {
   ArmyTracker,
+  BattleCameras,
   cameraAt,
   secondsInShot,
   transitionAt,
   videoDarkness,
 } from "../utils/camera";
 import { formatHistoryTime, HistoryTime } from "../utils/historyTime";
-import { dateHiddenAt, videoMoment } from "../utils/shots";
+import { dateHiddenAt, shotAt, videoMoment } from "../utils/shots";
+import { BattleScene } from "../utils/battleCameras";
 import { existsAt, Timeline } from "../utils/timeline";
 import { unitAt } from "../utils/blocks";
 import {
@@ -46,6 +49,9 @@ export interface DrawUnit {
 // Everything that goes into one frame of the video, worked out from the project alone. Paths,
 // markers, the frame outline and anything selected are editing aids and never appear.
 export interface Scene {
+  // Which scene this is: the main map, or a battle by its id (its ground is drawn instead of
+  // the map). Missing means the main map.
+  sceneId?: string;
   view: CameraView | null; // what the camera sees; null when nothing says
   units: DrawUnit[]; // bottom to top
   markers?: DrawMarker[]; // where units fell, under the units
@@ -61,6 +67,17 @@ export interface SceneInput {
   displayMode: HistoryDisplay;
   opening: CameraView | null; // the project's saved view, where the camera opens
   tracker?: ArmyTracker; // for shots that follow an army
+  // The battles, for shots that show one (the units and timeline above are the main map's),
+  // and where the camera opens in each and their armies are
+  battles?: Record<string, BattleScene>;
+  battleCameras?: BattleCameras;
+}
+
+// The scene shown at a moment of the video: the shot's battle, if it shows one that exists,
+// otherwise the main map
+export function sceneIdAt(input: SceneInput, seconds: number): string {
+  const scene = shotAt(input.shots, seconds)?.shot.scene;
+  return scene && input.battles?.[scene] ? scene : MAP_SCENE;
 }
 
 // The moment in history the video shows at a moment of the video: the story's start until a
@@ -122,20 +139,25 @@ export function unitsAt(
 // What the video shows at a moment of the video
 export function sceneAt(input: SceneInput, seconds: number): Scene {
   const moment = sceneMoment(input, seconds);
+  const sceneId = sceneIdAt(input, seconds);
+  const battle = sceneId === MAP_SCENE ? null : input.battles![sceneId];
+  const units = battle ? battle.units : input.units;
+  const timeline = battle ? battle.timeline : input.timeline;
   const ageOf = (unit: Unit) =>
     unit.leaves === undefined
       ? null
       : videoExitAge(input.shots, seconds, unit.leaves);
   return {
-    view: cameraAt(input.shots, seconds, input.opening, input.tracker),
-    units: unitsAt(
-      input.units,
-      input.timeline,
-      moment,
-      input.storyStart,
-      ageOf
+    ...(battle ? { sceneId } : {}),
+    view: cameraAt(
+      input.shots,
+      seconds,
+      input.opening,
+      input.tracker,
+      input.battleCameras
     ),
-    markers: markersAt(input.units, input.timeline, moment, ageOf),
+    units: unitsAt(units, timeline, moment, input.storyStart, ageOf),
+    markers: markersAt(units, timeline, moment, ageOf),
     date: dateHiddenAt(input.shots, seconds)
       ? null
       : formatHistoryTime(moment, input.displayMode),

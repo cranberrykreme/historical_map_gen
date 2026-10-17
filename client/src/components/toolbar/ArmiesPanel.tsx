@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import ToolbarButton from "./ToolbarButton";
+import CollapsibleSection from "./CollapsibleSection";
 import { useMapStore } from "../../store/useMapStore";
 import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
 import { ArmyMember, Unit } from "../../types";
@@ -36,7 +38,6 @@ const MEMBER_TEXT: React.CSSProperties = {
   overflow: "hidden",
 };
 const FADED: React.CSSProperties = { opacity: 0.45 };
-const FULL_WIDTH: React.CSSProperties = { width: "100%" };
 const SMALL_BUTTON: React.CSSProperties = {
   width: "auto",
   padding: "1px 6px",
@@ -108,17 +109,16 @@ function ArmiesPanel() {
   };
 
   return (
-    <div className={styles.panel}>
-      <div className={styles.list}>
-        <button
-          className={styles.finishButton}
-          style={FULL_WIDTH}
+    <>
+      <CollapsibleSection id="armies" title="All armies" sub>
+        <ToolbarButton
+          icon="+"
+          label="New army from selection"
+          hint="Make the selected units an army, from the playhead's moment"
+          isExpanded={true}
           disabled={selectedUnitIds.size === 0}
           onClick={() => createArmyFromSelection()}
-          title="Make the selected units an army, from the playhead's moment"
-        >
-          New army from selection
-        </button>
+        />
 
         {armies.length === 0 && (
           <p className={styles.emptyMessage}>
@@ -189,30 +189,27 @@ function ArmiesPanel() {
             </div>
           );
         })}
+      </CollapsibleSection>
 
-        {selectedArmy && (
-          <div className={styles.section}>
-            <p
-              className={styles.sectionTitle}
-              style={ELLIPSIS}
-              title={selectedArmy.name}
-            >
-              {selectedArmy.name}: members
-            </p>
-            <button
-              className={styles.cancelButton}
-              style={FULL_WIDTH}
-              disabled={joinable.length === 0}
-              onClick={() => addSelectedUnitsToArmy(selectedArmy.id)}
-              title={
+      {selectedArmy && (
+        <>
+          <CollapsibleSection
+            id="army-members"
+            sub
+            title={`${selectedArmy.name}: members`}
+          >
+            <ToolbarButton
+              icon="+"
+              label={`Add selected units${joinable.length > 0 ? ` (${joinable.length})` : ""}`}
+              hint={
                 atStart
                   ? "The selected units join from the start"
                   : "The selected units join at the playhead's moment"
               }
-            >
-              Add selected units
-              {joinable.length > 0 ? ` (${joinable.length})` : ""}
-            </button>
+              isExpanded={true}
+              disabled={joinable.length === 0}
+              onClick={() => addSelectedUnitsToArmy(selectedArmy.id)}
+            />
 
             {selectedArmy.members.length === 0 && (
               <p className={styles.hint}>No members yet.</p>
@@ -268,8 +265,12 @@ function ArmiesPanel() {
                 </div>
               );
             })}
-
-            <p className={styles.sectionTitle}>Marches</p>
+          </CollapsibleSection>
+          <CollapsibleSection
+            id="army-marches"
+            sub
+            title={`${selectedArmy.name}: marches`}
+          >
             {armyMarches.length === 0 && (
               <p className={styles.hint}>
                 None yet. Select this army's units, then click a path on the
@@ -310,10 +311,10 @@ function ArmiesPanel() {
               unit is in one army at a time, so joining another army leaves this
               one. Double-click a name to rename it.
             </p>
-          </div>
-        )}
-      </div>
-    </div>
+          </CollapsibleSection>
+        </>
+      )}
+    </>
   );
 }
 

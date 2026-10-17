@@ -125,6 +125,17 @@ test("saved shots are read back, dropping anything unusable", () => {
   expect(parseShots("nope")).toEqual([]);
 });
 
+test("a shot of a battle keeps its battle; the main map is left unsaid", () => {
+  const [battle, map, blank] = parseShots([
+    { id: "a", name: "A", seconds: 5, from: S, to: S, scene: "b1" },
+    { id: "b", name: "B", seconds: 5, from: S, to: S, scene: "map" },
+    { id: "c", name: "C", seconds: 5, from: S, to: S, scene: 7 },
+  ]);
+  expect(battle.scene).toBe("b1");
+  expect(map).not.toHaveProperty("scene");
+  expect(blank).not.toHaveProperty("scene");
+});
+
 test("video times read as m:ss, with tenths only when needed", () => {
   expect(formatSeconds(0)).toBe("0:00");
   expect(formatSeconds(75)).toBe("1:15");

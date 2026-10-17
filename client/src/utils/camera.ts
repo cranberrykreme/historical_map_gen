@@ -1,5 +1,6 @@
 import {
   CameraView,
+  MAP_SCENE,
   Shot,
   ShotTransition,
   TransitionKind,
@@ -234,28 +235,60 @@ export function cameraInShot(
   return { centerX, centerY, height: base.height };
 }
 
+// The scene a shot shows: a battle's id, or the main map
+export const shotScene = (shot: Shot): string => shot.scene ?? MAP_SCENE;
+
+// Where the camera opens in each battle, and where each battle's armies are, for shots that
+// show a battle. (The main map's are the `opening` and `tracker` passed alongside.)
+export interface BattleCameras {
+  opening: (battleId: string) => CameraView | null;
+  tracker: (battleId: string) => ArmyTracker | undefined;
+}
+
+// The scene the camera films for a shot: its battle, or the main map when the shot shows the
+// main map or a battle that no longer exists (as the editor and renderer fall back too)
+function filmedScene(shot: Shot, battles?: BattleCameras): string {
+  const scene = shotScene(shot);
+  return scene !== MAP_SCENE && battles?.opening(scene) ? scene : MAP_SCENE;
+}
+
 // Where each shot's camera starts and ends. A shot with no start view (or following on)
-// starts where the camera was at the end of the shot before; the first starts at `opening`,
-// the project's saved view. A shot with no end view holds its start. A shot that follows an
-// army hands on wherever the army took the camera. Null for shots with nothing to go on (no
-// views anywhere before them and no opening view).
+// starts where the camera was at the end of the shot before in the same scene; the first in
+// each scene starts at that scene's opening view (the project's saved view on the main map,
+// the whole battlefield in a battle). Following on only carries on from a shot in the same
+// scene; after a cut between scenes it starts afresh. A shot with no end view holds its start.
+// A shot that follows an army hands on wherever the army took the camera. Null for shots with
+// nothing to go on (no views anywhere before them in their scene and no opening view). A shot
+// of a battle that's gone films the main map.
 export function shotCameras(
   shots: Shot[],
   opening: CameraView | null,
-  tracker?: ArmyTracker
+  tracker?: ArmyTracker,
+  battles?: BattleCameras
 ): (ShotCamera | null)[] {
-  let previous: CameraView | null = opening;
+  const openingOf = (scene: string) =>
+    scene === MAP_SCENE ? opening : (battles?.opening(scene) ?? null);
+  const trackerOf = (scene: string) =>
+    scene === MAP_SCENE ? tracker : battles?.tracker(scene);
+  // Where the camera was last left in each scene
+  const previous = new Map<string, CameraView | null>();
   return shots.map((shot, i) => {
-    // The first shot has nothing before it to follow on from
-    const follows = !!shot.followOn && i > 0;
-    const before = i > 0 ? previous : null;
-    const start = (follows ? undefined : shot.startView) ?? previous ?? null;
+    const scene = filmedScene(shot, battles);
+    const last = previous.has(scene) ? previous.get(scene)! : openingOf(scene);
+    // Only a shot straight after one in the same scene can follow on from it
+    const carriesOn = i > 0 && filmedScene(shots[i - 1], battles) === scene;
+    const follows = !!shot.followOn && carriesOn;
+    const before = carriesOn ? last : null;
+    const start = (follows ? undefined : shot.startView) ?? last ?? null;
     const end = shot.endView ?? start;
     if (!start || !end) return null;
     const camera: ShotCamera = { start, end, before };
-    previous = shot.follow
-      ? cameraInShot(shot, camera, shot.seconds, tracker)
-      : end;
+    previous.set(
+      scene,
+      shot.follow
+        ? cameraInShot(shot, camera, shot.seconds, trackerOf(scene))
+        : end
+    );
     return camera;
   });
 }
@@ -266,12 +299,17 @@ export function cameraAt(
   shots: Shot[],
   seconds: number,
   opening: CameraView | null,
-  tracker?: ArmyTracker
+  tracker?: ArmyTracker,
+  battles?: BattleCameras
 ): CameraView | null {
   const place = shotAt(shots, seconds);
   if (!place) return null;
-  const camera = shotCameras(shots, opening, tracker)[place.index];
-  return camera ? cameraInShot(place.shot, camera, place.local, tracker) : null;
+  const camera = shotCameras(shots, opening, tracker, battles)[place.index];
+  const scene = filmedScene(place.shot, battles);
+  const sceneTracker = scene === MAP_SCENE ? tracker : battles?.tracker(scene);
+  return camera
+    ? cameraInShot(place.shot, camera, place.local, sceneTracker)
+    : null;
 }
 
 // A shot's transition as it plays: never longer than either shot it joins (so it stays within

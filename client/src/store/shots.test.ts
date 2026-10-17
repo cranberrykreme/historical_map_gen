@@ -184,3 +184,47 @@ test("following an army is one undo step, and choosing nobody clears it", () => 
   store().undo();
   expect(store().shots[0].follow).toBe("army-1");
 });
+
+describe("shots of battles", () => {
+  const view = { centerX: 1, centerY: 2, height: 300 };
+
+  test("a shot added while a battle is open films that battle", () => {
+    const battle = store().addBattle({ name: "Hastings" });
+    store().switchScene(battle);
+    const id = store().addShot();
+    expect(store().shots.find((s) => s.id === id)?.scene).toBe(battle);
+    store().switchScene("map");
+    const other = store().addShot();
+    expect(store().shots.find((s) => s.id === other)).not.toHaveProperty(
+      "scene"
+    );
+  });
+
+  test("moving a shot to another scene starts its camera afresh there", () => {
+    const battle = store().addBattle();
+    const id = store().addShot();
+    store().updateShot(id, { startView: view, endView: view, follow: "x" });
+    store().updateShot(id, { scene: battle });
+    const moved = store().shots[0];
+    expect(moved.scene).toBe(battle);
+    expect(moved).not.toHaveProperty("startView");
+    expect(moved).not.toHaveProperty("endView");
+    expect(moved).not.toHaveProperty("follow");
+
+    // Back to the main map leaves no scene behind
+    store().updateShot(id, { scene: "map" });
+    expect(store().shots[0]).not.toHaveProperty("scene");
+  });
+
+  test("deleting a battle sends its shots back to the main map, and undo brings them back", () => {
+    const battle = store().addBattle();
+    const id = store().addShot();
+    store().updateShot(id, { scene: battle });
+    store().updateShot(id, { endView: view });
+    store().deleteBattle(battle);
+    expect(store().shots[0]).not.toHaveProperty("scene");
+    expect(store().shots[0]).not.toHaveProperty("endView");
+    store().undo();
+    expect(store().shots[0]).toMatchObject({ scene: battle, endView: view });
+  });
+});

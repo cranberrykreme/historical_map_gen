@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import ToolbarButton from "../toolbar/ToolbarButton";
+import CollapsibleSection from "../toolbar/CollapsibleSection";
 import { useMapStore } from "../../store/useMapStore";
 import { useBlockToolStore } from "../../store/useBlockToolStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
@@ -172,8 +174,7 @@ function BlocksSection() {
   if (selected?.block) {
     const block = selected.block;
     return (
-      <div className={styles.section}>
-        <p className={styles.sectionTitle}>Block: {unitLabel(selected)}</p>
+      <CollapsibleSection id="block" title={`Block: ${unitLabel(selected)}`}>
         <BlockFields
           key={selected.id}
           block={block}
@@ -193,13 +194,12 @@ function BlocksSection() {
             Straighten
           </button>
         )}
-      </div>
+      </CollapsibleSection>
     );
   }
 
   return (
-    <div className={styles.section}>
-      <p className={styles.sectionTitle}>Formation blocks</p>
+    <CollapsibleSection id="blocks" title="Formation blocks">
       <BlockFields
         block={draft}
         live
@@ -221,15 +221,15 @@ function BlocksSection() {
           </button>
         </div>
       ) : (
-        <button
-          className={styles.finishButton}
-          title="Click the map to put this block down"
+        <ToolbarButton
+          icon="+"
+          label="Place on map"
+          hint="Click the map to put this block down"
+          isExpanded={true}
           onClick={place}
-        >
-          Place on map
-        </button>
+        />
       )}
-    </div>
+    </CollapsibleSection>
   );
 }
 

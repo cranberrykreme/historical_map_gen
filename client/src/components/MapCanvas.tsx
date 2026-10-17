@@ -8,7 +8,6 @@ import PathLayer from "./PathLayer";
 import PathDrawOverlay from "./PathDrawOverlay";
 import FrameOverlay from "./FrameOverlay";
 import BattleGround from "./BattleGround";
-import SceneBadge from "./SceneBadge";
 import TerrainHandles from "./terrain/TerrainHandles";
 import TerrainDrawOverlay from "./terrain/TerrainDrawOverlay";
 import TerrainBrushOverlay from "./terrain/TerrainBrushOverlay";
@@ -34,6 +33,7 @@ import { existsAt, getTimeline } from "../utils/timeline";
 import { editableAt } from "../utils/lifespans";
 import { videoDarkness } from "../utils/camera";
 import { fitBox } from "../utils/scenes";
+import { applyMapTransform } from "../utils/mapTransform";
 import { unitAt } from "../utils/blocks";
 import {
   backAngle,
@@ -269,9 +269,7 @@ function MapCanvas({
     if (!place) return;
     positionRef.current = { x: place.x, y: place.y };
     scaleRef.current = place.scale;
-    if (mapRef.current) {
-      mapRef.current.style.transform = `translate(${place.x}px, ${place.y}px) scale(${place.scale})`;
-    }
+    applyMapTransform(mapRef.current, place.x, place.y, place.scale);
   }, [activeSceneId, battle]);
 
   useEffect(() => {
@@ -337,9 +335,7 @@ function MapCanvas({
           container.clientHeight / 2 - viewport.centerY * viewport.scale;
         positionRef.current = { x, y };
         scaleRef.current = viewport.scale;
-        if (mapRef.current) {
-          mapRef.current.style.transform = `translate(${x}px, ${y}px) scale(${viewport.scale})`;
-        }
+        applyMapTransform(mapRef.current, x, y, viewport.scale);
       },
     };
     viewportApiRef.current = api;
@@ -449,7 +445,6 @@ function MapCanvas({
       {frame && inVideo && (
         <FrameOverlay frame={frame} shape={videoFrame} darkness={darkness} />
       )}
-      <SceneBadge />
       {battle && drawingTerrain && (
         <TerrainDrawOverlay
           battle={battle}

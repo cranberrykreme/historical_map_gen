@@ -1,5 +1,5 @@
 import { StateCreator } from "zustand";
-import { Shot } from "../../types";
+import { MAP_SCENE, Shot } from "../../types";
 import {
   clampShot,
   DEFAULT_SHOT_SECONDS,
@@ -28,7 +28,8 @@ const sameShot = (a: Shot, b: Shot) =>
   !!a.followOn === !!b.followOn &&
   sameTransition(a.transition, b.transition) &&
   (a.fadeOut ?? 0) === (b.fadeOut ?? 0) &&
-  (a.follow ?? "") === (b.follow ?? "");
+  (a.follow ?? "") === (b.follow ?? "") &&
+  (a.scene ?? MAP_SCENE) === (b.scene ?? MAP_SCENE);
 
 export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
   set,
@@ -66,6 +67,10 @@ export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
       to: spec.to ?? from + DEFAULT_SHOT_DAYS,
       ...(spec.ease ? { ease: true } : {}),
       ...(spec.hideDate ? { hideDate: true } : {}),
+      // A new shot shows the scene being edited, unless it says otherwise
+      ...((spec.scene ?? state.activeSceneId) !== MAP_SCENE
+        ? { scene: spec.scene ?? state.activeSceneId }
+        : {}),
     });
     const shots = [...state.shots];
     shots.splice(index, 0, shot);
@@ -89,6 +94,15 @@ export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
     if (!merged.startView) delete merged.startView;
     if (!merged.endView) delete merged.endView;
     if (!merged.follow) delete merged.follow;
+    if (!merged.scene || merged.scene === MAP_SCENE) delete merged.scene;
+    // Views and the army followed belong to the scene they were set in, so moving a shot to
+    // another scene starts its camera afresh there
+    if ((merged.scene ?? MAP_SCENE) !== (current.scene ?? MAP_SCENE)) {
+      if (!("startView" in patch)) delete merged.startView;
+      if (!("endView" in patch)) delete merged.endView;
+      if (!("follow" in patch)) delete merged.follow;
+      if (!("followOn" in patch)) delete merged.followOn;
+    }
     if (!merged.fadeOut || merged.fadeOut <= 0) delete merged.fadeOut;
     else merged.fadeOut = Math.max(merged.fadeOut, MIN_TRANSITION_SECONDS);
     if (!merged.transition || merged.transition.kind === "cut") {

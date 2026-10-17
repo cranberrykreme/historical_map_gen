@@ -19,7 +19,7 @@ const SNAP_SECONDS = 0.5; // dragging a shot's end snaps to half seconds
 const DRAG_THRESHOLD = 4; // pixels the pointer moves before a press becomes a drag
 
 // What a shot shows, for its tooltip
-export function describeShot(shot: Shot): string {
+export function describeShot(shot: Shot, battleName?: string): string {
   const span = isHeld(shot)
     ? `Holds ${formatHistoryTime(shot.from, "times")}`
     : `${formatHistoryTime(shot.from, "times")} to ${formatHistoryTime(
@@ -28,6 +28,7 @@ export function describeShot(shot: Shot): string {
       )} (${formatDuration(shot.to - shot.from)})`;
   return [
     `${shot.name}: ${formatSeconds(shot.seconds)} of video`,
+    shot.scene ? `Battle: ${battleName ?? "(deleted)"}` : "",
     span,
     shot.ease ? "Eases in and out" : "",
     shot.hideDate ? "Date hidden" : "",
@@ -49,6 +50,7 @@ type Drag =
 // length. In video mode, grab the playhead to scrub the video.
 function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
   const shots = useMapStore((state) => state.shots);
+  const battles = useMapStore((state) => state.battles);
   const selectedShotId = useMapStore((state) => state.selectedShotId);
   const storyStart = useMapStore((state) => state.storyStart);
   const selectShot = useMapStore((state) => state.selectShot);
@@ -233,10 +235,16 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
               left: `${percent(starts[i])}%`,
               width: `${percent(shot.seconds)}%`,
             }}
-            title={describeShot(shot)}
+            title={describeShot(
+              shot,
+              battles.find((b) => b.id === shot.scene)?.name
+            )}
             onMouseDown={(e) => startMove(e, shot)}
           >
-            <span className={styles.shotName}>{shot.name}</span>
+            <span className={styles.shotName}>
+              {shot.scene ? "⚔ " : ""}
+              {shot.name}
+            </span>
             <span className={styles.shotSeconds}>
               {formatSeconds(shot.seconds)}
               {shot.ease ? " ~" : ""}

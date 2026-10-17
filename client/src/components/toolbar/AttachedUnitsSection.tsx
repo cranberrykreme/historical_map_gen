@@ -1,4 +1,5 @@
 import React from "react";
+import CollapsibleSection from "./CollapsibleSection";
 import { useMapStore } from "../../store/useMapStore";
 import { MapPath, Unit } from "../../types";
 import PathPreview from "./PathPreview";
@@ -59,8 +60,11 @@ function AttachedUnitsSection({
   const formationMode = selectedPath.direction !== undefined ? "wheel" : "keep";
 
   return (
-    <div className={styles.section}>
-      <p className={styles.sectionTitle}>{selectedPath.name}: attached units</p>
+    <CollapsibleSection
+      id="attached"
+      sub
+      title={`${selectedPath.name}: attached units`}
+    >
       {attachedUnits.length === 0 && !marchArmy && (
         <p className={styles.hint}>
           None yet. Select units, then click this path on the map.
@@ -132,7 +136,7 @@ function AttachedUnitsSection({
         (deselect your units first). Select a dot and press Backspace to remove
         it. Double-click a name to rename it.
       </p>
-    </div>
+    </CollapsibleSection>
   );
 }
 

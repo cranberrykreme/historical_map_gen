@@ -7,6 +7,8 @@ interface ToolbarButtonProps {
   onClick: () => void;
   isExpanded: boolean;
   isActive?: boolean;
+  disabled?: boolean;
+  hint?: string; // shown on hover; the label is used when there's none
 }
 
 function ToolbarButton({
@@ -15,11 +17,14 @@ function ToolbarButton({
   onClick,
   isExpanded,
   isActive = false,
+  disabled = false,
+  hint,
 }: ToolbarButtonProps) {
   return (
     <button
       onClick={onClick}
-      title={label}
+      disabled={disabled}
+      title={hint ?? label}
       className={`${styles.button} ${isActive ? styles.buttonActive : ""}`}
     >
       <div

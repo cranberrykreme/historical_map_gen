@@ -3,10 +3,9 @@ import ToolbarTabRail, { ToolbarTab } from "./ToolbarTabRail";
 import AssetsPanel from "./AssetsPanel";
 import PsdPanel from "./PsdPanel";
 import PortraitPanel from "./PortraitPanel";
-import PathsPanel from "./PathsPanel";
-import ArmiesPanel from "./ArmiesPanel";
-import BattlesPanel from "./BattlesPanel";
+import ScenePanel from "./ScenePanel";
 import AnimationsPanel from "./AnimationsPanel";
+import DrawingPanel from "./DrawingPanel";
 import { AssetType, ToolbarTabId } from "../../types";
 import styles from "./Toolbar.module.css";
 
@@ -28,9 +27,8 @@ const TABS: ToolbarTab[] = [
   { id: "assets", icon: "+", label: "Assets" },
   { id: "psd", icon: "✎", label: "PSD Editor" },
   { id: "portrait", icon: "◎", label: "Portrait Maker" },
-  { id: "paths", icon: "↝", label: "Paths" },
-  { id: "armies", icon: "⚑", label: "Armies" },
-  { id: "battles", icon: "⚔", label: "Battles" },
+  { id: "scene", icon: "⚔", label: "Scene: battles, paths and armies" },
+  { id: "drawing", icon: "✏", label: "Drawing" },
   { id: "animations", icon: "✦", label: "Animations" },
 ];
 
@@ -67,9 +65,8 @@ function Toolbar({
           {activeTab === "portrait" && (
             <PortraitPanel onSelectSource={onSelectPortraitSource} />
           )}
-          {activeTab === "paths" && <PathsPanel />}
-          {activeTab === "armies" && <ArmiesPanel />}
-          {activeTab === "battles" && <BattlesPanel />}
+          {activeTab === "scene" && <ScenePanel />}
+          {activeTab === "drawing" && <DrawingPanel />}
           {activeTab === "animations" && <AnimationsPanel />}
         </div>
       )}

@@ -1,4 +1,5 @@
 import React from "react";
+import CollapsibleSection from "./CollapsibleSection";
 import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
@@ -55,7 +56,7 @@ const SMALL_BUTTON: React.CSSProperties = {
 function SelectedUnitsSection({
   onStopPreview,
 }: {
-  onStopPreview: () => void;
+  onStopPreview?: () => void;
 }) {
   const placedUnits = useMapStore((state) => state.placedUnits);
   const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
@@ -77,7 +78,7 @@ function SelectedUnitsSection({
   );
   const goTo = (moment: number) => {
     usePathToolStore.getState().clearPreview();
-    onStopPreview();
+    onStopPreview?.();
     const timeline = useTimelineStore.getState();
     timeline.pause();
     timeline.setNow(moment);
@@ -86,102 +87,98 @@ function SelectedUnitsSection({
   if (selectedUnits.length === 0) return null;
 
   return (
-    <>
-      <div className={styles.section}>
-        <p className={styles.sectionTitle}>
-          {selectedUnits.length} unit
-          {selectedUnits.length === 1 ? "" : "s"} selected
-        </p>
-        <div className={styles.segment}>
-          {TRAVEL_MODES.map(({ mode, label, hint }) => (
-            <button
-              key={mode}
-              title={hint}
-              className={`${styles.segmentButton} ${
-                activeMode === mode ? styles.segmentActive : ""
-              }`}
-              onClick={() =>
-                setUnitsTravelMode(
-                  selectedUnits.map((unit) => unit.id),
-                  mode
-                )
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className={styles.hint}>
-          {activeMode
-            ? TRAVEL_MODES.find((m) => m.mode === activeMode)?.hint
-            : "Mixed settings"}
-          . Click a path on the map to attach the selected units to it.
-        </p>
-
-        {soleUnit && (
-          <div style={LIFESPAN}>
-            <div style={LIFESPAN_ROW}>
-              <span style={LIFESPAN_LABEL}>Appears</span>
-              <span style={LIFESPAN_VALUE}>
-                {soleUnit.appears !== undefined
-                  ? formatHistoryTime(soleUnit.appears, "times")
-                  : "From the start"}
-              </span>
-              {soleUnit.appears !== undefined && (
-                <button
-                  className={styles.cancelButton}
-                  style={SMALL_BUTTON}
-                  title="Move the playhead to when this unit appears, where it can be moved and turned"
-                  onClick={() => goTo(soleUnit.appears!)}
-                >
-                  Go there
-                </button>
-              )}
-            </div>
-            <div style={LIFESPAN_ROW}>
-              <span style={LIFESPAN_LABEL}>Leaves</span>
-              <span style={LIFESPAN_VALUE}>
-                {soleUnit.leaves !== undefined
-                  ? formatHistoryTime(soleUnit.leaves, "times")
-                  : "Never"}
-              </span>
-              {soleUnit.leaves !== undefined && (
-                <button
-                  className={styles.cancelButton}
-                  style={SMALL_BUTTON}
-                  title="Keep this unit until the end of the story"
-                  onClick={() => bringBackUnits([soleUnit.id])}
-                >
-                  Bring back
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-        {!soleUnit && leavingUnits.length > 0 && (
-          <div style={LIFESPAN_ROW}>
-            <span style={LIFESPAN_VALUE}>
-              {leavingUnits.length} of these leave during the story
-            </span>
-            <button
-              className={styles.cancelButton}
-              style={SMALL_BUTTON}
-              title="Keep them until the end of the story"
-              onClick={() =>
-                bringBackUnits(leavingUnits.map((unit) => unit.id))
-              }
-            >
-              Bring back
-            </button>
-          </div>
-        )}
-        <p className={styles.hint}>
-          Units placed with the playhead past the story's start appear then.
-          Deleting a unit there makes it leave at that moment. Each unit can be
-          moved only at the moment it appears.
-        </p>
+    <CollapsibleSection
+      id="selected-units"
+      title={`Selected: ${selectedUnits.length} unit${selectedUnits.length === 1 ? "" : "s"}`}
+    >
+      <p className={styles.hint}>Turning along paths</p>
+      <div className={styles.segment}>
+        {TRAVEL_MODES.map(({ mode, label, hint }) => (
+          <button
+            key={mode}
+            title={hint}
+            className={`${styles.segmentButton} ${
+              activeMode === mode ? styles.segmentActive : ""
+            }`}
+            onClick={() =>
+              setUnitsTravelMode(
+                selectedUnits.map((unit) => unit.id),
+                mode
+              )
+            }
+          >
+            {label}
+          </button>
+        ))}
       </div>
-    </>
+      <p className={styles.hint}>
+        {activeMode
+          ? TRAVEL_MODES.find((m) => m.mode === activeMode)?.hint
+          : "Mixed settings"}
+        .
+      </p>
+
+      {soleUnit && (
+        <div style={LIFESPAN}>
+          <div style={LIFESPAN_ROW}>
+            <span style={LIFESPAN_LABEL}>Appears</span>
+            <span style={LIFESPAN_VALUE}>
+              {soleUnit.appears !== undefined
+                ? formatHistoryTime(soleUnit.appears, "times")
+                : "From the start"}
+            </span>
+            {soleUnit.appears !== undefined && (
+              <button
+                className={styles.cancelButton}
+                style={SMALL_BUTTON}
+                title="Move the playhead to when this unit appears, where it can be moved and turned"
+                onClick={() => goTo(soleUnit.appears!)}
+              >
+                Go there
+              </button>
+            )}
+          </div>
+          <div style={LIFESPAN_ROW}>
+            <span style={LIFESPAN_LABEL}>Leaves</span>
+            <span style={LIFESPAN_VALUE}>
+              {soleUnit.leaves !== undefined
+                ? formatHistoryTime(soleUnit.leaves, "times")
+                : "Never"}
+            </span>
+            {soleUnit.leaves !== undefined && (
+              <button
+                className={styles.cancelButton}
+                style={SMALL_BUTTON}
+                title="Keep this unit until the end of the story"
+                onClick={() => bringBackUnits([soleUnit.id])}
+              >
+                Bring back
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {!soleUnit && leavingUnits.length > 0 && (
+        <div style={LIFESPAN_ROW}>
+          <span style={LIFESPAN_VALUE}>
+            {leavingUnits.length} of these leave during the story
+          </span>
+          <button
+            className={styles.cancelButton}
+            style={SMALL_BUTTON}
+            title="Keep them until the end of the story"
+            onClick={() => bringBackUnits(leavingUnits.map((unit) => unit.id))}
+          >
+            Bring back
+          </button>
+        </div>
+      )}
+      <p className={styles.hint}>
+        Units placed with the playhead past the story's start appear then.
+        Deleting a unit there makes it leave at that moment. Each unit can be
+        moved only at the moment it appears.
+      </p>
+    </CollapsibleSection>
   );
 }
 

@@ -383,3 +383,53 @@ test("an army counts as in a shot if anyone is on the map at some point during i
     armySeenInShot(shot("c", 10, { from: 1000, to: 1100 }), "other", marching)
   ).toBe(false);
 });
+
+describe("shots of battles", () => {
+  const BATTLE_OPENING = view(800, 450, 950);
+  const battles = {
+    opening: (id: string) => (id === "b" ? BATTLE_OPENING : null),
+    tracker: () => undefined,
+  };
+
+  test("a battle's first shot opens on the battlefield, not where the map shot ended", () => {
+    const shots = [
+      shot("a", 10, { endView: CLOSE }),
+      shot("b", 10, { scene: "b" }),
+    ];
+    expect(cameraAt(shots, 15, OPENING, undefined, battles)).toEqual(
+      BATTLE_OPENING
+    );
+  });
+
+  test("each scene carries its camera on from its own last shot", () => {
+    const shots = [
+      shot("a", 10, { endView: CLOSE }),
+      shot("b", 10, { scene: "b", endView: WIDE }),
+      shot("c", 10), // back on the main map: holds where the map was
+      shot("d", 10, { scene: "b" }), // back at the battle: holds where it was
+    ];
+    const cameras = shotCameras(shots, OPENING, undefined, battles);
+    expect(cameras[2]).toMatchObject({ start: CLOSE, end: CLOSE });
+    expect(cameras[3]).toMatchObject({ start: WIDE, end: WIDE });
+  });
+
+  test("following on only carries across a cut within the same scene", () => {
+    const shots = [
+      shot("a", 10, { startView: WIDE, endView: CLOSE }),
+      shot("b", 10, { scene: "b", followOn: true }),
+    ];
+    const cameras = shotCameras(shots, OPENING, undefined, battles);
+    expect(cameras[1]?.start).toEqual(BATTLE_OPENING);
+  });
+
+  test("a shot of a battle that's gone films the main map", () => {
+    const shots = [
+      shot("a", 10, { endView: CLOSE }),
+      shot("x", 10, { scene: "gone" }),
+    ];
+    expect(cameraAt(shots, 15, OPENING, undefined, battles)).toEqual(CLOSE);
+    expect(cameraAt([shot("b", 10, { scene: "b" })], 5, OPENING)).toEqual(
+      OPENING
+    );
+  });
+});

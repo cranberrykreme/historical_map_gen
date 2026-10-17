@@ -19,6 +19,12 @@ import { ExitFrame, UNIT_IMAGE_WIDTH } from "../utils/exits";
 import BlockShape from "./BlockShape";
 import ExitPieces from "./exits/ExitPieces";
 
+// Every unit is turned a hundredth of a degree more than its own rotation. Firefox snaps
+// pictures that sit square to the screen to whole pixels, so while the map zooms they jumped
+// a pixel back and forth against the map underneath; a turned picture isn't snapped. The
+// turn itself is far too small to see.
+const UNIT_TILT = 0.01;
+
 interface UnitLayerProps {
   units: Unit[];
   scaleRef: React.RefObject<number>;
@@ -355,7 +361,7 @@ function UnitLayer({
             position: "absolute",
             left: 0,
             top: 0,
-            transform: `translate(${unit.x}px, ${unit.y}px) translate(-50%, -50%) rotate(${unit.rotation}deg) scale(${unit.scale})`,
+            transform: `translate(${unit.x}px, ${unit.y}px) translate(-50%, -50%) rotate(${unit.rotation + UNIT_TILT}deg) scale(${unit.scale})`,
             transformOrigin: "center center",
             pointerEvents: "none",
           }}
@@ -407,7 +413,7 @@ function UnitLayer({
               position: "absolute",
               left: 0,
               top: 0,
-              transform: `translate(${unit.x}px, ${unit.y}px) translate(-50%, -50%) rotate(${unit.rotation}deg) scale(${unit.scale})`,
+              transform: `translate(${unit.x}px, ${unit.y}px) translate(-50%, -50%) rotate(${unit.rotation + UNIT_TILT}deg) scale(${unit.scale})`,
               transformOrigin: "center center",
               pointerEvents: "all",
               zIndex: isSelected ? 1000 : 1,

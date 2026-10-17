@@ -87,6 +87,20 @@ export const createScenesSlice: StateCreator<MapStore, [], [], ScenesSlice> = (
       ...withHistory(state),
       battles: state.battles.filter((b) => b.id !== id),
       sceneStash: stash,
+      // Shots that filmed the battle go back to the main map, dropping views and armies
+      // that only made sense on the battlefield
+      shots: state.shots.map((shot) => {
+        if (shot.scene !== id) return shot;
+        const {
+          scene: _scene,
+          startView: _start,
+          endView: _end,
+          follow: _follow,
+          followOn: _followOn,
+          ...rest
+        } = shot;
+        return rest;
+      }),
     });
   },
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
-import { Shot } from "../../types";
+import { MAP_SCENE, Shot } from "../../types";
 import { formatDuration } from "../../utils/historyTime";
 import { isHeld, MIN_SHOT_SECONDS } from "../../utils/shots";
 import { viewShowing } from "../../utils/timeline";
@@ -15,6 +15,7 @@ function ShotEditor({ shot }: { shot: Shot }) {
   const updateShot = useMapStore((state) => state.updateShot);
   const deleteShot = useMapStore((state) => state.deleteShot);
   const storyStart = useMapStore((state) => state.storyStart);
+  const battles = useMapStore((state) => state.battles);
   const now = useTimelineStore((state) => state.now);
 
   // The name is typed freely and saved when you leave the box or press Enter
@@ -54,6 +55,25 @@ function ShotEditor({ shot }: { shot: Shot }) {
             }
           }}
         />
+        <span className={styles.field}>
+          <span className={styles.editorLabel}>Scene</span>
+          <select
+            className={styles.editorSelect}
+            value={shot.scene ?? MAP_SCENE}
+            title="What this shot films: the main map, or one of the battles drawn up on its own ground"
+            onChange={(e) => updateShot(shot.id, { scene: e.target.value })}
+          >
+            <option value={MAP_SCENE}>Main map</option>
+            {battles.map((battle) => (
+              <option key={battle.id} value={battle.id}>
+                ⚔ {battle.name}
+              </option>
+            ))}
+            {shot.scene && !battles.some((b) => b.id === shot.scene) && (
+              <option value={shot.scene}>(battle deleted)</option>
+            )}
+          </select>
+        </span>
         <span className={styles.field}>
           <span className={styles.editorLabel}>Length</span>
           <NumberField

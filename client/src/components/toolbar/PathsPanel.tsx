@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
+import CollapsibleSection from "./CollapsibleSection";
 import ToolbarButton from "./ToolbarButton";
 import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import { getTimeline } from "../../utils/timeline";
-import SelectedUnitsSection from "./SelectedUnitsSection";
 import PathList from "./PathList";
 import AttachedUnitsSection from "./AttachedUnitsSection";
 import styles from "./PathsPanel.module.css";
@@ -96,61 +96,63 @@ function PathsPanel() {
   };
 
   return (
-    <div className={styles.panel}>
-      <ToolbarButton
-        icon="+"
-        label="New path"
-        isExpanded={true}
-        isActive={isDrawing}
-        onClick={() => {
-          if (!isDrawing) startDrawing();
-        }}
-      />
+    <>
+      <CollapsibleSection id="paths" title="All paths" sub>
+        <ToolbarButton
+          icon="+"
+          label="New path"
+          isExpanded={true}
+          isActive={isDrawing}
+          onClick={() => {
+            if (!isDrawing) startDrawing();
+          }}
+        />
 
-      {isDrawing ? (
-        <div className={styles.drawing}>
-          <p className={styles.hint}>
-            Move to the map and click to place waypoints. {pointCount} placed so
-            far.
-          </p>
-          <div className={styles.actions}>
-            <button
-              className={styles.finishButton}
-              onClick={finishDrawing}
-              disabled={pointCount < 2}
-            >
-              Finish
-            </button>
-            <button className={styles.cancelButton} onClick={cancelDrawing}>
-              Cancel
-            </button>
+        {isDrawing ? (
+          <div className={styles.drawing}>
+            <p className={styles.hint}>
+              Move to the map and click to place waypoints. {pointCount} placed
+              so far.
+            </p>
+            <div className={styles.actions}>
+              <button
+                className={styles.finishButton}
+                onClick={finishDrawing}
+                disabled={pointCount < 2}
+              >
+                Finish
+              </button>
+              <button className={styles.cancelButton} onClick={cancelDrawing}>
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className={styles.list}>
-          <SelectedUnitsSection onStopPreview={() => setIsPlaying(false)} />
-
-          <PathList
-            rename={{
-              renamingId,
-              renameValue,
-              setRenameValue,
-              startRename,
-              commitRename,
-              cancelRename: () => setRenamingId(null),
-            }}
-          />
-
-          {selectedPath && (
-            <AttachedUnitsSection
-              selectedPath={selectedPath}
-              isPlaying={isPlaying}
-              setIsPlaying={setIsPlaying}
+        ) : (
+          <>
+            <p className={styles.hint}>
+              Select units, then click a path on the map to attach them to it.
+            </p>
+            <PathList
+              rename={{
+                renamingId,
+                renameValue,
+                setRenameValue,
+                startRename,
+                commitRename,
+                cancelRename: () => setRenamingId(null),
+              }}
             />
-          )}
-        </div>
+          </>
+        )}
+      </CollapsibleSection>
+      {!isDrawing && selectedPath && (
+        <AttachedUnitsSection
+          selectedPath={selectedPath}
+          isPlaying={isPlaying}
+          setIsPlaying={setIsPlaying}
+        />
       )}
-    </div>
+    </>
   );
 }
 

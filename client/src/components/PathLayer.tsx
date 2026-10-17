@@ -10,6 +10,7 @@ import {
 import { MapPath, PathPoint } from "../types";
 import { chainedPathIds } from "../utils/timeline";
 import { pathShownAt } from "../utils/historyEdit";
+import { MAP_SCALE_VAR, screenPx, zoomLevel } from "../utils/mapTransform";
 
 interface PathLayerProps {
   // "lines" sits under the units and can be clicked; "markers" sits above them
@@ -68,7 +69,7 @@ function PathLayer({
   const commitDraftPath = usePathToolStore((state) => state.commitDraftPath);
   const insertWaypoint = usePathToolStore((state) => state.insertWaypoint);
   const preview = usePathToolStore((state) => state.preview);
-  const [scale, setScale] = useState<number>(1);
+  const [level, setLevel] = useState<number>(1);
   const mouseDownAt = useRef<{ x: number; y: number } | null>(null);
 
   // Which paths are on the map right now. At the story's start (or while previewing one path
@@ -88,21 +89,22 @@ function PathLayer({
     [allPaths, draftTiming, shownAt]
   );
 
-  // The map's zoom lives in a ref (so zooming never re-renders the whole map).
-  // Only this layer watches it, so lines and dots keep a constant on-screen size.
+  // Lines, dots and rings keep a constant size on screen through the map's --map-scale
+  // variable (see utils/mapTransform), so zooming re-renders nothing here. Only the chevrons'
+  // spacing watches the zoom, and only its power-of-two level, so they hold still on the path.
   const active = allPaths.length > 0 || drawingPoints !== null;
   useEffect(() => {
     if (!active) return;
     let frame = 0;
     const tick = () => {
-      setScale(scaleRef.current); // React skips the render when the value is unchanged
+      setLevel(zoomLevel(scaleRef.current)); // React skips the render when it's unchanged
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [active, scaleRef]);
 
-  const px = (screenPixels: number) => screenPixels / scale;
+  const px = screenPx;
 
   // A path mid-drag is drawn from its draft points
   const pointsFor = (path: MapPath): PathPoint[] =>
@@ -148,7 +150,9 @@ function PathLayer({
     const nearest = nearestOnPath(path.points, target);
     if (!nearest) return;
     const onExistingWaypoint = path.points.some(
-      (p) => Math.hypot(p.x - nearest.point.x, p.y - nearest.point.y) < px(6)
+      (p) =>
+        Math.hypot(p.x - nearest.point.x, p.y - nearest.point.y) <
+        6 / scaleRef.current
     );
     if (onExistingWaypoint) return;
     insertWaypoint(path.id, nearest.segmentIndex, nearest.point);
@@ -206,14 +210,12 @@ function PathLayer({
       <circle
         cx={point.x}
         cy={point.y}
-        r={px(11)}
-        style={{ fill: "none", stroke: OUTLINE, strokeWidth: px(6) }}
+        style={{ r: px(11), fill: "none", stroke: OUTLINE, strokeWidth: px(6) }}
       />
       <circle
         cx={point.x}
         cy={point.y}
-        r={px(11)}
-        style={{ fill: "none", stroke: colour, strokeWidth: px(3) }}
+        style={{ r: px(11), fill: "none", stroke: colour, strokeWidth: px(3) }}
       />
     </g>
   );
@@ -268,14 +270,16 @@ function PathLayer({
               />
 
               {/* Direction chevrons, a constant size on screen */}
-              {chevronsAlong(points, px(CHEVRON_SPACING_PX)).map(
+              {chevronsAlong(points, CHEVRON_SPACING_PX / level).map(
                 (chevron, index) => (
                   <g
                     key={index}
-                    transform={`translate(${chevron.x} ${chevron.y}) rotate(${
-                      (chevron.heading * 180) / Math.PI
-                    }) scale(${1 / scale})`}
-                    style={{ pointerEvents: "none" }}
+                    style={{
+                      transform: `translate(${chevron.x}px, ${chevron.y}px) rotate(${
+                        (chevron.heading * 180) / Math.PI
+                      }deg) scale(calc(1 / var(${MAP_SCALE_VAR}, 1)))`,
+                      pointerEvents: "none",
+                    }}
                   >
                     <path
                       d={CHEVRON}
@@ -339,8 +343,8 @@ function PathLayer({
                 <circle
                   cx={point.x}
                   cy={point.y}
-                  r={px(13)}
                   style={{
+                    r: px(13),
                     fill: "rgba(0, 0, 0, 0)",
                     pointerEvents: "all",
                     cursor: "move",
@@ -351,8 +355,8 @@ function PathLayer({
               <circle
                 cx={point.x}
                 cy={point.y}
-                r={px(isActive ? 8 : 6)}
                 style={{
+                  r: px(isActive ? 8 : 6),
                   fill: isActive ? ACTIVE_FILL : SELECTED,
                   stroke: isActive ? SELECTED : DARK,
                   strokeWidth: px(2),
@@ -385,8 +389,8 @@ function PathLayer({
               key={index}
               cx={point.x}
               cy={point.y}
-              r={px(6)}
               style={{
+                r: px(6),
                 fill: SELECTED,
                 stroke: DARK,
                 strokeWidth: px(2),

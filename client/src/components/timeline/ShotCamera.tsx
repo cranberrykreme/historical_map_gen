@@ -1,14 +1,25 @@
 import React from "react";
 import { useCameraStore } from "../../store/useCameraStore";
 import { useMapStore } from "../../store/useMapStore";
-import { CameraView, Shot, TransitionKind, WipeDirection } from "../../types";
-import { armySeenInShot, cameraInShot, shotCameras } from "../../utils/camera";
+import {
+  CameraView,
+  MAP_SCENE,
+  Shot,
+  TransitionKind,
+  WipeDirection,
+} from "../../types";
+import {
+  armySeenInShot,
+  cameraInShot,
+  shotCameras,
+  shotScene,
+} from "../../utils/camera";
 import {
   DEFAULT_TRANSITION_SECONDS,
   MIN_TRANSITION_SECONDS,
 } from "../../utils/shots";
 import { openingView } from "../../hooks/useVideoCamera";
-import useArmyTracker from "../../hooks/useArmyTracker";
+import useSceneCameras from "../../hooks/useSceneCameras";
 import { useTimelineStore } from "../../store/useTimelineStore";
 import { NumberField } from "./fields";
 import styles from "./Timeline.module.css";
@@ -63,7 +74,7 @@ function ViewControls({
           locked
             ? lockedHint
             : !canSet
-              ? "Switch to Video mode to see the frame and set this view"
+              ? "Switch to Video mode (on this shot) to see the frame and set this view"
               : `Use what the frame shows now as this shot's ${label.toLowerCase()} view`
         }
       >
@@ -104,17 +115,29 @@ function ShotCamera({ shot }: { shot: Shot }) {
   const updateShot = useMapStore((state) => state.updateShot);
 
   const savedViewport = useMapStore((state) => state.savedViewport);
-  const armies = useMapStore((state) => state.armies);
+  const activeSceneId = useMapStore((state) => state.activeSceneId);
+  const sceneStash = useMapStore((state) => state.sceneStash);
+  const activeArmies = useMapStore((state) => state.armies);
   const api = useCameraStore((state) => state.api);
   const inVideo = useTimelineStore((state) => state.mode === "video");
-  const tracker = useArmyTracker();
+  const { tracker: mainTracker, battles } = useSceneCameras();
+
+  // The shot films one scene: its armies and tracker come from that scene,
+  // and its views can only be set while that scene is open
+  const scene = shotScene(shot);
+  const tracker =
+    scene === MAP_SCENE ? mainTracker : (battles.tracker(scene) ?? mainTracker);
+  const armies =
+    scene === activeSceneId ? activeArmies : (sceneStash[scene]?.armies ?? []);
+  const sceneOpen = scene === activeSceneId;
 
   const index = shots.findIndex((s) => s.id === shot.id);
   const first = index === 0;
   const last = index === shots.length - 1;
   // Where each end of the camera really is, opening on the project's saved view
   const opening = savedViewport && api ? openingView() : null;
-  const camera = shotCameras(shots, opening, tracker)[index] ?? null;
+  const camera =
+    shotCameras(shots, opening, mainTracker, battles)[index] ?? null;
   // Where the camera really is at each end, following the army if the shot does
   const startView = camera ? cameraInShot(shot, camera, 0, tracker) : null;
   const endView = camera
@@ -156,7 +179,7 @@ function ShotCamera({ shot }: { shot: Shot }) {
         emptyHint={
           first ? (savedViewport ? "project view" : "not set") : "carries on"
         }
-        canSet={inVideo}
+        canSet={inVideo && sceneOpen}
         onSet={() => setView("startView")}
         onClear={() => updateShot(shot.id, { startView: undefined })}
       />
@@ -167,7 +190,7 @@ function ShotCamera({ shot }: { shot: Shot }) {
         locked={false}
         lockedHint=""
         emptyHint="holds"
-        canSet={inVideo}
+        canSet={inVideo && sceneOpen}
         onSet={() => setView("endView")}
         onClear={() => updateShot(shot.id, { endView: undefined })}
       />

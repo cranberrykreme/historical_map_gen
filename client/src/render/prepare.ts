@@ -5,6 +5,10 @@ import { useMapStore } from "../store/useMapStore";
 import { FRAME_PIXELS } from "../utils/camera";
 import { armyTracker } from "../utils/follow";
 import { getTimeline } from "../utils/timeline";
+import { allScenes } from "../utils/scenes";
+import { battleCameras, battleScenes } from "../utils/battleCameras";
+import { terrainSvg } from "../utils/terrainScene";
+import { MAP_SCENE } from "../types";
 import { readDateStyle } from "./dateStyle";
 import { DateStyle, FrameAssets, unitImageKey } from "./drawFrame";
 import { PreparedMap, prepareMap } from "./mapPicture";
@@ -14,6 +18,8 @@ import { SceneInput } from "./scene";
 export interface RenderJob {
   input: SceneInput;
   map: PreparedMap | null;
+  // Each battle's ground (its terrain), drawn instead of the map in shots that show it
+  grounds: Record<string, PreparedMap>;
   unitImages: FrameAssets["unitImages"];
   dateStyle: DateStyle;
   width: number;
@@ -40,39 +46,56 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
   });
 }
 
-// Gathers the project as it is now, the map's drawing and every unit's image, ready to draw
-// frames. Needs the map on screen, since that's where the map's size and place are measured.
+// Gathers the project as it is now, the map's drawing, each battle's ground and every unit's
+// image, ready to draw frames. Needs the map on screen, since that's where the map's size and
+// place are measured (while a battle is open, where it was last measured).
 export async function prepareRender(): Promise<RenderJob> {
   const state = useMapStore.getState();
   const project = useAssetStore.getState().currentProjectName ?? "";
   const api = useCameraStore.getState().api;
   const { width, height } = FRAME_PIXELS[state.videoFrame];
 
-  const timeline = getTimeline(state.paths, state.placedUnits);
+  // Every scene, whichever one is open in the editor
+  const scenes = allScenes(state);
+  const main = scenes[MAP_SCENE] ?? { units: [], paths: [], armies: [] };
+  const battles = battleScenes(state.battles, scenes, state.storyStart);
+  const timeline = getTimeline(main.paths, main.units);
   const input: SceneInput = {
     shots: state.shots,
-    units: state.placedUnits,
+    units: main.units,
     timeline,
     storyStart: state.storyStart,
     displayMode: state.displayMode,
     opening:
       state.savedViewport && api ? api.fromSaved(state.savedViewport) : null,
-    tracker: armyTracker(
-      timeline,
-      state.placedUnits,
-      state.armies,
-      state.storyStart
-    ),
+    tracker: armyTracker(timeline, main.units, main.armies, state.storyStart),
+    battles,
+    battleCameras: battleCameras(battles, state.videoFrame),
   };
+
+  // Each battle's ground, from (0, 0) across its whole area
+  const grounds: Record<string, PreparedMap> = {};
+  for (const battle of state.battles) {
+    const ground = prepareMap(terrainSvg(battle), {
+      x: 0,
+      y: 0,
+      width: battle.width,
+      height: battle.height,
+    });
+    if (ground) grounds[battle.id] = ground;
+  }
 
   // The map's drawing, placed where the editor shows it
   let map: PreparedMap | null = null;
-  const box = api?.mapBox() ?? null;
-  if (state.selectedMapFilename && box) {
+  if (state.selectedMapFilename && api) {
     const response = await fetch(
       `${API_BASE_URL}/api/projects/${project}/map?filename=${state.selectedMapFilename}`
     );
-    if (response.ok) map = prepareMap(await response.text(), box);
+    if (response.ok) {
+      const svgText = await response.text();
+      const box = api.mainMapBox(svgText);
+      if (box) map = prepareMap(svgText, box);
+    }
   }
 
   // Each image once, however many units use it
@@ -81,7 +104,8 @@ export async function prepareRender(): Promise<RenderJob> {
     { image: CanvasImageSource; aspect: number }
   >();
   const wanted = new Map<string, string>();
-  for (const unit of state.placedUnits) {
+  const everyUnit = Object.values(scenes).flatMap((scene) => scene.units);
+  for (const unit of everyUnit) {
     // formation blocks are drawn, not pictures
     if (unit.block) continue;
     const key = unitImageKey({
@@ -105,5 +129,13 @@ export async function prepareRender(): Promise<RenderJob> {
     })
   );
 
-  return { input, map, unitImages, dateStyle: readDateStyle(), width, height };
+  return {
+    input,
+    map,
+    grounds,
+    unitImages,
+    dateStyle: readDateStyle(),
+    width,
+    height,
+  };
 }

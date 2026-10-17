@@ -3,6 +3,7 @@ import { CameraApi, useCameraStore } from "../store/useCameraStore";
 import { useMapStore } from "../store/useMapStore";
 import { useTimelineStore } from "../store/useTimelineStore";
 import { CameraView, SavedViewport } from "../types";
+import { applyMapTransform } from "../utils/mapTransform";
 import {
   FrameRect,
   frameRect,
@@ -14,6 +15,11 @@ import {
 // The video frame on the map, and the camera that reads and moves the map through it. The
 // frame is the biggest of the video's shape that fits above the timeline. Returns the frame
 // in pixels from the map area's top left corner, or null before the map is laid out.
+type Box = { x: number; y: number; width: number; height: number };
+
+// The main map's drawing as last measured, for rendering while a battle is open
+let lastMainMapBox: Box | null = null;
+
 function useCamera(
   containerRef: React.RefObject<HTMLDivElement | null>,
   mapRef: React.RefObject<HTMLDivElement | null>,
@@ -112,6 +118,50 @@ function useCamera(
 
   // Let the shot editor (and, when playing, the video) read and set what the frame shows
   useEffect(() => {
+    // The main map's drawing as it is on screen, remembered for later
+    const measureMainMap = (): Box | null => {
+      const svg = svgRef.current?.shadowRoot?.querySelector("svg");
+      const map = mapRef.current;
+      if (!svg || !map) return null;
+      const scale = scaleRef.current ?? 1;
+      const drawing = svg.getBoundingClientRect();
+      const origin = map.getBoundingClientRect();
+      if (drawing.width === 0 || drawing.height === 0) return null;
+      lastMainMapBox = {
+        x: (drawing.left - origin.left) / scale,
+        y: (drawing.top - origin.top) / scale,
+        width: drawing.width / scale,
+        height: drawing.height / scale,
+      };
+      return lastMainMapBox;
+    };
+    // The main map's drawing laid out out of sight, where the editor would put it, for when
+    // it hasn't been on screen yet (a battle was open from the start)
+    const measureHidden = (svgText: string): Box | null => {
+      const map = mapRef.current;
+      if (!map) return null;
+      const host = document.createElement("div");
+      host.style.cssText =
+        "position:absolute;left:0;top:0;width:100%;visibility:hidden;pointer-events:none";
+      host.attachShadow({ mode: "open" }).innerHTML = svgText;
+      map.appendChild(host);
+      try {
+        const svg = host.shadowRoot?.querySelector("svg");
+        if (!svg) return null;
+        const scale = scaleRef.current ?? 1;
+        const drawing = svg.getBoundingClientRect();
+        const origin = map.getBoundingClientRect();
+        if (drawing.width === 0 || drawing.height === 0) return null;
+        return {
+          x: (drawing.left - origin.left) / scale,
+          y: (drawing.top - origin.top) / scale,
+          width: drawing.width / scale,
+          height: drawing.height / scale,
+        };
+      } finally {
+        map.removeChild(host);
+      }
+    };
     const api: CameraApi = {
       viewNow: () => {
         const now = measure();
@@ -125,9 +175,7 @@ function useCamera(
         const { x, y, scale } = placementFor(view, now);
         positionRef.current = { x, y };
         scaleRef.current = scale;
-        if (mapRef.current) {
-          mapRef.current.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-        }
+        applyMapTransform(mapRef.current, x, y, scale);
       },
       // A saved view puts its centre at the middle of the whole map area (see MapCanvas)
       fromSaved: (viewport: SavedViewport) => {
@@ -152,19 +200,16 @@ function useCamera(
         const battle = state.battles.find((b) => b.id === state.activeSceneId);
         if (battle)
           return { x: 0, y: 0, width: battle.width, height: battle.height };
-        const svg = svgRef.current?.shadowRoot?.querySelector("svg");
-        const map = mapRef.current;
-        if (!svg || !map) return null;
-        const scale = scaleRef.current ?? 1;
-        const drawing = svg.getBoundingClientRect();
-        const origin = map.getBoundingClientRect();
-        if (drawing.width === 0 || drawing.height === 0) return null;
-        return {
-          x: (drawing.left - origin.left) / scale,
-          y: (drawing.top - origin.top) / scale,
-          width: drawing.width / scale,
-          height: drawing.height / scale,
-        };
+        return measureMainMap();
+      },
+      mainMapBox: (svgText?: string) => {
+        const state = useMapStore.getState();
+        const onMap = !state.battles.some((b) => b.id === state.activeSceneId);
+        return (
+          (onMap ? measureMainMap() : null) ??
+          lastMainMapBox ??
+          (svgText ? measureHidden(svgText) : null)
+        );
       },
     };
     useCameraStore.getState().setApi(api);

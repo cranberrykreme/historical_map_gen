@@ -2,6 +2,7 @@ import React from "react";
 import ToolbarButton from "./ToolbarButton";
 import AssetSection from "./AssetSection";
 import MapSection from "./MapSection";
+import BlocksSection from "../blocks/BlocksSection";
 import { AssetType } from "../../types";
 import { useAssetStore } from "../../store/useAssetStore";
 import styles from "./AssetsPanel.module.css";
@@ -85,6 +86,7 @@ function AssetsPanel({
           onSelectMap={onSelectMap}
           onDeleteAsset={onDeleteAsset}
         />
+        <BlocksSection />
       </div>
     </div>
   );

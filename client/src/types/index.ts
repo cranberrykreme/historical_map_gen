@@ -146,6 +146,9 @@ export interface Shot {
   // The army the camera follows through this shot (its id). The shot's views still set the
   // zoom; the army sets where the camera points.
   follow?: string;
+  // The battle this shot shows (its id), with that battle's ground, units and camera. Missing
+  // means the main map.
+  scene?: string;
 }
 
 // What the camera sees: the map point at the centre of the video frame, and how many map
@@ -280,9 +283,8 @@ export type ToolbarTabId =
   | "assets"
   | "psd"
   | "portrait"
-  | "paths"
-  | "armies"
-  | "battles"
+  | "scene"
+  | "drawing"
   | "animations";
 
 export interface AssetFile {

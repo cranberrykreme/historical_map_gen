@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import CollapsibleSection from "../toolbar/CollapsibleSection";
 import { useMapStore } from "../../store/useMapStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
 import { ExitStyle, MarkerKind, UnitExit } from "../../types";
@@ -138,8 +139,7 @@ function ExitSection() {
     );
 
   return (
-    <div className={styles.section}>
-      <p className={styles.sectionTitle}>Death and leaving</p>
+    <CollapsibleSection id="death" title="Death and leaving">
       <div style={WRAP}>
         {(
           ["none", ...EXIT_STYLES.map((s) => s.style)] as (ExitStyle | "none")[]
@@ -264,7 +264,9 @@ function ExitSection() {
         onClick={() => killSelectedUnits()}
       >
         Dies here
-        {now !== null && killable ? `: ${formatHistoryTime(now, "times")}` : ""}{" "}
+        {now !== null && killable
+          ? `: ${formatHistoryTime(now, "times")}`
+          : ""}{" "}
         (K)
       </button>
       <p className={styles.hint}>
@@ -275,7 +277,7 @@ function ExitSection() {
         video moves through history. Every death is listed below; × there
         removes it.
       </p>
-    </div>
+    </CollapsibleSection>
   );
 }
 

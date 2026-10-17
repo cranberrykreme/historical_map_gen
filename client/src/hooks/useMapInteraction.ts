@@ -1,3 +1,4 @@
+import { applyMapTransform } from "../utils/mapTransform";
 import { useEffect, useRef } from "react";
 
 function useMapInteraction(
@@ -17,10 +18,8 @@ function useMapInteraction(
     if (!container) return;
 
     const applyTransform = () => {
-      if (!mapRef.current) return;
       const { x, y } = positionRef.current;
-      const scale = scaleRef.current ?? 1;
-      mapRef.current.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+      applyMapTransform(mapRef.current, x, y, scaleRef.current ?? 1);
     };
 
     const handleWheel = (e: WheelEvent) => {

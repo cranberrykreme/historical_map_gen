@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMapStore } from "../store/useMapStore";
+import { MAP_SCENE } from "../types";
 import styles from "./ProjectHeader.module.css";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "failed";
@@ -28,13 +30,18 @@ function ProjectHeader({
 }: ProjectHeaderProps) {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  // The open battle, if any: shown all the time, with a way back to the main map
+  const battle = useMapStore(
+    (state) => state.battles.find((b) => b.id === state.activeSceneId) ?? null
+  );
+  const switchScene = useMapStore((state) => state.switchScene);
 
   // Shown even when collapsed, so saving with ⌘S still gets a confirmation
   const showStatus = !isExpanded && saveStatus !== "idle";
 
   return (
     <div
-      className={`${styles.header} ${isExpanded || showStatus ? styles.active : ""}`}
+      className={`${styles.header} ${isExpanded || showStatus || battle ? styles.active : ""}`}
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
     >
@@ -73,6 +80,28 @@ function ProjectHeader({
             title="Undo (⌘Z)"
           >
             ↶
+          </button>
+        </>
+      )}
+
+      {battle && (
+        <>
+          <div className={styles.divider} />
+          <span className={styles.battleIcon}>
+            {battle.kind === "sea" ? "⚓" : "⚔"}
+          </span>
+          <span className={styles.battleName} title={battle.name}>
+            {battle.name}
+          </span>
+          <span className={styles.battleKind}>
+            {battle.kind === "sea" ? "Sea battle" : "Land battle"}
+          </span>
+          <button
+            className={styles.backButton}
+            onClick={() => switchScene(MAP_SCENE)}
+            title="Back to the main map"
+          >
+            ← Main map
           </button>
         </>
       )}

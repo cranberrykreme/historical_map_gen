@@ -59,3 +59,12 @@
   .labelActive {
     color: var(--color-gold);
   }
+
+  .button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .button:disabled:hover {
+    background: transparent;
+  }

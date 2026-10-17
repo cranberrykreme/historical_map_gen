@@ -2,7 +2,15 @@ import { MapPath, Shot, Unit } from "../types";
 import { formatHistoryTime } from "../utils/historyTime";
 import { getTimeline } from "../utils/timeline";
 import { easeCamera } from "../utils/camera";
-import { pictureAt, sceneAt, SceneInput, sceneMoment, unitsAt } from "./scene";
+import { battleCameras, battleScenes } from "../utils/battleCameras";
+import {
+  pictureAt,
+  sceneAt,
+  sceneIdAt,
+  SceneInput,
+  sceneMoment,
+  unitsAt,
+} from "./scene";
 
 const START = 1000;
 
@@ -185,5 +193,37 @@ describe("dissolves and wipes show both shots", () => {
     expect(picture.blend).not.toBeNull();
     expect(picture.scene.darkness).toBeGreaterThan(0);
     expect(picture.blend!.outgoing.darkness).toBe(picture.scene.darkness);
+  });
+});
+
+describe("shots of battles", () => {
+  const battles = battleScenes(
+    [{ id: "b", name: "Hastings", kind: "land", width: 1600, height: 900 }],
+    { b: { units: [unit("soldier")], paths: [], armies: [] } },
+    START
+  );
+  const withBattle = (shots: Shot[]) =>
+    input({
+      shots,
+      battles,
+      battleCameras: battleCameras(battles, "landscape"),
+    });
+
+  test("a battle shot shows the battle's ground, units and opening view", () => {
+    const at = withBattle([shot("m", 10), shot("s", 10, { scene: "b" })]);
+    const map = sceneAt(at, 5);
+    expect(map.sceneId).toBeUndefined();
+    expect(map.units.map((u) => u.id)).toEqual(["a"]);
+
+    const battle = sceneAt(at, 15);
+    expect(battle.sceneId).toBe("b");
+    expect(battle.units.map((u) => u.id)).toEqual(["soldier"]);
+    expect(battle.view?.centerX).toBe(800);
+  });
+
+  test("a shot of a deleted battle falls back to the main map", () => {
+    const at = withBattle([shot("s", 10, { scene: "gone" })]);
+    expect(sceneIdAt(at, 5)).toBe("map");
+    expect(sceneAt(at, 5).units.map((u) => u.id)).toEqual(["a"]);
   });
 });

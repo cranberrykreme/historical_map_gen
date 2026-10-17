@@ -16,14 +16,16 @@ async function drawScene(
   job: RenderJob,
   scene: Scene
 ): Promise<void> {
-  const view = scene.view ?? wholeMapView(job.map?.box ?? null);
+  // A battle's shot shows its ground where the map would be
+  const ground = scene.sceneId ? (job.grounds[scene.sceneId] ?? null) : job.map;
+  const view = scene.view ?? wholeMapView(ground?.box ?? null);
   let map: MapPicture | null = null;
-  if (job.map && view) {
+  if (ground && view) {
     const visible = visibleRect(view, job.width, job.height);
     const image = await loadSvgImage(
-      croppedSvgText(job.map, visible, job.width, job.height)
+      croppedSvgText(ground, visible, job.width, job.height)
     );
-    map = { image, ...visible, bounds: job.map.box };
+    map = { image, ...visible, bounds: ground.box };
   }
   drawFrame(
     ctx,

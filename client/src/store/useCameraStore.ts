@@ -14,6 +14,14 @@ export interface CameraApi {
   fromSaved: (viewport: SavedViewport) => CameraView | null;
   // Where the map's drawing sits, in map units, as the editor lays it out; null with no map
   mapBox: () => { x: number; y: number; width: number; height: number } | null;
+  // Where the main map's drawing sits, even while a battle is open: where it was last
+  // measured, or else laid out out of sight from the map's SVG text, when given
+  mainMapBox: (svgText?: string) => {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
 }
 
 interface CameraStore {

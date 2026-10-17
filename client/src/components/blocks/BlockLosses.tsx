@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import ToolbarButton from "../toolbar/ToolbarButton";
 import { useMapStore } from "../../store/useMapStore";
 import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
 import { BlockLoss, Unit } from "../../types";
@@ -97,7 +98,6 @@ function BlockLosses({ unit }: { unit: Unit }) {
 
   return (
     <>
-      <p className={styles.sectionTitle}>Losses</p>
       {losses.length === 0 && (
         <p className={styles.hint}>
           None yet. A loss thins the block steadily between two moments, and
@@ -139,18 +139,18 @@ function BlockLosses({ unit }: { unit: Unit }) {
           ))}
         </div>
       ))}
-      <button
-        className={styles.cancelButton}
-        title="Add a loss starting at the playhead, over two hours"
+      <ToolbarButton
+        icon="+"
+        label="Add a loss at the playhead"
+        hint="Add a loss starting at the playhead, over two hours"
+        isExpanded={true}
         onClick={() =>
           save([
             ...losses,
             { start: moment, end: moment + 2 * HOUR, share: 0.25 },
           ])
         }
-      >
-        + Add a loss at the playhead
-      </button>
+      />
       {losses.length > 0 && (
         <p className={styles.hint}>
           At the playhead: {Math.round(strength * 100)}% strength
