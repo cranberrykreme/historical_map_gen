@@ -6,6 +6,7 @@ import PortraitPanel from "./PortraitPanel";
 import ScenePanel from "./ScenePanel";
 import AnimationsPanel from "./AnimationsPanel";
 import DrawingPanel from "./DrawingPanel";
+import ShotsPanel from "./ShotsPanel";
 import { AssetType, ToolbarTabId } from "../../types";
 import styles from "./Toolbar.module.css";
 
@@ -29,6 +30,7 @@ const TABS: ToolbarTab[] = [
   { id: "portrait", icon: "◎", label: "Portrait Maker" },
   { id: "scene", icon: "⚔", label: "Scene: battles, paths and armies" },
   { id: "drawing", icon: "✏", label: "Drawing" },
+  { id: "shots", icon: "▤", label: "Shots and chapters" },
   { id: "animations", icon: "✦", label: "Animations" },
 ];
 
@@ -67,6 +69,7 @@ function Toolbar({
           )}
           {activeTab === "scene" && <ScenePanel />}
           {activeTab === "drawing" && <DrawingPanel />}
+          {activeTab === "shots" && <ShotsPanel />}
           {activeTab === "animations" && <AnimationsPanel />}
         </div>
       )}

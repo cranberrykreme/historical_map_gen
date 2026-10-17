@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { MarchTiming } from "../types";
 import { HistoryTime } from "../utils/historyTime";
 import { HistoryView } from "../utils/timeline";
+import { StripView } from "../utils/stripView";
 import { ROW_FILTERS, RowFilter } from "../utils/timelineRows";
 
 // The rows area's height, in pixels: the ruler and about seven rows to begin with
@@ -79,6 +80,8 @@ interface TimelineStore {
   // How far down the window the timeline's top edge is, in pixels, so the video frame can
   // sit above it. Null until the timeline has been measured.
   timelineTop: number | null;
+  // The stretch of the video the video strip shows; null shows the whole video
+  stripView: StripView | null;
 
   setNow: (now: HistoryTime | null) => void;
   play: () => void;
@@ -95,6 +98,7 @@ interface TimelineStore {
   setMode: (mode: TimelineMode) => void;
   setVideoTime: (seconds: number) => void;
   setTimelineTop: (top: number | null) => void;
+  setStripView: (view: StripView | null) => void;
   reset: () => void; // for a newly opened project: keeps the filter, the height and where the timeline is
 }
 
@@ -111,6 +115,7 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   mode: "history",
   videoTime: 0,
   timelineTop: null,
+  stripView: null,
 
   setNow: (now) => set({ now }),
   play: () => set({ playing: true }),
@@ -146,8 +151,10 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   setTimelineTop: (timelineTop) => {
     if (timelineTop !== get().timelineTop) set({ timelineTop });
   },
+  setStripView: (stripView) => set({ stripView }),
   reset: () =>
     set({
+      stripView: null,
       now: null,
       playing: false,
       draftTiming: null,

@@ -10,6 +10,7 @@ import {
   sameTransition,
   sameView,
 } from "../../utils/shots";
+import { dropShot, handOnChapter } from "../../utils/chapters";
 import { withHistory } from "./history";
 import { MapStore, ShotsSlice } from "./types";
 
@@ -29,7 +30,8 @@ const sameShot = (a: Shot, b: Shot) =>
   sameTransition(a.transition, b.transition) &&
   (a.fadeOut ?? 0) === (b.fadeOut ?? 0) &&
   (a.follow ?? "") === (b.follow ?? "") &&
-  (a.scene ?? MAP_SCENE) === (b.scene ?? MAP_SCENE);
+  (a.scene ?? MAP_SCENE) === (b.scene ?? MAP_SCENE) &&
+  (a.chapter ?? "") === (b.chapter ?? "");
 
 export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
   set,
@@ -95,6 +97,9 @@ export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
     if (!merged.endView) delete merged.endView;
     if (!merged.follow) delete merged.follow;
     if (!merged.scene || merged.scene === MAP_SCENE) delete merged.scene;
+    if (typeof merged.chapter === "string")
+      merged.chapter = merged.chapter.trim();
+    if (!merged.chapter) delete merged.chapter;
     // Views and the army followed belong to the scene they were set in, so moving a shot to
     // another scene starts its camera afresh there
     if ((merged.scene ?? MAP_SCENE) !== (current.scene ?? MAP_SCENE)) {
@@ -129,15 +134,26 @@ export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
     if (!state.shots.some((shot) => shot.id === id)) return;
     set({
       ...withHistory(state),
-      shots: state.shots.filter((shot) => shot.id !== id),
+      // A chapter it started carries on from the next shot
+      shots: handOnChapter(state.shots, id).filter((shot) => shot.id !== id),
       selectedShotId: state.selectedShotId === id ? null : state.selectedShotId,
     });
   },
 
-  // Moves a shot to another place in the running order. One undo step.
+  // Moves a shot to another place in the running order. A chapter it started stays where it
+  // was, carried on by the next shot. One undo step.
   moveShotTo: (id, index) => {
     const state = get();
-    const shots = moveShot(state.shots, id, index);
+    const moved = moveShot(state.shots, id, index);
+    if (moved === state.shots) return;
+    const shots = moveShot(handOnChapter(state.shots, id), id, index);
+    set({ ...withHistory(state), shots });
+  },
+
+  // Moves a shot to where it was dropped in the shot list. One undo step.
+  dropShotAt: (id, drop) => {
+    const state = get();
+    const shots = dropShot(state.shots, id, drop);
     if (shots === state.shots) return;
     set({ ...withHistory(state), shots });
   },

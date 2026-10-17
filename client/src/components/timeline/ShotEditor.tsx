@@ -4,6 +4,7 @@ import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
 import { MAP_SCENE, Shot } from "../../types";
 import { formatDuration } from "../../utils/historyTime";
 import { isHeld, MIN_SHOT_SECONDS } from "../../utils/shots";
+import { chapterOfShot, chaptersOf } from "../../utils/chapters";
 import { viewShowing } from "../../utils/timeline";
 import { MomentInput, NumberField } from "./fields";
 import ShotCamera from "./ShotCamera";
@@ -16,6 +17,7 @@ function ShotEditor({ shot }: { shot: Shot }) {
   const deleteShot = useMapStore((state) => state.deleteShot);
   const storyStart = useMapStore((state) => state.storyStart);
   const battles = useMapStore((state) => state.battles);
+  const shots = useMapStore((state) => state.shots);
   const now = useTimelineStore((state) => state.now);
 
   // The name is typed freely and saved when you leave the box or press Enter
@@ -27,6 +29,19 @@ function ShotEditor({ shot }: { shot: Shot }) {
   };
 
   const playhead = currentMoment(now, storyStart);
+
+  // The chapter this shot is in. Typing a name here starts a chapter at this shot; clearing
+  // the name of the chapter it starts ends that chapter.
+  const chapter = chapterOfShot(
+    chaptersOf(shots),
+    shots.findIndex((s) => s.id === shot.id)
+  );
+  const [chapterName, setChapterName] = useState(shot.chapter ?? "");
+  useEffect(() => setChapterName(shot.chapter ?? ""), [shot.chapter]);
+  const commitChapter = () => {
+    const next = chapterName.trim();
+    if (next !== (shot.chapter ?? "")) updateShot(shot.id, { chapter: next });
+  };
 
   // Zooms the history timeline to this shot's stretch
   const showOnTimeline = () => {
@@ -55,6 +70,29 @@ function ShotEditor({ shot }: { shot: Shot }) {
             }
           }}
         />
+        <span className={styles.field}>
+          <span className={styles.editorLabel}>Chapter</span>
+          <input
+            className={styles.editorInput}
+            style={{ width: 110 }}
+            value={chapterName}
+            placeholder={chapter?.name ? `in ${chapter.name}` : "none"}
+            title={
+              shot.chapter !== undefined
+                ? "This shot starts a chapter. Rename it here, or clear the name to end the chapter."
+                : "Type a name to start a new chapter at this shot"
+            }
+            onChange={(e) => setChapterName(e.target.value)}
+            onBlur={commitChapter}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") {
+                setChapterName(shot.chapter ?? "");
+                e.currentTarget.blur();
+              }
+            }}
+          />
+        </span>
         <span className={styles.field}>
           <span className={styles.editorLabel}>Scene</span>
           <select

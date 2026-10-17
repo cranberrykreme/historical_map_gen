@@ -228,3 +228,47 @@ describe("shots of battles", () => {
     expect(store().shots[0]).toMatchObject({ scene: battle, endView: view });
   });
 });
+
+describe("chapters", () => {
+  const names = () => store().shots.map((shot) => shot.chapter ?? "-");
+
+  test("naming a chapter on a shot starts it there; clearing the name ends it", () => {
+    const a = store().addShot();
+    const b = store().addShot();
+    store().updateShot(b, { chapter: "  Landing " });
+    expect(names()).toEqual(["-", "Landing"]);
+    store().updateShot(b, { chapter: "" });
+    expect(names()).toEqual(["-", "-"]);
+    store().updateShot(a, { chapter: "Opening" });
+    store().updateShot(a, { chapter: undefined });
+    expect(names()).toEqual(["-", "-"]);
+  });
+
+  test("moving or deleting the shot that starts a chapter leaves the chapter in place", () => {
+    const a = store().addShot();
+    const b = store().addShot();
+    const c = store().addShot();
+    store().updateShot(b, { chapter: "Landing" });
+    store().moveShotTo(b, 0);
+    expect(ids()).toEqual([b, a, c]);
+    // The chapter stays where it was, now starting at the shot that was after b
+    expect(names()).toEqual(["-", "-", "Landing"]);
+
+    store().deleteShot(c);
+    expect(names()).toEqual(["-", "-"]);
+    store().undo();
+    expect(names()).toEqual(["-", "-", "Landing"]);
+  });
+});
+
+test("dropping a shot into another chapter is one undo step", () => {
+  const a = store().addShot();
+  const b = store().addShot();
+  store().updateShot(b, { chapter: "Landing" });
+  const steps = store().past.length;
+  store().dropShotAt(a, { beforeId: null, join: false });
+  expect(ids()).toEqual([b, a]);
+  expect(store().past.length).toBe(steps + 1);
+  store().undo();
+  expect(ids()).toEqual([a, b]);
+});

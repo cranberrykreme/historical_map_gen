@@ -24,6 +24,7 @@ import { TerrainEdit } from "../../utils/terrainBrush";
 import { FormationMode } from "../../utils/formation";
 import { HistoryTime } from "../../utils/historyTime";
 import { Snapshot } from "./history";
+import { ShotDrop } from "../../utils/chapters";
 
 export interface DragPosition {
   id: string;
@@ -176,6 +177,8 @@ export interface ShotsSlice {
   updateShot: (id: string, patch: Partial<Omit<Shot, "id">>) => void;
   deleteShot: (id: string) => void;
   moveShotTo: (id: string, index: number) => void;
+  // Moves a shot to where it was dropped in the shot list, maybe into another chapter
+  dropShotAt: (id: string, drop: ShotDrop) => void;
 }
 
 // The scenes: the main map and its battles. The scene being edited holds the usual units,

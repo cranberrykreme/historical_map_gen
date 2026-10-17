@@ -8,6 +8,7 @@ import ScenePanel from "./ScenePanel";
 import AssetsPanel from "./AssetsPanel";
 import DrawingPanel from "./DrawingPanel";
 import AnimationsPanel from "./AnimationsPanel";
+import ShotsPanel from "./ShotsPanel";
 import ProjectHeader from "../ProjectHeader";
 
 // Jest here can't load react-router's newer package layout; the header only needs useNavigate
@@ -155,4 +156,41 @@ test("the header shows the open battle with a way back to the main map", () => {
   act(() => back.click());
   expect(useMapStore.getState().activeSceneId).toBe("map");
   expect(text()).not.toContain("Hastings");
+});
+
+test("the shots tab lists shots by chapter; picking one selects it", () => {
+  useMapStore.getState().resetMapState();
+  useMapStore.setState({
+    shots: [
+      { id: "s1", name: "Coast", seconds: 5, from: 0, to: 1 },
+      {
+        id: "s2",
+        name: "Ships land",
+        seconds: 10,
+        from: 1,
+        to: 2,
+        chapter: "Landing",
+      },
+      { id: "s3", name: "Camp", seconds: 10, from: 2, to: 3 },
+    ],
+  });
+  show(<ShotsPanel />);
+  expect(text()).toContain("Opening");
+  expect(text()).toContain("Landing");
+  expect(text()).toContain("Ships land");
+  const camp = Array.from(container.querySelectorAll("div")).find((d) =>
+    d.title?.startsWith("Camp:")
+  )!;
+  act(() => {
+    camp.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    window.dispatchEvent(new MouseEvent("mouseup"));
+  });
+  expect(useMapStore.getState().selectedShotId).toBe("s3");
+
+  // Folding the chapter hides its shots
+  const heading = Array.from(container.querySelectorAll("div")).find((d) =>
+    d.title?.startsWith("Click to fold")
+  )!;
+  act(() => heading.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  expect(text()).not.toContain("Ships land");
 });

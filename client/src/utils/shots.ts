@@ -162,6 +162,8 @@ export function parseShots(raw: unknown): Shot[] {
       if (typeof s.follow === "string" && s.follow) shot.follow = s.follow;
       if (typeof s.scene === "string" && s.scene && s.scene !== "map")
         shot.scene = s.scene;
+      if (typeof s.chapter === "string" && s.chapter.trim())
+        shot.chapter = s.chapter.trim();
       if (isNumber(s.fadeOut) && s.fadeOut > 0)
         shot.fadeOut = Math.max(s.fadeOut, MIN_TRANSITION_SECONDS);
       return clampShot(shot);

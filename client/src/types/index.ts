@@ -149,6 +149,9 @@ export interface Shot {
   // The battle this shot shows (its id), with that battle's ground, units and camera. Missing
   // means the main map.
   scene?: string;
+  // Starts a chapter of the video with this name: this shot and the ones after it, up to the
+  // next shot that starts one (see utils/chapters)
+  chapter?: string;
 }
 
 // What the camera sees: the map point at the centre of the video frame, and how many map
@@ -285,6 +288,7 @@ export type ToolbarTabId =
   | "portrait"
   | "scene"
   | "drawing"
+  | "shots"
   | "animations";
 
 export interface AssetFile {

@@ -125,6 +125,15 @@ test("saved shots are read back, dropping anything unusable", () => {
   expect(parseShots("nope")).toEqual([]);
 });
 
+test("a shot that starts a chapter keeps its chapter's name", () => {
+  const [named, blank] = parseShots([
+    { id: "a", name: "A", seconds: 5, from: S, to: S, chapter: "  Landing " },
+    { id: "b", name: "B", seconds: 5, from: S, to: S, chapter: "  " },
+  ]);
+  expect(named.chapter).toBe("Landing");
+  expect(blank).not.toHaveProperty("chapter");
+});
+
 test("a shot of a battle keeps its battle; the main map is left unsaid", () => {
   const [battle, map, blank] = parseShots([
     { id: "a", name: "A", seconds: 5, from: S, to: S, scene: "b1" },
