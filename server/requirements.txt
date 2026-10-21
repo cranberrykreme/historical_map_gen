@@ -1,0 +1,7 @@
+# The server's Python packages, at the versions in server/venv (Python 3.11).
+# Install with: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+# Rendering a video also needs ffmpeg (brew install ffmpeg).
+flask==3.1.3
+flask-cors==6.0.2
+psd-tools==1.20.0
+pillow==12.3.0

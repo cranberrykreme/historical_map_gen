@@ -2,8 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Battle, PathPoint } from "../../types";
 import { useMapStore } from "../../store/useMapStore";
 import { useTerrainToolStore } from "../../store/useTerrainToolStore";
-import { isLine } from "../../utils/terrain";
-import { eraseTerrain, paintArea, paintLine } from "../../utils/terrainBrush";
+import { isLine } from "../../utils/terrain/terrain";
+import {
+  eraseTerrain,
+  paintArea,
+  paintLine,
+} from "../../utils/terrain/terrainBrush";
+import { findBattle } from "../../utils/scenes/kinds";
 
 // How far the mouse must move (in pixels on screen) before the stroke takes another point
 const STEP = 2;
@@ -48,8 +53,7 @@ function TerrainBrushOverlay({
     (stroke: PathPoint[]) => {
       const tool = useTerrainToolStore.getState();
       const features =
-        useMapStore.getState().battles.find((b) => b.id === battle.id)
-          ?.terrain ?? [];
+        findBattle(useMapStore.getState().battles, battle.id)?.terrain ?? [];
       const edit =
         tool.brush === "erase"
           ? eraseTerrain(

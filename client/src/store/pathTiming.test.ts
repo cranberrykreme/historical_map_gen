@@ -4,8 +4,8 @@ import {
   isPastStart,
   useTimelineStore,
 } from "./useTimelineStore";
-import { MIN_SPAN_DAYS } from "../utils/marches";
-import { DEFAULT_STORY_START } from "../utils/convertProject";
+import { MIN_SPAN_DAYS } from "../utils/marches/marches";
+import { DEFAULT_STORY_START } from "../utils/project/convertProject";
 import { Unit } from "../types";
 
 const line = [

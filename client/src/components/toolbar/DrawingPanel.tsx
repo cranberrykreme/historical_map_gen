@@ -3,13 +3,12 @@ import { useMapStore } from "../../store/useMapStore";
 import TerrainPatterns from "../terrain/TerrainPatterns";
 import TerrainSection from "../terrain/TerrainSection";
 import styles from "./PathsPanel.module.css";
+import { activeBattle } from "../../utils/scenes/kinds";
 
 // Drawing on the open battle's ground: terrain shapes, details, and the freehand brush and
 // eraser. Terrain belongs to a battle, so on the main map this only says how to open one.
 function DrawingPanel() {
-  const openBattle = useMapStore(
-    (state) => state.battles.find((b) => b.id === state.activeSceneId) ?? null
-  );
+  const openBattle = useMapStore(activeBattle);
   return (
     <div className={styles.panel}>
       <TerrainPatterns style={openBattle?.style} />

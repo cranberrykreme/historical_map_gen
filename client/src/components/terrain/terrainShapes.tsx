@@ -1,7 +1,7 @@
 import React from "react";
 import { TerrainFeature, TerrainStyle } from "../../types";
-import { featureStrokes, svgFill, TerrainStroke } from "../../utils/terrain";
-import { styleStrokes } from "../../utils/terrainStyles";
+import { featureStrokes, svgFill, TerrainStroke } from "../../utils/terrain/terrain";
+import { styleStrokes } from "../../utils/terrain/terrainStyles";
 
 // Strokes as SVG paths, exactly as the renderer will draw them (see strokesSvg). A stroke drawn
 // inside a shape (or any of several) gets a clip path, named from `idPrefix` so drawings on one

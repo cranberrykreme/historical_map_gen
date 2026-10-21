@@ -10,9 +10,9 @@ import {
   isLine,
   kindInfo,
   TERRAIN_GROUPS,
-} from "../../utils/terrain";
-import { BRUSH_MAX, BRUSH_MIN } from "../../utils/terrainBrush";
-import { styleInfo } from "../../utils/terrainStyles";
+} from "../../utils/terrain/terrain";
+import { BRUSH_MAX, BRUSH_MIN } from "../../utils/terrain/terrainBrush";
+import { styleInfo } from "../../utils/terrain/terrainStyles";
 import AddTerrainDialog from "./AddTerrainDialog";
 import TerrainStyleDialog from "./TerrainStyleDialog";
 import TerrainStylePreview from "./TerrainStylePreview";

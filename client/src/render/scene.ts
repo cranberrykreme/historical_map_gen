@@ -14,12 +14,12 @@ import {
   secondsInShot,
   transitionAt,
   videoDarkness,
-} from "../utils/camera";
-import { formatHistoryTime, HistoryTime } from "../utils/historyTime";
-import { dateHiddenAt, shotAt, videoMoment } from "../utils/shots";
-import { BattleScene } from "../utils/battleCameras";
-import { existsAt, Timeline } from "../utils/timeline";
-import { unitAt } from "../utils/blocks";
+} from "../utils/video/camera";
+import { formatHistoryTime, HistoryTime } from "../utils/history/historyTime";
+import { dateHiddenAt, shotAt, videoMoment } from "../utils/video/shots";
+import { BattleScene } from "../utils/video/battleCameras";
+import { existsAt, Timeline } from "../utils/history/timeline";
+import { unitAt } from "../utils/units/blocks";
 import {
   backAngle,
   DrawMarker,
@@ -29,7 +29,7 @@ import {
   markersAt,
   pictureAspect,
   videoExitAge,
-} from "../utils/exits";
+} from "../utils/units/exits";
 
 // One unit as the video shows it: where it is, which way it turns and faces, and how big it is
 export interface DrawUnit {

@@ -2,14 +2,14 @@ import React from "react";
 import { act } from "react";
 import { createRoot, Root } from "react-dom/client";
 import { useMapStore } from "../../store/useMapStore";
-import { blockUnit, newBlockSpec } from "../../utils/blocks";
+import { blockUnit, newBlockSpec } from "../../utils/units/blocks";
 import { Unit } from "../../types";
 import ScenePanel from "./ScenePanel";
 import AssetsPanel from "./AssetsPanel";
 import DrawingPanel from "./DrawingPanel";
 import AnimationsPanel from "./AnimationsPanel";
 import ShotsPanel from "./ShotsPanel";
-import ProjectHeader from "../ProjectHeader";
+import ProjectHeader from "../project/ProjectHeader";
 
 // Jest here can't load react-router's newer package layout; the header only needs useNavigate
 jest.mock("react-router-dom", () => ({ useNavigate: () => () => {} }));

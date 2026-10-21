@@ -1,7 +1,10 @@
 import { StateCreator } from "zustand";
 import { Battle, MAP_SCENE, TerrainFeature } from "../../types";
-import { minPoints, newTerrainId } from "../../utils/terrain";
-import { applyTerrainEdit, isEmptyEdit } from "../../utils/terrainBrush";
+import { minPoints, newTerrainId } from "../../utils/terrain/terrain";
+import {
+  applyTerrainEdit,
+  isEmptyEdit,
+} from "../../utils/terrain/terrainBrush";
 import {
   allScenes,
   BATTLE_SIZES,
@@ -9,9 +12,10 @@ import {
   newBattleId,
   nextBattleName,
   openScene,
-} from "../../utils/scenes";
+} from "../../utils/scenes/scenes";
 import { withHistory } from "./history";
 import { MapStore, ScenesSlice } from "./types";
+import { sceneExists, sceneList } from "../../utils/scenes/kinds";
 
 // Nothing selected or being dragged: what the editor needs when the scene underneath changes
 const CLEAR_SELECTION = {
@@ -110,8 +114,7 @@ export const createScenesSlice: StateCreator<MapStore, [], [], ScenesSlice> = (
   switchScene: (sceneId) => {
     const state = get();
     if (sceneId === state.activeSceneId) return;
-    if (sceneId !== MAP_SCENE && !state.battles.some((b) => b.id === sceneId))
-      return;
+    if (!sceneExists(sceneId, state.battles)) return;
     const { content, stash } = openScene(allScenes(state), sceneId);
     set({
       activeSceneId: sceneId,
@@ -204,7 +207,7 @@ export const createScenesSlice: StateCreator<MapStore, [], [], ScenesSlice> = (
   // too), then comes back to the scene that was open
   inEveryScene: (edit) => {
     const start = get().activeSceneId;
-    const ids = [MAP_SCENE, ...get().battles.map((b) => b.id)];
+    const ids = sceneList(get().battles).map((scene) => scene.id);
     for (const id of ids) {
       get().switchScene(id);
       edit();

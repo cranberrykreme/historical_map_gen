@@ -3,9 +3,9 @@ import { useCameraStore } from "../store/useCameraStore";
 import { useMapStore } from "../store/useMapStore";
 import { useTimelineStore } from "../store/useTimelineStore";
 import { CameraView, MAP_SCENE } from "../types";
-import { cameraAt, FrameRect } from "../utils/camera";
-import { existingScene } from "../utils/scenes";
-import { shotAt } from "../utils/shots";
+import { cameraAt, FrameRect } from "../utils/video/camera";
+import { existingScene } from "../utils/scenes/scenes";
+import { shotAt } from "../utils/video/shots";
 import useSceneCameras from "./useSceneCameras";
 
 // The project's saved view as the camera sees it, which is where the video opens until a shot

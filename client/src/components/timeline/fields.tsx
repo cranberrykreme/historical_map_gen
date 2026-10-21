@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { HistoryTime } from "../../utils/historyTime";
+import { HistoryTime } from "../../utils/history/historyTime";
 import {
   durationFields,
   fromDurationFields,
@@ -7,8 +7,8 @@ import {
   momentFields,
   MomentFields,
   DurationFields,
-} from "../../utils/historyEdit";
-import { MONTH_NAMES } from "../../utils/dates";
+} from "../../utils/history/historyEdit";
+import { MONTH_NAMES } from "../../utils/history/dates";
 import styles from "./Timeline.module.css";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");

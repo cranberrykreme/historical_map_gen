@@ -5,7 +5,7 @@ import {
   TERRAIN_GROUPS,
   TERRAIN_KINDS,
   TerrainShape,
-} from "../../utils/terrain";
+} from "../../utils/terrain/terrain";
 import TerrainPatterns from "./TerrainPatterns";
 import TerrainThumb from "./TerrainThumb";
 import styles from "./AddTerrainDialog.module.css";

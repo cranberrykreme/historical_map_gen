@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { TimelineMode, useTimelineStore } from "../../store/useTimelineStore";
 import { Shot } from "../../types";
-import { HistoryTime } from "../../utils/historyTime";
-import { videoMoment } from "../../utils/shots";
+import { HistoryTime } from "../../utils/history/historyTime";
+import { videoMoment } from "../../utils/video/shots";
 
 // In video mode the history playhead shows whatever the video is showing: it follows the
 // video playhead as it is scrubbed, and follows the shots as they are edited

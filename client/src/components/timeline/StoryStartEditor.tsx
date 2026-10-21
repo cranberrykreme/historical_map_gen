@@ -1,8 +1,8 @@
 import React from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
-import { formatHistoryTime, HistoryTime } from "../../utils/historyTime";
-import { allowedStoryStart } from "../../utils/historyEdit";
+import { formatHistoryTime, HistoryTime } from "../../utils/history/historyTime";
+import { allowedStoryStart } from "../../utils/history/historyEdit";
 import { MomentInput } from "./fields";
 import styles from "./Timeline.module.css";
 

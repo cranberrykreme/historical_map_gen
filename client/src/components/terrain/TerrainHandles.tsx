@@ -11,10 +11,10 @@ import {
   minPoints,
   polylinePath,
   smoothPath,
-} from "../../utils/terrain";
-import { styleColour } from "../../utils/terrainStyles";
+} from "../../utils/terrain/terrain";
+import { styleColour } from "../../utils/terrain/terrainStyles";
 import { FeatureDrawing } from "./terrainShapes";
-import styles from "../BattleGround.module.css";
+import styles from "../map/BattleGround.module.css";
 
 const GOLD = "#c8a84b";
 

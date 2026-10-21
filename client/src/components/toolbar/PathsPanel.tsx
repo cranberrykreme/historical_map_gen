@@ -3,7 +3,7 @@ import CollapsibleSection from "./CollapsibleSection";
 import ToolbarButton from "./ToolbarButton";
 import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
-import { getTimeline } from "../../utils/timeline";
+import { getTimeline } from "../../utils/history/timeline";
 import PathList from "./PathList";
 import AttachedUnitsSection from "./AttachedUnitsSection";
 import styles from "./PathsPanel.module.css";

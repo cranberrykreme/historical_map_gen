@@ -1,14 +1,14 @@
 import React, { useId, useMemo } from "react";
 import { TerrainStyle } from "../../types";
-import { TerrainStroke } from "../../utils/terrain";
-import { battleStrokes, styleBattle } from "../../utils/terrainScene";
+import { TerrainStroke } from "../../utils/terrain/terrain";
+import { battleStrokes, styleBattle } from "../../utils/terrain/terrainScene";
 import {
   STYLE_SAMPLE,
   STYLE_SAMPLE_HEIGHT,
   STYLE_SAMPLE_WIDTH,
   styleGround,
   stylePatterns,
-} from "../../utils/terrainStyles";
+} from "../../utils/terrain/terrainStyles";
 import { safeId, TerrainStrokes } from "./terrainShapes";
 
 // The sample battlefield, worked out once and then put in each style

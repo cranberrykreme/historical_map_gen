@@ -1,15 +1,15 @@
 import { StateCreator } from "zustand";
 import { Army, ArmyMember } from "../../types";
-import { existsAt } from "../../utils/timeline";
-import { HistoryTime } from "../../utils/historyTime";
-import { placementMoment } from "../../utils/lifespans";
+import { existsAt } from "../../utils/history/timeline";
+import { HistoryTime } from "../../utils/history/historyTime";
+import { placementMoment } from "../../utils/history/lifespans";
 import {
   joinArmy,
   leaveArmy,
   membersAt,
   newArmyId,
   nextArmyName,
-} from "../../utils/armies";
+} from "../../utils/marches/armies";
 import { useTimelineStore } from "../useTimelineStore";
 import { withHistory } from "./history";
 import { ArmiesSlice, MapStore } from "./types";

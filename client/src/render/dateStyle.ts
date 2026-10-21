@@ -1,5 +1,5 @@
 import { DateStyle } from "./drawFrame";
-import styles from "../components/DateDisplay.module.css";
+import styles from "../components/map/DateDisplay.module.css";
 
 const px = (value: string, fallback: number) => {
   const n = parseFloat(value);

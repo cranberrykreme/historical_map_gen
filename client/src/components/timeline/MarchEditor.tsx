@@ -1,6 +1,6 @@
 import React from "react";
 import { useMapStore } from "../../store/useMapStore";
-import { formatDuration } from "../../utils/historyTime";
+import { formatDuration } from "../../utils/history/historyTime";
 import { MapPath, MarchTiming } from "../../types";
 import { DurationInput, MomentInput } from "./fields";
 import styles from "./Timeline.module.css";

@@ -7,8 +7,8 @@ import {
   keepAfter,
   snapStepFor,
   viewShowing,
-} from "../../utils/timeline";
-import { dragMarch, MarchDragMode } from "../../utils/marches";
+} from "../../utils/history/timeline";
+import { dragMarch, MarchDragMode } from "../../utils/marches/marches";
 import { MapPath, MarchTiming } from "../../types";
 import { describe } from "./describe";
 import styles from "./Timeline.module.css";

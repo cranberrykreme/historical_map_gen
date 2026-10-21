@@ -1,6 +1,6 @@
 import { StateCreator } from "zustand";
 import { MAP_SCENE } from "../../types";
-import { DEFAULT_STORY_START } from "../../utils/convertProject";
+import { DEFAULT_STORY_START } from "../../utils/project/convertProject";
 import { MapStore, StorySlice } from "./types";
 
 export const createStorySlice: StateCreator<MapStore, [], [], StorySlice> = (

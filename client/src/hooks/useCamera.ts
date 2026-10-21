@@ -3,14 +3,15 @@ import { CameraApi, useCameraStore } from "../store/useCameraStore";
 import { useMapStore } from "../store/useMapStore";
 import { useTimelineStore } from "../store/useTimelineStore";
 import { CameraView, SavedViewport } from "../types";
-import { applyMapTransform } from "../utils/mapTransform";
+import { applyMapTransform } from "../utils/video/mapTransform";
 import {
   FrameRect,
   frameRect,
   frameRoom,
   placementFor,
   viewOnScreen,
-} from "../utils/camera";
+} from "../utils/video/camera";
+import { activeBattle, sceneKind } from "../utils/scenes/kinds";
 
 // The video frame on the map, and the camera that reads and moves the map through it. The
 // frame is the biggest of the video's shape that fits above the timeline. Returns the frame
@@ -197,14 +198,15 @@ function useCamera(
       mapBox: () => {
         // A battle's ground is its whole area, from (0, 0)
         const state = useMapStore.getState();
-        const battle = state.battles.find((b) => b.id === state.activeSceneId);
+        const battle = activeBattle(state);
         if (battle)
           return { x: 0, y: 0, width: battle.width, height: battle.height };
         return measureMainMap();
       },
       mainMapBox: (svgText?: string) => {
         const state = useMapStore.getState();
-        const onMap = !state.battles.some((b) => b.id === state.activeSceneId);
+        const onMap =
+          sceneKind(state.activeSceneId, state.battles) !== "battle";
         return (
           (onMap ? measureMainMap() : null) ??
           lastMainMapBox ??

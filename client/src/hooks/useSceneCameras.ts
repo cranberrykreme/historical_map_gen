@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { useMapStore } from "../store/useMapStore";
 import { MAP_SCENE } from "../types";
-import { ArmyTracker, BattleCameras } from "../utils/camera";
-import { battleCameras, battleScenes } from "../utils/battleCameras";
-import { armyTracker } from "../utils/follow";
-import { allScenes } from "../utils/scenes";
-import { getTimeline } from "../utils/timeline";
+import { ArmyTracker, BattleCameras } from "../utils/video/camera";
+import { battleCameras, battleScenes } from "../utils/video/battleCameras";
+import { armyTracker } from "../utils/marches/follow";
+import { allScenes } from "../utils/scenes/scenes";
+import { getTimeline } from "../utils/history/timeline";
 
 // Where the armies are in every scene, and where the camera opens in each battle, for the
 // video's camera: the main map's army tracker (whichever scene is open in the editor) and the

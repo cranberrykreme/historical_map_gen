@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useMapStore } from "../store/useMapStore";
-import { ArmyTracker } from "../utils/camera";
-import { armyTracker } from "../utils/follow";
-import { getTimeline } from "../utils/timeline";
+import { ArmyTracker } from "../utils/video/camera";
+import { armyTracker } from "../utils/marches/follow";
+import { getTimeline } from "../utils/history/timeline";
 
 // Where each army is at any moment, for cameras that follow one. Rebuilt when the units,
 // marches or armies change.

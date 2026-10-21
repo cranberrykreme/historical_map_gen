@@ -20,11 +20,11 @@ import {
   TravelMode,
   VideoFrame,
 } from "../../types";
-import { TerrainEdit } from "../../utils/terrainBrush";
-import { FormationMode } from "../../utils/formation";
-import { HistoryTime } from "../../utils/historyTime";
+import { TerrainEdit } from "../../utils/terrain/terrainBrush";
+import { FormationMode } from "../../utils/marches/formation";
+import { HistoryTime } from "../../utils/history/historyTime";
 import { Snapshot } from "./history";
-import { ShotDrop } from "../../utils/chapters";
+import { ShotDrop } from "../../utils/video/chapters";
 
 export interface DragPosition {
   id: string;
@@ -208,7 +208,7 @@ export interface ScenesSlice {
     patch: Partial<Omit<TerrainFeature, "id">>
   ) => void;
   deleteTerrain: (battleId: string, featureId: string) => void;
-  // A brush or eraser stroke's changes, as one undo step (see utils/terrainBrush)
+  // A brush or eraser stroke's changes, as one undo step (see utils/terrain/terrainBrush)
   editTerrain: (battleId: string, edit: TerrainEdit) => void;
   sceneContents: () => Record<string, SceneContent>;
   inEveryScene: (edit: () => void) => void;

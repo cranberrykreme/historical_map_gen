@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PsdLayer, RecolourSpec } from "../types";
-import { recolourImageData } from "../utils/recolour";
+import { recolourImageData } from "../utils/units/recolour";
 
 interface UsePsdCompositeParams {
   layerBaseUrl: string;

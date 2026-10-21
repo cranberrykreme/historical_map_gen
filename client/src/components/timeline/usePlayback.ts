@@ -5,8 +5,8 @@ import {
   useTimelineStore,
 } from "../../store/useTimelineStore";
 import { useMapStore } from "../../store/useMapStore";
-import { HistoryTime } from "../../utils/historyTime";
-import { videoMoment } from "../../utils/shots";
+import { HistoryTime } from "../../utils/history/historyTime";
+import { videoMoment } from "../../utils/video/shots";
 
 // Play. In history mode the playhead moves through history at the chosen pace until the
 // last march has finished. In video mode the video plays in real time, one second a second,

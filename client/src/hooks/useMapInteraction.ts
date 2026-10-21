@@ -1,4 +1,4 @@
-import { applyMapTransform } from "../utils/mapTransform";
+import { applyMapTransform } from "../utils/video/mapTransform";
 import { useEffect, useRef } from "react";
 
 function useMapInteraction(

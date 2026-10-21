@@ -4,7 +4,7 @@ import { TerrainStyle } from "../../types";
 import {
   DEFAULT_TERRAIN_STYLE,
   TERRAIN_STYLES,
-} from "../../utils/terrainStyles";
+} from "../../utils/terrain/terrainStyles";
 import TerrainStylePreview from "./TerrainStylePreview";
 import styles from "./AddTerrainDialog.module.css";
 

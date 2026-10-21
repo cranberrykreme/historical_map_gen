@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ImageSize } from "../utils/portraitCircle";
+import { ImageSize } from "../utils/units/portraitCircle";
 
 function usePortraitImage(url: string) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);

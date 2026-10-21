@@ -1,5 +1,5 @@
 import { useMapStore } from "./useMapStore";
-import { newBlockSpec } from "../utils/blocks";
+import { newBlockSpec } from "../utils/units/blocks";
 import { useTimelineStore } from "./useTimelineStore";
 
 const store = () => useMapStore.getState();

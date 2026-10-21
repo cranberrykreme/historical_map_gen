@@ -1,5 +1,5 @@
-import { formatDuration, formatHistoryTime } from "../../utils/historyTime";
-import { RowFilter, RowGroup } from "../../utils/timelineRows";
+import { formatDuration, formatHistoryTime } from "../../utils/history/historyTime";
+import { RowFilter, RowGroup } from "../../utils/history/timelineRows";
 import { MarchTiming } from "../../types";
 
 // A march's dates, turn and march time, for its tooltips

@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
-import { fitView, getTimeline, HistoryView } from "../../utils/timeline";
-import { shotAt, videoLength } from "../../utils/shots";
+import { fitView, getTimeline, HistoryView } from "../../utils/history/timeline";
+import { shotAt, videoLength } from "../../utils/video/shots";
 import {
   groupKeyOf,
   groupRows,
   MarchRow,
   NO_ARMY,
   RowGroup,
-} from "../../utils/timelineRows";
+} from "../../utils/history/timelineRows";
 import MarchEditor from "./MarchEditor";
 import ShotEditor from "./ShotEditor";
 import StoryStartEditor from "./StoryStartEditor";

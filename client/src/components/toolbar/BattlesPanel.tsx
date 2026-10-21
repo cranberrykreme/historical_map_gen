@@ -3,9 +3,10 @@ import ToolbarButton from "./ToolbarButton";
 import CollapsibleSection from "./CollapsibleSection";
 import { useMapStore } from "../../store/useMapStore";
 import { BattleKind, MAP_SCENE } from "../../types";
-import { BATTLE_SIZES, nextBattleName } from "../../utils/scenes";
+import { BATTLE_SIZES, nextBattleName } from "../../utils/scenes/scenes";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PathsPanel.module.css";
+import { isMainMap } from "../../utils/scenes/kinds";
 
 const KINDS: { kind: BattleKind; label: string; hint: string }[] = [
   { kind: "land", label: "Land", hint: "A battlefield of open ground" },
@@ -61,7 +62,7 @@ function BattlesPanel() {
     switchScene(id);
   };
 
-  const onMap = activeSceneId === MAP_SCENE;
+  const onMap = isMainMap(activeSceneId);
 
   return (
     <>

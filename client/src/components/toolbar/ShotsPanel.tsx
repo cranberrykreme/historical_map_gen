@@ -7,11 +7,12 @@ import {
   nextChapterName,
   shotListRows,
   ShotDrop,
-} from "../../utils/chapters";
-import { formatSeconds, shotStarts } from "../../utils/shots";
+} from "../../utils/video/chapters";
+import { formatSeconds, shotStarts } from "../../utils/video/shots";
 import ToolbarButton from "./ToolbarButton";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PathsPanel.module.css";
+import { findBattle } from "../../utils/scenes/kinds";
 
 const ROW_HEIGHT = 28; // every line of the list is this tall, so only the ones on screen are drawn
 const SPARE_ROWS = 8; // drawn above and below the visible ones, so fast scrolling stays filled
@@ -374,9 +375,7 @@ function ShotsPanel() {
           }
           const shot = shots[row.index];
           const active = shot.id === selectedShotId;
-          const battle = shot.scene
-            ? battles.find((b) => b.id === shot.scene)
-            : undefined;
+          const battle = findBattle(battles, shot.scene);
           return (
             <div
               key={shot.id}

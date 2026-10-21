@@ -6,7 +6,7 @@ import PathPreview from "./PathPreview";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PathsPanel.module.css";
 import UnitIcon from "../blocks/UnitIcon";
-import { unitLabel } from "../../utils/blocks";
+import { unitLabel } from "../../utils/units/blocks";
 
 // What a unit is called in the list: a block by its name, a picture by its file
 const displayName = unitLabel;

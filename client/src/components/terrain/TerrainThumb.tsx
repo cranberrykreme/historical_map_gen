@@ -1,8 +1,8 @@
 import React, { useId, useMemo } from "react";
 import { TerrainKind, TerrainStyle } from "../../types";
-import { THUMB_HEIGHT, THUMB_WIDTH, thumbnailFor } from "../../utils/terrain";
-import { battleStrokes, styleBattle } from "../../utils/terrainScene";
-import { styleGround } from "../../utils/terrainStyles";
+import { THUMB_HEIGHT, THUMB_WIDTH, thumbnailFor } from "../../utils/terrain/terrain";
+import { battleStrokes, styleBattle } from "../../utils/terrain/terrainScene";
+import { styleGround } from "../../utils/terrain/terrainStyles";
 import { safeId, TerrainStrokes } from "./terrainShapes";
 
 // A picture of a terrain kind, drawn exactly as it looks on the battlefield in the battle's

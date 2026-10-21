@@ -1,8 +1,8 @@
 import { MapPath, Shot, Unit } from "../types";
-import { formatHistoryTime } from "../utils/historyTime";
-import { getTimeline } from "../utils/timeline";
-import { easeCamera } from "../utils/camera";
-import { battleCameras, battleScenes } from "../utils/battleCameras";
+import { formatHistoryTime } from "../utils/history/historyTime";
+import { getTimeline } from "../utils/history/timeline";
+import { easeCamera } from "../utils/video/camera";
+import { battleCameras, battleScenes } from "../utils/video/battleCameras";
 import {
   pictureAt,
   sceneAt,

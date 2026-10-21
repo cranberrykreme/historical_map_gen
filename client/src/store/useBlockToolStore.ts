@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { FormationBlock } from "../types";
-import { newBlockSpec } from "../utils/blocks";
+import { newBlockSpec } from "../utils/units/blocks";
 
 // The formation block tool: the block the panel is setting up to place (its kind, colour,
 // name and size, kept between placings so a row of blocks is quick to lay out), and whether the

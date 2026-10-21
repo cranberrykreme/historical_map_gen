@@ -2,7 +2,7 @@ import React from "react";
 import API_BASE_URL from "../../config/api";
 import { useAssetStore } from "../../store/useAssetStore";
 import { Unit } from "../../types";
-import BlockShape from "../BlockShape";
+import BlockShape from "../map/BlockShape";
 
 // A unit's small picture in the panels' lists: its image, or for a formation block the block
 // itself, shrunk to fit

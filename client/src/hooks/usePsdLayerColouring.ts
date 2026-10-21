@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import { RgbColor } from "../types";
-import { recolourImageData } from "../utils/recolour";
+import { recolourImageData } from "../utils/units/recolour";
 
 function usePsdLayerColouring() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

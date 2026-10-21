@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
-import { barPlacement, fitView, viewShowing } from "../../utils/timeline";
-import { groupKeyOf } from "../../utils/timelineRows";
-import { HistoryTime } from "../../utils/historyTime";
+import { barPlacement, fitView, viewShowing } from "../../utils/history/timeline";
+import { groupKeyOf } from "../../utils/history/timelineRows";
+import { HistoryTime } from "../../utils/history/historyTime";
 import { MarchTiming } from "../../types";
 
 // Keeps the selected march or army in sight. Returns the refs the rows and group headers

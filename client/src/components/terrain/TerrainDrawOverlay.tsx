@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef } from "react";
 import { Battle, PathPoint } from "../../types";
 import { useMapStore } from "../../store/useMapStore";
 import { useTerrainToolStore } from "../../store/useTerrainToolStore";
-import { minPoints } from "../../utils/terrain";
+import { minPoints } from "../../utils/terrain/terrain";
 
 // How far the mouse can move (in pixels) and still count as a click rather than a pan
 const CLICK_SLOP = 4;

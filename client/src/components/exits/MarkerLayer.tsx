@@ -8,7 +8,7 @@ import {
   PATCH_FILL,
   patchOutline,
   smoothClosed,
-} from "../../utils/exits";
+} from "../../utils/units/exits";
 
 const n = (v: number) => Math.round(v * 100) / 100;
 

@@ -1,6 +1,6 @@
 import { useMapStore } from "./useMapStore";
-import { DEFAULT_STORY_START } from "../utils/convertProject";
-import { MIN_SHOT_SECONDS, MIN_TRANSITION_SECONDS } from "../utils/shots";
+import { DEFAULT_STORY_START } from "../utils/project/convertProject";
+import { MIN_SHOT_SECONDS, MIN_TRANSITION_SECONDS } from "../utils/video/shots";
 
 const S = DEFAULT_STORY_START;
 const store = () => useMapStore.getState();

@@ -5,12 +5,12 @@ import {
   RIPPLE_WIDTH,
   TEAR_EDGE,
   TEAR_SHADOW,
-} from "../../utils/exits";
+} from "../../utils/units/exits";
 
 const percent = (n: number) => `${Math.round(n * 10000) / 100}%`;
 
 // A unit part way through leaving, in the editor: its picture (`children`) drawn once per
-// piece, each cut to its shape and moved, turned and faded as utils/exits says, with any tear
+// piece, each cut to its shape and moved, turned and faded as utils/units/exits says, with any tear
 // lines over it and ripples round it. `width` is the picture's width in pixels at the unit's
 // own size, which the pieces' movements are measured in. Drawn the same way as the video.
 function ExitPieces({

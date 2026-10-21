@@ -6,8 +6,8 @@ import { useBlockToolStore } from "../../store/useBlockToolStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import { useTerrainToolStore } from "../../store/useTerrainToolStore";
 import { FormationBlock } from "../../types";
-import { BLOCK_COLOURS, BLOCK_KINDS, unitLabel } from "../../utils/blocks";
-import BlockShape from "../BlockShape";
+import { BLOCK_COLOURS, BLOCK_KINDS, unitLabel } from "../../utils/units/blocks";
+import BlockShape from "../map/BlockShape";
 import styles from "../toolbar/PathsPanel.module.css";
 
 const FIELD_ROW: React.CSSProperties = {

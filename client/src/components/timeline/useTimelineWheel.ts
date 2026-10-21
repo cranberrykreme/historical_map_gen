@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { HistoryView, zoomView } from "../../utils/timeline";
+import { HistoryView, zoomView } from "../../utils/history/timeline";
 
 const ZOOM_SPEED = 0.01; // per unit of pinch or ⌘-scroll
 

@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
 import { Shot } from "../../types";
-import { formatDuration, formatHistoryTime } from "../../utils/historyTime";
+import {
+  formatDuration,
+  formatHistoryTime,
+} from "../../utils/history/historyTime";
 import {
   dropIndex,
   formatSeconds,
@@ -10,10 +13,14 @@ import {
   MIN_SHOT_SECONDS,
   shotStarts,
   videoLength,
-} from "../../utils/shots";
-import { barPlacement, fitView, viewShowing } from "../../utils/timeline";
-import { transitionSpans } from "../../utils/camera";
-import { chaptersOf } from "../../utils/chapters";
+} from "../../utils/video/shots";
+import {
+  barPlacement,
+  fitView,
+  viewShowing,
+} from "../../utils/history/timeline";
+import { transitionSpans } from "../../utils/video/camera";
+import { chaptersOf } from "../../utils/video/chapters";
 import {
   panStripView,
   revealInStrip,
@@ -21,9 +28,10 @@ import {
   StripView,
   wholeStrip,
   zoomStripView,
-} from "../../utils/stripView";
+} from "../../utils/history/stripView";
 import StripOverview from "./StripOverview";
 import styles from "./Timeline.module.css";
+import { findBattle } from "../../utils/scenes/kinds";
 
 const SNAP_SECONDS = 0.5; // dragging a shot's end snaps to half seconds
 const DRAG_THRESHOLD = 4; // pixels the pointer moves before a press becomes a drag
@@ -335,7 +343,7 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
                 }}
                 title={describeShot(
                   shot,
-                  battles.find((b) => b.id === shot.scene)?.name
+                  findBattle(battles, shot.scene)?.name
                 )}
                 onMouseDown={(e) => startMove(e, shot)}
               >

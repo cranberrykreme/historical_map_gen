@@ -1,6 +1,6 @@
 import { useMapStore } from "./useMapStore";
 import { usePathToolStore } from "./usePathToolStore";
-import { chainedPathIds, getTimeline } from "../utils/timeline";
+import { chainedPathIds, getTimeline } from "../utils/history/timeline";
 import { Unit } from "../types";
 
 const unit = (id: string, x: number, y: number): Unit => ({

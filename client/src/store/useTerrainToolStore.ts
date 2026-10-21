@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { PathPoint, TerrainKind } from "../types";
-import { BRUSH_DEFAULT, BRUSH_MAX, BRUSH_MIN } from "../utils/terrainBrush";
+import { BRUSH_DEFAULT, BRUSH_MAX, BRUSH_MIN } from "../utils/terrain/terrainBrush";
 
 // What the brush is doing: painting a kind on, or rubbing terrain out
 export type BrushMode = "paint" | "erase";

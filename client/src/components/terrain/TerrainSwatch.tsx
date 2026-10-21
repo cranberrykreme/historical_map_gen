@@ -1,7 +1,7 @@
 import React from "react";
 import { TerrainKind, TerrainStyle } from "../../types";
-import { isLine } from "../../utils/terrain";
-import { styleGround } from "../../utils/terrainStyles";
+import { isLine } from "../../utils/terrain/terrain";
+import { styleGround } from "../../utils/terrain/terrainStyles";
 import { FeatureDrawing } from "./terrainShapes";
 
 // A small patch of a terrain kind for lists: its colour and texture filling the patch, or a

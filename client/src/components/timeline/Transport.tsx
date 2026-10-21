@@ -8,9 +8,9 @@ import {
   TimelineMode,
   useTimelineStore,
 } from "../../store/useTimelineStore";
-import { formatHistoryTime, HistoryTime, HOUR } from "../../utils/historyTime";
-import { RowFilter } from "../../utils/timelineRows";
-import { formatSeconds, videoLength } from "../../utils/shots";
+import { formatHistoryTime, HistoryTime, HOUR } from "../../utils/history/historyTime";
+import { RowFilter } from "../../utils/history/timelineRows";
+import { formatSeconds, videoLength } from "../../utils/video/shots";
 import { HistoryDisplay, VideoFrame } from "../../types";
 import styles from "./Timeline.module.css";
 

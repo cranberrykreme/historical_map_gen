@@ -1,6 +1,6 @@
 import React from "react";
 import { TerrainStyle } from "../../types";
-import { stylePatterns } from "../../utils/terrainStyles";
+import { stylePatterns } from "../../utils/terrain/terrainStyles";
 
 // The terrain patterns (fields, waves, sand, ...) in a style, for any terrain drawn outside a
 // battle's ground, such as the picker's thumbnails. Takes no space on the page.

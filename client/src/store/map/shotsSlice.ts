@@ -9,10 +9,11 @@ import {
   nextShotName,
   sameTransition,
   sameView,
-} from "../../utils/shots";
-import { dropShot, handOnChapter } from "../../utils/chapters";
+} from "../../utils/video/shots";
+import { dropShot, handOnChapter } from "../../utils/video/chapters";
 import { withHistory } from "./history";
 import { MapStore, ShotsSlice } from "./types";
+import { isMainMap } from "../../utils/scenes/kinds";
 
 // How much history a new shot covers when nothing says otherwise: a week
 const DEFAULT_SHOT_DAYS = 7;
@@ -70,7 +71,7 @@ export const createShotsSlice: StateCreator<MapStore, [], [], ShotsSlice> = (
       ...(spec.ease ? { ease: true } : {}),
       ...(spec.hideDate ? { hideDate: true } : {}),
       // A new shot shows the scene being edited, unless it says otherwise
-      ...((spec.scene ?? state.activeSceneId) !== MAP_SCENE
+      ...(!isMainMap(spec.scene ?? state.activeSceneId)
         ? { scene: spec.scene ?? state.activeSceneId }
         : {}),
     });

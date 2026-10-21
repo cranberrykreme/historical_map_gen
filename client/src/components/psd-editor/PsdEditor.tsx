@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import PsdLayerList from "./PsdLayerList";
 import PsdEditorCanvas from "./PsdEditorCanvas";
 import PsdColorPalette from "./PsdColorPalette";
-import AssetTypePopup from "../AssetTypePopup";
+import AssetTypePopup from "../project/AssetTypePopup";
 import useEditHistory from "../../hooks/useEditHistory";
 import usePsdLayers from "../../hooks/usePsdLayers";
 import usePsdComposite from "../../hooks/usePsdComposite";

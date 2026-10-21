@@ -10,9 +10,9 @@ import {
   exitStyleInfo,
   MARKER_FADES,
   MARKER_KINDS,
-} from "../../utils/exits";
-import { formatHistoryTime } from "../../utils/historyTime";
-import { editableAt } from "../../utils/lifespans";
+} from "../../utils/units/exits";
+import { formatHistoryTime } from "../../utils/history/historyTime";
+import { editableAt } from "../../utils/history/lifespans";
 import styles from "../toolbar/PathsPanel.module.css";
 
 const WRAP: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 4 };

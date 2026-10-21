@@ -1,6 +1,6 @@
 import { StateCreator } from "zustand";
 import { Army, Battle, MapPath, SceneContent, Shot, Unit } from "../../types";
-import { allScenes, existingScene, openScene } from "../../utils/scenes";
+import { allScenes, existingScene, openScene } from "../../utils/scenes/scenes";
 import { HistorySlice, MapStore } from "./types";
 
 // One undo step: the whole document, so units, paths, armies and shots move through history

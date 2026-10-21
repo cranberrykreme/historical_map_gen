@@ -5,7 +5,7 @@ import {
   changeFormationMode,
   reanchorPaths,
   rerecordSlots,
-} from "../../utils/formation";
+} from "../../utils/marches/formation";
 import {
   chainedPathIds,
   defaultMarch,
@@ -13,11 +13,11 @@ import {
   handoverUnits,
   keepAfter,
   validMarch,
-} from "../../utils/timeline";
-import { clampMarch } from "../../utils/marches";
-import { createPlayback } from "../../utils/pathPlayback";
-import { defaultMarchStart } from "../../utils/lifespans";
-import { armyForAttach, joinArmy, leaveArmy } from "../../utils/armies";
+} from "../../utils/history/timeline";
+import { clampMarch } from "../../utils/marches/marches";
+import { createPlayback } from "../../utils/marches/pathPlayback";
+import { defaultMarchStart } from "../../utils/history/lifespans";
+import { armyForAttach, joinArmy, leaveArmy } from "../../utils/marches/armies";
 import { withHistory } from "./history";
 import { MapStore, PathsSlice } from "./types";
 

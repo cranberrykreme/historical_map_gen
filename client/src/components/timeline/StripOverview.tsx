@@ -1,9 +1,9 @@
 import React, { useRef, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { Shot } from "../../types";
-import { Chapter } from "../../utils/chapters";
-import { formatSeconds, shotAt } from "../../utils/shots";
-import { clampStripView, StripView } from "../../utils/stripView";
+import { Chapter } from "../../utils/video/chapters";
+import { formatSeconds, shotAt } from "../../utils/video/shots";
+import { clampStripView, StripView } from "../../utils/history/stripView";
 import styles from "./Timeline.module.css";
 
 const DRAG_THRESHOLD = 4; // pixels the pointer moves before a press becomes a drag

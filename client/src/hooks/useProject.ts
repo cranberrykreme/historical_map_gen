@@ -18,9 +18,9 @@ import {
   emptyProject,
   LoadedProject,
   parseProject,
-} from "../utils/convertProject";
-import { HistoryTime } from "../utils/historyTime";
-import { emptyScene } from "../utils/scenes";
+} from "../utils/project/convertProject";
+import { HistoryTime } from "../utils/history/historyTime";
+import { emptyScene } from "../utils/scenes/scenes";
 import { useMapStore } from "../store/useMapStore";
 
 export interface ProjectSnapshot {

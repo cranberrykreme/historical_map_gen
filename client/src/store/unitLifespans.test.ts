@@ -1,6 +1,6 @@
 import { useMapStore } from "./useMapStore";
 import { useTimelineStore } from "./useTimelineStore";
-import { DEFAULT_STORY_START } from "../utils/convertProject";
+import { DEFAULT_STORY_START } from "../utils/project/convertProject";
 import { Unit } from "../types";
 
 const S = DEFAULT_STORY_START;

@@ -3,8 +3,8 @@ import ToolbarButton from "../toolbar/ToolbarButton";
 import { useMapStore } from "../../store/useMapStore";
 import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
 import { BlockLoss, Unit } from "../../types";
-import { blockStrength, sizeAtStrength } from "../../utils/blocks";
-import { formatHistoryTime, HOUR } from "../../utils/historyTime";
+import { blockStrength, sizeAtStrength } from "../../utils/units/blocks";
+import { formatHistoryTime, HOUR } from "../../utils/history/historyTime";
 import deleteStyles from "../toolbar/DeleteButton.module.css";
 import styles from "../toolbar/PathsPanel.module.css";
 

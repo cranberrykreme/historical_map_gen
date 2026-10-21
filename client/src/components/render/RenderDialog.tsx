@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { useAssetStore } from "../../store/useAssetStore";
 import { useMapStore } from "../../store/useMapStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
-import { FRAME_PIXELS } from "../../utils/camera";
-import { formatSeconds } from "../../utils/shots";
+import { FRAME_PIXELS } from "../../utils/video/camera";
+import { formatSeconds } from "../../utils/video/shots";
 import { VideoFrame } from "../../types";
 import {
   cleanName,

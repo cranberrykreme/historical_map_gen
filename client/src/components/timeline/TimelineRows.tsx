@@ -2,13 +2,13 @@ import React from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
-import { HistoryView } from "../../utils/timeline";
+import { HistoryView } from "../../utils/history/timeline";
 import {
   formatHistoryTime,
   historyTicks,
   HistoryTime,
-} from "../../utils/historyTime";
-import { RowGroup } from "../../utils/timelineRows";
+} from "../../utils/history/historyTime";
+import { RowGroup } from "../../utils/history/timelineRows";
 import { describe, groupTitle } from "./describe";
 import MarchBar, { MIN_BAR_PX } from "./MarchBar";
 import styles from "./Timeline.module.css";

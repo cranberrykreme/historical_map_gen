@@ -1,16 +1,16 @@
 import { StateCreator } from "zustand";
 import { Unit, AssetType, MapPath } from "../../types";
-import { blockUnit, tidyBlock } from "../../utils/blocks";
-import { defaultExit, tidyExit } from "../../utils/exits";
-import { reanchorPaths } from "../../utils/formation";
-import { chainedPathIds } from "../../utils/timeline";
-import { HistoryTime } from "../../utils/historyTime";
+import { blockUnit, tidyBlock } from "../../utils/units/blocks";
+import { defaultExit, tidyExit } from "../../utils/units/exits";
+import { reanchorPaths } from "../../utils/marches/formation";
+import { chainedPathIds } from "../../utils/history/timeline";
+import { HistoryTime } from "../../utils/history/historyTime";
 import {
   editableAt,
   placementMoment,
   removeUnitsAt,
-} from "../../utils/lifespans";
-import { forgetUnits } from "../../utils/armies";
+} from "../../utils/history/lifespans";
+import { forgetUnits } from "../../utils/marches/armies";
 import { useTimelineStore } from "../useTimelineStore";
 import { Snapshot, snapshotOf, withHistory } from "./history";
 import { MapStore, UnitsSlice } from "./types";

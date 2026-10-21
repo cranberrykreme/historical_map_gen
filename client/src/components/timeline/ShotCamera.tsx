@@ -13,11 +13,11 @@ import {
   cameraInShot,
   shotCameras,
   shotScene,
-} from "../../utils/camera";
+} from "../../utils/video/camera";
 import {
   DEFAULT_TRANSITION_SECONDS,
   MIN_TRANSITION_SECONDS,
-} from "../../utils/shots";
+} from "../../utils/video/shots";
 import { openingView } from "../../hooks/useVideoCamera";
 import useSceneCameras from "../../hooks/useSceneCameras";
 import { useTimelineStore } from "../../store/useTimelineStore";

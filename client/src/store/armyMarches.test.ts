@@ -1,7 +1,7 @@
 import { useMapStore } from "./useMapStore";
 import { useTimelineStore } from "./useTimelineStore";
-import { DEFAULT_STORY_START } from "../utils/convertProject";
-import { getTimeline } from "../utils/timeline";
+import { DEFAULT_STORY_START } from "../utils/project/convertProject";
+import { getTimeline } from "../utils/history/timeline";
 import { Unit } from "../types";
 
 const S = DEFAULT_STORY_START;

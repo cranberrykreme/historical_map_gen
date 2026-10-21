@@ -1,5 +1,5 @@
 import { CameraView, FormationBlock } from "../types";
-import { placementFor } from "../utils/camera";
+import { placementFor } from "../utils/video/camera";
 import {
   BLOCK_FONT,
   blockBox,
@@ -10,7 +10,7 @@ import {
   blockOutline,
   blockSymbol,
   BlockStep,
-} from "../utils/blocks";
+} from "../utils/units/blocks";
 import {
   crossSize,
   crossStrokes,
@@ -25,7 +25,7 @@ import {
   smoothClosed,
   TEAR_EDGE,
   TEAR_SHADOW,
-} from "../utils/exits";
+} from "../utils/units/exits";
 import { Blend, DrawUnit, Scene } from "./scene";
 
 // What fills the frame wherever the map doesn't reach, the same grey as the editor
@@ -123,7 +123,7 @@ export type FrameContext = Pick<
   | "imageSmoothingQuality"
 >;
 
-// A unit part way through leaving, in pieces (see utils/exits). The unit's own space is already
+// A unit part way through leaving, in pieces (see utils/units/exits). The unit's own space is already
 // set up, centred on the middle of its picture's `width` by `height` box; `drawWhole` draws the
 // whole picture there. `pixel` is one pixel of the frame in this space, for lines that should
 // look the same thickness at any zoom.

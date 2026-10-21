@@ -1,6 +1,6 @@
 import { drawFrame, FrameContext } from "./drawFrame";
 import { Scene } from "./scene";
-import { newBlockSpec } from "../utils/blocks";
+import { newBlockSpec } from "../utils/units/blocks";
 
 // A drawing surface that writes down everything drawn on it
 function recorder() {

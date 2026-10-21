@@ -2,13 +2,14 @@ import React, { useEffect, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
 import { MAP_SCENE, Shot } from "../../types";
-import { formatDuration } from "../../utils/historyTime";
-import { isHeld, MIN_SHOT_SECONDS } from "../../utils/shots";
-import { chapterOfShot, chaptersOf } from "../../utils/chapters";
-import { viewShowing } from "../../utils/timeline";
+import { formatDuration } from "../../utils/history/historyTime";
+import { isHeld, MIN_SHOT_SECONDS } from "../../utils/video/shots";
+import { chapterOfShot, chaptersOf } from "../../utils/video/chapters";
+import { viewShowing } from "../../utils/history/timeline";
 import { MomentInput, NumberField } from "./fields";
 import ShotCamera from "./ShotCamera";
 import styles from "./Timeline.module.css";
+import { sceneExists, sceneList } from "../../utils/scenes/kinds";
 
 // The selected shot's name, length, stretch of history and options, with its camera and
 // transition on a second row. Each change is one undo step.
@@ -101,13 +102,12 @@ function ShotEditor({ shot }: { shot: Shot }) {
             title="What this shot films: the main map, or one of the battles drawn up on its own ground"
             onChange={(e) => updateShot(shot.id, { scene: e.target.value })}
           >
-            <option value={MAP_SCENE}>Main map</option>
-            {battles.map((battle) => (
-              <option key={battle.id} value={battle.id}>
-                ⚔ {battle.name}
+            {sceneList(battles).map((scene) => (
+              <option key={scene.id} value={scene.id}>
+                {scene.kind === "battle" ? `⚔ ${scene.name}` : scene.name}
               </option>
             ))}
-            {shot.scene && !battles.some((b) => b.id === shot.scene) && (
+            {shot.scene && !sceneExists(shot.scene, battles) && (
               <option value={shot.scene}>(battle deleted)</option>
             )}
           </select>

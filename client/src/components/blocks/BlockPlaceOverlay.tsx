@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { useBlockToolStore } from "../../store/useBlockToolStore";
-import BlockShape from "../BlockShape";
+import BlockShape from "../map/BlockShape";
 
 // How far the mouse can move (in pixels) and still count as a click rather than a pan
 const CLICK_SLOP = 4;

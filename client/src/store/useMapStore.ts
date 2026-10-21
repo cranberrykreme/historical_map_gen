@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { syncChainedStarts } from "../utils/timeline";
-import { syncArmyMarches } from "../utils/armies";
+import { syncChainedStarts } from "../utils/history/timeline";
+import { syncArmyMarches } from "../utils/marches/armies";
 import { MapStore } from "./map/types";
 import { createHistorySlice } from "./map/history";
 import { createSelectionSlice } from "./map/selectionSlice";

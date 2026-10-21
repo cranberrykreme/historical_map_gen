@@ -1,7 +1,7 @@
 import { drawFrame, FrameContext } from "./drawFrame";
 import { sceneAt, SceneInput } from "./scene";
-import { createTimeline } from "../utils/timeline";
-import { blockUnit, newBlockSpec } from "../utils/blocks";
+import { createTimeline } from "../utils/history/timeline";
+import { blockUnit, newBlockSpec } from "../utils/units/blocks";
 import { Unit } from "../types";
 
 // A drawing surface that writes down everything drawn on it

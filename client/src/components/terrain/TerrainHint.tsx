@@ -1,7 +1,7 @@
 import React from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { useTerrainToolStore } from "../../store/useTerrainToolStore";
-import { kindInfo, minPoints } from "../../utils/terrain";
+import { kindInfo, minPoints } from "../../utils/terrain/terrain";
 import styles from "./TerrainHint.module.css";
 
 // What the terrain tools are doing, top left under the battle's badge, with the buttons that

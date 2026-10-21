@@ -1,6 +1,6 @@
 import { Shot } from "../types";
-import { playedTransition } from "../utils/camera";
-import { shotStarts, videoLength } from "../utils/shots";
+import { playedTransition } from "../utils/video/camera";
+import { shotStarts, videoLength } from "../utils/video/shots";
 
 // The frame rates the render dialog offers; 24 is the default
 export const FRAME_RATES = [24, 25, 30];

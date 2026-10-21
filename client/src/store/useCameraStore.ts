@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { CameraView, SavedViewport } from "../types";
-import type { FrameRect } from "../utils/camera";
+import type { FrameRect } from "../utils/video/camera";
 
 // How the rest of the app reads and moves the map's camera. The map registers it while it is
 // on screen; it is null otherwise.

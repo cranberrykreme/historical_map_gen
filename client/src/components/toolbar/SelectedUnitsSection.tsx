@@ -3,8 +3,8 @@ import CollapsibleSection from "./CollapsibleSection";
 import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
-import { unitFacing } from "../../utils/unitFacing";
-import { formatHistoryTime } from "../../utils/historyTime";
+import { unitFacing } from "../../utils/marches/unitFacing";
+import { formatHistoryTime } from "../../utils/history/historyTime";
 import { TravelMode } from "../../types";
 import styles from "./PathsPanel.module.css";
 

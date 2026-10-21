@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { prepareRender } from "../../render/prepare";
 import { renderFrame } from "../../render/renderFrame";
-import { formatSeconds } from "../../utils/shots";
+import { formatSeconds } from "../../utils/video/shots";
 import styles from "./FramePreview.module.css";
 
 // One frame of the video exactly as the finished video will show it, at full size, for checking

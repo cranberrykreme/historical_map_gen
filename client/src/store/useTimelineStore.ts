@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { MarchTiming } from "../types";
-import { HistoryTime } from "../utils/historyTime";
-import { HistoryView } from "../utils/timeline";
-import { StripView } from "../utils/stripView";
-import { ROW_FILTERS, RowFilter } from "../utils/timelineRows";
+import { HistoryTime } from "../utils/history/historyTime";
+import { HistoryView } from "../utils/history/timeline";
+import { StripView } from "../utils/history/stripView";
+import { ROW_FILTERS, RowFilter } from "../utils/history/timelineRows";
 
 // The rows area's height, in pixels: the ruler and about seven rows to begin with
 export const DEFAULT_ROWS_HEIGHT = 228;
@@ -73,7 +73,7 @@ interface TimelineStore {
   draftTiming: DraftTiming | null; // a bar being dragged, shown before it is saved
   view: HistoryView | null; // the stretch of history the bar shows; null fits the whole story
   rowFilter: RowFilter; // which marches are listed
-  collapsedGroups: string[]; // the army groups folded away (keys from utils/timelineRows)
+  collapsedGroups: string[]; // the army groups folded away (keys from utils/history/timelineRows)
   rowsHeight: number; // the rows area's height in pixels; drag the timeline's top edge
   mode: TimelineMode;
   videoTime: number; // the video playhead, in seconds; in video mode it sets `now`

@@ -5,7 +5,7 @@ import {
   ImageSize,
   moveCircle,
   resizeCircle,
-} from "../../utils/portraitCircle";
+} from "../../utils/units/portraitCircle";
 import { RgbColor } from "../../types";
 import styles from "../psd-editor/PsdEditorCanvas.module.css";
 
