@@ -19,12 +19,12 @@ const FORMATION_MODES: {
   {
     mode: "keep",
     label: "Keep as placed",
-    hint: "Units turn on the spot to face the path; the formation stays exactly as you laid it out",
+    hint: "Units turn on the spot to face the march; the formation stays exactly as you laid it out",
   },
   {
     mode: "wheel",
     label: "Turn with units",
-    hint: "The whole group turns with its units, so a row facing north ends up a row facing the way the path leaves",
+    hint: "The whole group turns with its units, so a row facing north ends up a row facing the way the march leaves",
   },
 ];
 
@@ -67,7 +67,7 @@ function AttachedUnitsSection({
     >
       {attachedUnits.length === 0 && !marchArmy && (
         <p className={styles.hint}>
-          None yet. Select units, then click this path on the map.
+          None yet. Select units, then click this march on the map.
         </p>
       )}
       {attachedUnits.map((unit) => (
@@ -79,7 +79,7 @@ function AttachedUnitsSection({
             title={
               marchArmy
                 ? `Take off this march: it leaves ${marchArmy.name} as the march sets off`
-                : "Detach from this path"
+                : "Detach from this march"
             }
             className={deleteStyles.deleteButton}
           >

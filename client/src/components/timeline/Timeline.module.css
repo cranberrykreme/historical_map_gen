@@ -1,7 +1,7 @@
 .timeline {
   position: fixed;
   left: var(--space-md);
-  right: 72px;
+  right: calc(var(--side-width, 56px) + var(--space-md));
   bottom: var(--space-md);
   z-index: 800;
   background: var(--color-surface);

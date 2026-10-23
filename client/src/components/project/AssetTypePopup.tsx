@@ -24,14 +24,14 @@ function AssetTypePopup({
       onClick={onCancel}
     >
       <div onClick={(e) => e.stopPropagation()} className={styles.modal}>
-        <h2 className={styles.title}>Add Asset{files.length > 1 ? "s" : ""}</h2>
+        <h2 className={styles.title}>Add to Library</h2>
         <p className={styles.text}>
           {files.length === 1
             ? files[0].name
             : `${files.length} files selected`}
         </p>
         <p className={styles.text}>
-          What type of asset {files.length > 1 ? "are these" : "is this"}?
+          What {files.length > 1 ? "are these" : "is this"}?
         </p>
 
         <div className={styles.optionList}>

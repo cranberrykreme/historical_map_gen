@@ -93,7 +93,7 @@ function UnitThumbnail({
       )}
       <button
         onClick={handleDeleteClick}
-        title="Delete asset"
+        title="Delete from the Library"
         className={`${deleteStyles.deleteButton} ${isHovered ? "" : deleteStyles.hidden}`}
       >
         ×

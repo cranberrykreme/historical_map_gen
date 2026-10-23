@@ -32,8 +32,9 @@ export const frameAspect = (frame: VideoFrame): number =>
 // Room left around the frame on the map, in screen pixels, so its edge can be seen
 export const FRAME_MARGIN = 24;
 
-// The frame keeps clear of the toolbar's tab rail on the right, as the timeline does
-export const FRAME_RIGHT_CLEARANCE = 72;
+// Room the frame leaves on the map's right. The map now ends where the side panel starts,
+// so the frame's own margin is enough.
+export const FRAME_RIGHT_CLEARANCE = 0;
 
 // The closest a camera can zoom in or out, as map units shown from top to bottom of the frame
 const MIN_VIEW_HEIGHT = 1e-3;

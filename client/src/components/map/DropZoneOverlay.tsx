@@ -72,7 +72,7 @@ function DropZoneOverlay({ onFilesDrop }: DropZoneOverlayProps) {
     <div className={styles.overlay}>
       {isDragging && (
         <div className={styles.dragOverlay}>
-          <p className={styles.dragMessage}>Drop to add asset</p>
+          <p className={styles.dragMessage}>Drop to add to the Library</p>
         </div>
       )}
 

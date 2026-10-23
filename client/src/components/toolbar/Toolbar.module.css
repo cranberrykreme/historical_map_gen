@@ -1,31 +1,115 @@
-.toolbar {
+/* The side: the open panel and the tab rail, along the window's right edge. The map and the
+ timeline end where it starts (see --side-width). */
+.side {
   position: fixed;
   top: 0;
   right: 0;
   height: 100vh;
-  width: var(--toolbar-width-collapsed);
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
-  background: transparent;
-  border-left: 1px solid transparent;
-  transition: width var(--toolbar-transition), background var(--toolbar-transition), border-color var(--toolbar-transition);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border-subtle);
   z-index: 1000;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
-.toolbarExpanded {
-  width: calc(var(--toolbar-width-expanded) + var(--toolbar-width-collapsed));
-  background: var(--color-surface);
-  border-left-color: var(--color-border-subtle);
-}
-
-.panelArea {
-  flex: 1;
-  min-width: 0;
+.panel {
+  position: relative;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--space-sm) 0 var(--space-sm) var(--space-sm);
+  min-width: 0;
+  height: 100%;
+  border-right: 1px solid var(--color-border-subtle);
   box-sizing: border-box;
+}
+
+/* The left edge drags to resize; a short bar shows where to grab */
+.resizeEdge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 2;
+}
+
+.resizeEdge::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - 24px);
+  left: 2px;
+  width: 4px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  opacity: 0;
+  transition: opacity var(--toolbar-transition);
+}
+
+.panel:hover .resizeEdge::after,
+.resizeEdge:hover::after {
+  opacity: 1;
+}
+
+.panelHeader {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-family: var(--font-ui);
+}
+
+.panelTitle {
+  color: var(--color-gold);
+  font-size: 16px;
+}
+
+.panelSub {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.closeButton {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  align-self: center;
+}
+
+.closeButton:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.panelBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  box-sizing: border-box;
+}
+
+/* A panel's own contents fill the body and scroll inside it */
+.panelBody > * {
+  flex: 1;
+  min-height: 0;
 }

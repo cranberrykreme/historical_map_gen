@@ -7,6 +7,8 @@ import {
   sceneExists,
   sceneKind,
   sceneList,
+  sceneGroups,
+  NEW_SCENE_OPTIONS,
 } from "./kinds";
 
 const battle = (id: string, name = id): Battle => ({
@@ -54,4 +56,22 @@ test("only battles have their own size and terrain", () => {
   expect(SCENE_KINDS.battle.ownSize && SCENE_KINDS.battle.hasTerrain).toBe(
     true
   );
+});
+
+test("groups the scenes by kind, with a group for every kind even when empty", () => {
+  expect(sceneGroups(battles).map((g) => [g.group, g.scenes.length])).toEqual([
+    ["Maps", 1],
+    ["Battles", 2],
+  ]);
+  expect(sceneGroups([]).map((g) => [g.group, g.scenes.length])).toEqual([
+    ["Maps", 1],
+    ["Battles", 0],
+  ]);
+});
+
+test("the New scene menu makes land and sea battles", () => {
+  expect(NEW_SCENE_OPTIONS.map((o) => [o.kind, o.battleKind])).toEqual([
+    ["battle", "land"],
+    ["battle", "sea"],
+  ]);
 });

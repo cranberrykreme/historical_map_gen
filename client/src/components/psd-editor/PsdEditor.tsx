@@ -246,9 +246,9 @@ function PsdEditor({ psdName, onClose }: PsdEditorProps) {
               className={`${styles.actionButton} ${styles.actionButtonPrimary}`}
               onClick={handleSaveClick}
               disabled={!compositeReady}
-              title="Save the composite into this project's assets"
+              title="Save the composite into this project's Library"
             >
-              Save to assets
+              Save to Library
             </button>
             <button
               className={styles.actionButton}

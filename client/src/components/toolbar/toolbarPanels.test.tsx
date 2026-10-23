@@ -4,12 +4,14 @@ import { createRoot, Root } from "react-dom/client";
 import { useMapStore } from "../../store/useMapStore";
 import { blockUnit, newBlockSpec } from "../../utils/units/blocks";
 import { Unit } from "../../types";
-import ScenePanel from "./ScenePanel";
-import AssetsPanel from "./AssetsPanel";
-import DrawingPanel from "./DrawingPanel";
+import ScenesPanel from "./ScenesPanel";
+import LibraryPanel from "./LibraryPanel";
+import BuildPanel from "./BuildPanel";
 import AnimationsPanel from "./AnimationsPanel";
 import ShotsPanel from "./ShotsPanel";
+import Toolbar from "./Toolbar";
 import ProjectHeader from "../project/ProjectHeader";
+import { useSidePanelStore } from "../../store/useSidePanelStore";
 
 // Jest here can't load react-router's newer package layout; the header only needs useNavigate
 jest.mock("react-router-dom", () => ({ useNavigate: () => () => {} }));
@@ -65,45 +67,151 @@ function openBattle() {
   });
 }
 
-test("the Scene tab has three sections, Battles, Paths and Armies, with subsections in each", () => {
+const noop = () => {};
+const libraryProps = {
+  onAddAsset: noop,
+  selectedMapFilename: null,
+  onSelectMap: noop,
+  onDeleteAsset: noop,
+  onAssetRenamed: noop,
+  onSelectPsd: noop,
+  onSelectPortraitSource: noop,
+};
+const click = (el: Element) =>
+  act(() => el.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+const button = (label: string) =>
+  Array.from(container.querySelectorAll("button")).find((b) =>
+    b.textContent?.includes(label)
+  )!;
+
+test("the Scenes tab groups the scenes by kind and opens one on a click", () => {
   openBattle();
-  show(<ScenePanel />);
+  show(<ScenesPanel />);
+  for (const title of ["New scene", "Maps", "Main map", "Battles", "Hastings"])
+    expect(text()).toContain(title);
+  expect(text()).not.toContain("Marches");
+  const mainMap = Array.from(container.querySelectorAll("span")).find(
+    (s) => s.textContent === "Main map"
+  )!;
+  click(mainMap);
+  expect(useMapStore.getState().activeSceneId).toBe("map");
+});
+
+test("New scene offers land and sea battles, and makes and opens one", () => {
+  openBattle();
+  show(<ScenesPanel />);
+  expect(text()).not.toContain("Sea battle");
+  click(button("New scene"));
+  expect(text()).toContain("Land battle");
+  expect(text()).toContain("Sea battle");
+  const sea = Array.from(container.querySelectorAll("span")).find(
+    (s) => s.textContent === "Sea battle"
+  )!;
+  click(sea);
+  expect(text()).toContain("New sea battle");
+  click(button("Create and open"));
+  const { battles, activeSceneId } = useMapStore.getState();
+  expect(battles).toHaveLength(2);
+  expect(battles[1].kind).toBe("sea");
+  expect(activeSceneId).toBe(battles[1].id);
+});
+
+test("the Build tab has marches and armies, and terrain only in a battle", () => {
+  openBattle();
+  show(<BuildPanel />);
   for (const title of [
-    "Battles",
-    "Main map and battles",
-    "New battle",
-    "Paths",
-    "All paths",
+    "Marches",
+    "All marches",
+    "New march",
     "Armies",
     "All armies",
+    "Terrain: Hastings",
   ])
     expect(text()).toContain(title);
-  expect(text()).not.toContain("Block: Shield wall");
+  expect(text()).not.toMatch(/\bpaths?\b/i);
+  act(() => useMapStore.setState({ activeSceneId: "map" }));
+  expect(text()).toContain("Marches");
   expect(text()).not.toContain("Terrain");
 });
 
-test("formation blocks are in the Assets tab", () => {
+test("the Library shows one section at a time; formation blocks are with units", () => {
   openBattle();
-  show(
-    <AssetsPanel
-      onAddAsset={() => {}}
-      selectedMapFilename={null}
-      onSelectMap={() => {}}
-      onDeleteAsset={() => {}}
-      onAssetRenamed={() => {}}
-    />
-  );
+  act(() => useSidePanelStore.getState().setLibrarySection("maps"));
+  show(<LibraryPanel {...libraryProps} />);
+  expect(text()).toContain("No maps yet");
+  expect(text()).not.toContain("Formation blocks");
+  click(button("Units"));
   expect(text()).toContain("Block: Shield wall");
   act(() => useMapStore.setState({ selectedUnitIds: new Set() }));
   expect(text()).toContain("Formation blocks");
+  click(button("Tools"));
+  expect(text()).toContain("PSD editor");
+  expect(text()).toContain("Portrait maker");
+  expect(text()).not.toContain("Add to Library");
 });
 
-test("the Drawing tab has the open battle's terrain, and says to open a battle on the main map", () => {
+test("a tab opens on a click and stays open; a second click or Escape closes it", () => {
+  jest.useFakeTimers();
   openBattle();
-  show(<DrawingPanel />);
-  expect(text()).toContain("Terrain: Hastings");
-  act(() => useMapStore.setState({ activeSceneId: "map" }));
-  expect(text()).toContain("Open a battle");
+  act(() => useSidePanelStore.getState().close());
+  show(<Toolbar {...libraryProps} />);
+  for (const word of [
+    "Library",
+    "Scenes",
+    "Build",
+    "Animate",
+    "Shots",
+    "Publish",
+  ])
+    expect(text()).toContain(word);
+  expect(text()).not.toContain("All marches");
+
+  // Hovering doesn't open it
+  act(() =>
+    button("Build").dispatchEvent(
+      new MouseEvent("mouseover", { bubbles: true })
+    )
+  );
+  expect(text()).not.toContain("All marches");
+
+  click(button("Build"));
+  expect(text()).toContain("All marches");
+  expect(document.documentElement.style.getPropertyValue("--side-width")).toBe(
+    `${56 + useSidePanelStore.getState().width}px`
+  );
+
+  click(button("Build"));
+  expect(text()).not.toContain("All marches");
+  expect(document.documentElement.style.getPropertyValue("--side-width")).toBe(
+    "56px"
+  );
+
+  click(button("Shots"));
+  expect(useSidePanelStore.getState().openTab).toBe("shots");
+  act(() => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    jest.runAllTimers();
+  });
+  expect(useSidePanelStore.getState().openTab).toBeNull();
+  expect(useSidePanelStore.getState().lastTab).toBe("shots");
+  jest.useRealTimers();
+});
+
+test("Escape that something else used leaves the panel open", () => {
+  jest.useFakeTimers();
+  act(() => useSidePanelStore.getState().open("animate"));
+  show(<Toolbar {...libraryProps} />);
+  const used = (e: KeyboardEvent) => e.preventDefault();
+  window.addEventListener("keydown", used);
+  act(() => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", cancelable: true })
+    );
+    jest.runAllTimers();
+  });
+  window.removeEventListener("keydown", used);
+  expect(useSidePanelStore.getState().openTab).toBe("animate");
+  jest.useRealTimers();
 });
 
 test("the Animations tab has the selected units' timing and lists every animation", () => {
@@ -111,7 +219,7 @@ test("the Animations tab has the selected units' timing and lists every animatio
   show(<AnimationsPanel />);
   for (const title of [
     "Selected: 1 unit",
-    "Turning along paths",
+    "Turning along marches",
     "Death and leaving",
     "Shield wall: losses",
     "Arrivals",

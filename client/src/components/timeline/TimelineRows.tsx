@@ -248,7 +248,7 @@ function TimelineRows({
 
         {!hasMarches && (
           <div className={styles.empty}>
-            Attach units to a path and its march appears here.
+            Attach units to a march and it appears here.
           </div>
         )}
         {hasMarches && groups.length === 0 && (

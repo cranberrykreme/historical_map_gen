@@ -28,14 +28,17 @@ export interface ProjectData {
   battles?: SavedBattle[];
 }
 
+// The side panel's tabs, in the order a video is made
 export type ToolbarTabId =
-  | "assets"
-  | "psd"
-  | "portrait"
-  | "scene"
-  | "drawing"
+  | "library"
+  | "scenes"
+  | "build"
+  | "animate"
   | "shots"
-  | "animations";
+  | "publish";
+
+// The Library tab's sections
+export type LibrarySection = "maps" | "units" | "portraits" | "tools";
 
 // The map point at the centre of the screen plus the zoom level,
 // so a saved view restores correctly on any window size

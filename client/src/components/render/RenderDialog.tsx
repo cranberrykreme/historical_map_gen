@@ -151,7 +151,10 @@ function RenderDialog({ onClose }: { onClose: () => void }) {
   // Escape closes it, unless a render is running
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !rendering) onClose();
+      if (e.key === "Escape" && !rendering) {
+        e.preventDefault(); // so the side panel doesn't close too
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

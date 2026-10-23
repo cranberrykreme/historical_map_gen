@@ -97,7 +97,9 @@ function ProjectView() {
         saveStatus={saveStatus}
       />
       {storesReady && (
-        <MapCanvas key={projectName} viewportApiRef={viewportApiRef} />
+        <div className={styles.mapArea}>
+          <MapCanvas key={projectName} viewportApiRef={viewportApiRef} />
+        </div>
       )}
       {storesReady && <Timeline />}
       {storesReady && <DateDisplay />}

@@ -97,10 +97,10 @@ function PathsPanel() {
 
   return (
     <>
-      <CollapsibleSection id="paths" title="All paths" sub>
+      <CollapsibleSection id="paths" title="All marches" sub>
         <ToolbarButton
           icon="+"
-          label="New path"
+          label="New march"
           isExpanded={true}
           isActive={isDrawing}
           onClick={() => {
@@ -130,7 +130,7 @@ function PathsPanel() {
         ) : (
           <>
             <p className={styles.hint}>
-              Select units, then click a path on the map to attach them to it.
+              Select units, then click a march on the map to attach them to it.
             </p>
             <PathList
               rename={{

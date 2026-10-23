@@ -91,7 +91,7 @@ function SelectedUnitsSection({
       id="selected-units"
       title={`Selected: ${selectedUnits.length} unit${selectedUnits.length === 1 ? "" : "s"}`}
     >
-      <p className={styles.hint}>Turning along paths</p>
+      <p className={styles.hint}>Turning along marches</p>
       <div className={styles.segment}>
         {TRAVEL_MODES.map(({ mode, label, hint }) => (
           <button

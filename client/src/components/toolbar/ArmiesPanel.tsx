@@ -122,7 +122,7 @@ function ArmiesPanel() {
 
         {armies.length === 0 && (
           <p className={styles.emptyMessage}>
-            No armies yet. Attaching units to a path makes one, or select units
+            No armies yet. Attaching units to a march makes one, or select units
             and click "New army from selection".
           </p>
         )}
@@ -273,7 +273,7 @@ function ArmiesPanel() {
           >
             {armyMarches.length === 0 && (
               <p className={styles.hint}>
-                None yet. Select this army's units, then click a path on the
+                None yet. Select this army's units, then click a march on the
                 map.
               </p>
             )}

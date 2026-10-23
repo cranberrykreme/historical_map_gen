@@ -26,6 +26,35 @@ Make these before development starts, so the first scene can be built and tested
 - Support characters: circle head, body narrow at the top and wider at the bottom, no hands or feet. Each item and each hat or helmet is its own layer, so it can be switched on or off.
 - No tables or chairs in backdrops: they are props, so characters can sit behind them.
 
+### Art specs (how the app will read the PSDs)
+
+**Rules for every library PSD**
+- Flat layers only, no groups: the app reads every layer, and a group would come through as an extra copy.
+- Vector shape layers like the unit art, with the border as the stroke on the same layer.
+- Layer names tell the app what to do:
+  - `colour <name>`, such as `colour body`: recoloured to the faction colour. Draw it in the palette's grey (fill `#a0a0a0`, border `#5a5a5a`) so the app knows exactly what to swap; no sampling needed.
+  - `item <name>` or `hat <name>`, such as `item spear` or `hat helmet`: optional, switched on or off per character or prop.
+  - Anything else: always shown, never recoloured (grey is fine on these, such as a steel helmet).
+  - Backdrops only: `front <name>`, such as `front pillar`, is drawn **over** the characters (pillars, a window frame, a tent flap); `far <name>`, such as `far window`, moves slower when the camera pans, for depth. Optional; a backdrop without them works as before (added 21 October 2026, idea B1 in `FEATURE_IDEAS_PLAN.md`).
+- Layer order in the PSD is drawing order: bottom layer drawn first.
+- **Scale:** a standing adult is **500 px** tall, feet to top of head, in every file, so characters, props and backdrops match without resizing.
+- Characters and props face **right**; the app flips them to face left. Transparent background, nothing touching the sides.
+
+**Great hall (backdrop)**
+- Canvas **4000 × 2000 px**. Floor line at **y = 1500**: everything below is floor.
+- Layers, bottom to top: `wall` (timber planks or wattle, fills the canvas), `beams` (posts and roof beams), `floor` (y 1500 down: flagstones or rushes, a little darker at the bottom), `hearth` (against the back wall, off to one side), `colour hangings` (two or three wall hangings, grey).
+- A doorway, if any, is about 700 px tall. Keep the area above the floor between x 1000 and 3000 fairly plain, as that's where people stand and talk.
+
+**Soldier (support character)**
+- Canvas **500 × 800 px**. The bottom of the body sits on the bottom edge, centred left to right; the app stands it on the floor there.
+- Figure 500 px tall: body 340 px tall, about 100 px wide at the top and 220 px at the bottom; head a 160 px circle sitting on top.
+- Layers, bottom to top: `colour body`, `head` (plain skin-tone circle, optional dot eye on the right side), `item shield` (round or kite shield over the front of the body), `item spear` (upright, about 700 px, in front of the body), `hat helmet` (Norman nasal helmet).
+
+**Long table (prop)**
+- Canvas **2000 × 600 px**, side-on, legs on the bottom edge.
+- Tabletop about **230 px** above the floor (waist height for a 500 px person), about 30 px thick.
+- Layers, bottom to top: `table` (legs and top, wood), `colour cloth` (a runner hanging over the front edge, grey), `item food` (bread, meat, bowls on top), `item goblets`.
+
 ## Decisions
 
 1. **Scene model.** A story scene is a third kind of scene next to the main map and battles, using the same machinery: it opens from the Scene tab, has its own undo, and a shot picks it in the Scene picker with its own camera. The scene itself is the **set**: its backdrop, its props, and where every character stands and how they pose at the start.
@@ -115,6 +144,17 @@ The editor and the renderer both use these, so the editor shows what the video w
 - `scene.ts` gives a story shot's frame: the backdrop as its ground, then props and characters back to front, with each portrait character's limbs.
 - `drawFrame.ts` draws the limbs as round-ended dark lines behind the circle.
 - Cuts, fades, dissolves and wipes between story scenes, battles and the map work as they do now.
+
+## Additions agreed 21 October 2026
+
+Five small ideas from `FEATURE_IDEAS_PLAN.md` join 9.9, built after step 6 (or folded into steps 3 and 4 where they fit):
+- **A2 Reaction marks:** ! ? anger lines, sweat drop, zzz, music notes, heart, popping up above a head for a moment; an action on the character's row.
+- **A6 Entrances and exits:** enter or leave by the left edge, right edge, or a door marked on the backdrop, walking to or from the placed spot.
+- **B1 Depth layers:** `front` and `far` backdrop layers (see the art specs).
+- **E1 Portrait variants and moods:** several portrait pictures per person, swapped by an action with a blend. Moods never draw on the face, because the eyes sit in a different place on every portrait: angry = red glow, quick shake and steam puffs; sad = colour greys and arms droop; afraid = fast tremble; happy = small bounce.
+- **E3 Silhouette shots:** a story shot switch that turns characters and props black against a chosen sky colour.
+
+The next item, **9.10 Story talk and camera**, adds A1 speech and subtitles and B3 scene camera presets.
 
 ## Build steps
 

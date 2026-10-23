@@ -26,7 +26,7 @@ function PathList({ rename }: { rename: PathRename }) {
     <>
       {paths.length === 0 && (
         <p className={styles.emptyMessage}>
-          No paths yet. Click "New path" to draw one.
+          No marches yet. Click "New march" to draw one.
         </p>
       )}
       {paths.map((path) => {
@@ -69,7 +69,7 @@ function PathList({ rename }: { rename: PathRename }) {
                 e.stopPropagation();
                 deletePath(path.id);
               }}
-              title="Delete path"
+              title="Delete march"
               className={deleteStyles.deleteButton}
             >
               ×

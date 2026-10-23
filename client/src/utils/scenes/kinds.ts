@@ -1,4 +1,4 @@
-import { Battle, MAP_SCENE } from "../../types";
+import { Battle, BattleKind, MAP_SCENE } from "../../types";
 
 // The kinds of scene a video can show, and what each one has. Today there are two: the main
 // map and battles. Story scenes (9.9) and screens such as the family tree (17.5) join this
@@ -79,4 +79,49 @@ export const sceneExists = (
 export const sceneList = (battles: Battle[]): SceneEntry[] => [
   { id: MAP_SCENE, kind: "map", name: SCENE_KINDS.map.label },
   ...battles.map((b) => ({ id: b.id, kind: "battle" as const, name: b.name })),
+];
+
+// The scenes grouped by kind, as the Scenes tab lists them: every kind gets its group, in the
+// table's order, even when it has no scenes yet
+export interface SceneGroup {
+  kind: SceneKind;
+  group: string;
+  scenes: SceneEntry[];
+}
+export const sceneGroups = (battles: Battle[]): SceneGroup[] => {
+  const all = sceneList(battles);
+  return (Object.keys(SCENE_KINDS) as SceneKind[]).map((kind) => ({
+    kind,
+    group: SCENE_KINDS[kind].group,
+    scenes: all.filter((scene) => scene.kind === kind),
+  }));
+};
+
+// What the "New scene" menu can make. Each later kind of scene (story scenes, screens) adds
+// its own entries here.
+export interface NewSceneOption {
+  id: string;
+  kind: SceneKind;
+  battleKind?: BattleKind; // for a battle: land or sea
+  label: string;
+  icon: string;
+  hint: string;
+}
+export const NEW_SCENE_OPTIONS: NewSceneOption[] = [
+  {
+    id: "land-battle",
+    kind: "battle",
+    battleKind: "land",
+    label: "Land battle",
+    icon: "⚔",
+    hint: "A close-up battlefield of open ground",
+  },
+  {
+    id: "sea-battle",
+    kind: "battle",
+    battleKind: "sea",
+    label: "Sea battle",
+    icon: "⚓",
+    hint: "Open water, for fleets",
+  },
 ];

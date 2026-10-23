@@ -1,6 +1,15 @@
 .app {
-    width: 100vw;
-    height: 100vh;
-    background: var(--color-bg);
-    overflow: hidden;
-  }
+  width: 100vw;
+  height: 100vh;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+/* The map fills the window up to the side panel, and narrows while a panel is open */
+.mapArea {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: var(--side-width, var(--toolbar-width-collapsed));
+}

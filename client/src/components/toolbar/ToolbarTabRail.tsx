@@ -1,34 +1,39 @@
 import React from "react";
-import ToolbarButton from "./ToolbarButton";
 import { ToolbarTabId } from "../../types";
 import styles from "./ToolbarTabRail.module.css";
 
 export interface ToolbarTab {
   id: ToolbarTabId;
   icon: string;
-  label: string;
+  word: string; // the short name under the icon
+  hint: string; // shown on hover
 }
 
 interface ToolbarTabRailProps {
   tabs: ToolbarTab[];
   activeTab: ToolbarTabId | null;
-  onSelectTab: (id: ToolbarTabId) => void;
+  onClickTab: (id: ToolbarTabId) => void;
 }
 
-function ToolbarTabRail({ tabs, activeTab, onSelectTab }: ToolbarTabRailProps) {
+// The tabs down the right edge, each an icon with its name underneath. Hovering only shows
+// what the tab holds; a click opens it.
+function ToolbarTabRail({ tabs, activeTab, onClickTab }: ToolbarTabRailProps) {
   return (
     <div className={styles.rail}>
-      {tabs.map((tab) => (
-        <div key={tab.id} onMouseEnter={() => onSelectTab(tab.id)}>
-          <ToolbarButton
-            icon={tab.icon}
-            label={tab.label}
-            onClick={() => onSelectTab(tab.id)}
-            isExpanded={false}
-            isActive={activeTab === tab.id}
-          />
-        </div>
-      ))}
+      {tabs.map((tab) => {
+        const active = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            className={`${styles.tab} ${active ? styles.tabActive : ""}`}
+            onClick={() => onClickTab(tab.id)}
+            title={active ? `${tab.hint} (click to close)` : tab.hint}
+          >
+            <span className={styles.icon}>{tab.icon}</span>
+            <span className={styles.word}>{tab.word}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

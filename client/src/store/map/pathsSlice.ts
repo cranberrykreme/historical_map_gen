@@ -21,12 +21,14 @@ import { armyForAttach, joinArmy, leaveArmy } from "../../utils/marches/armies";
 import { withHistory } from "./history";
 import { MapStore, PathsSlice } from "./types";
 
+// New marches are named March 1, March 2... after the highest number used. Older projects
+// called them Path 1, Path 2..., so those numbers count too.
 function nextPathName(paths: MapPath[]): string {
   const used = paths
-    .map((path) => /^Path (\d+)$/.exec(path.name))
+    .map((path) => /^(?:March|Path) (\d+)$/.exec(path.name))
     .filter((match): match is RegExpExecArray => match !== null)
     .map((match) => Number(match[1]));
-  return `Path ${used.length > 0 ? Math.max(...used) + 1 : 1}`;
+  return `March ${used.length > 0 ? Math.max(...used) + 1 : 1}`;
 }
 
 const newPathId = () =>
