@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { useTerrainToolStore } from "../../store/useTerrainToolStore";
 import { kindInfo, minPoints } from "../../utils/terrain/terrain";
@@ -17,12 +17,50 @@ function TerrainHint({ battleId }: { battleId: string }) {
   const brush = useTerrainToolStore((state) => state.brush);
   const brushKind = useTerrainToolStore((state) => state.brushKind);
   const eraseAll = useTerrainToolStore((state) => state.eraseAll);
+  const ref = useRef<HTMLDivElement>(null);
+  // Which hint is showing: each one is its own box, so it's measured afresh when it changes
+  const mode = brush
+    ? "brush"
+    : drawing
+      ? "drawing"
+      : editing
+        ? "editing"
+        : null;
+
+  // Tells the selection card where the hint ends, so the card can sit under it. The hint's
+  // text wraps, so its height is watched as well.
+  useLayoutEffect(() => {
+    const setBottom = useTerrainToolStore.getState().setHintBottom;
+    const element = ref.current;
+    if (!mode || !element) {
+      setBottom(null);
+      return;
+    }
+    const measure = () =>
+      setBottom(Math.round(element.getBoundingClientRect().bottom));
+    measure();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
+    observer?.observe(element);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      setBottom(null);
+    };
+  }, [mode]);
 
   if (brush) {
     const kind = kindInfo(brushKind).label.toLowerCase();
     const line = kindInfo(brushKind).shape === "line";
     return (
-      <div className={styles.hint} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        ref={ref}
+        className={styles.hint}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <span className={styles.title}>
           {brush === "erase"
             ? eraseAll
@@ -56,7 +94,11 @@ function TerrainHint({ battleId }: { battleId: string }) {
     const info = kindInfo(drawing);
     const enough = draft.length >= minPoints(drawing);
     return (
-      <div className={styles.hint} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        ref={ref}
+        className={styles.hint}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <span className={styles.title}>Drawing {info.label.toLowerCase()}</span>
         <span className={styles.text}>
           Click to add points · double-click or Enter to finish · Backspace
@@ -90,7 +132,11 @@ function TerrainHint({ battleId }: { battleId: string }) {
 
   if (editing) {
     return (
-      <div className={styles.hint} onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        ref={ref}
+        className={styles.hint}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <span className={styles.title}>Editing terrain</span>
         <span className={styles.text}>
           {selectedId

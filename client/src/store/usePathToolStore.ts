@@ -17,7 +17,9 @@ interface DraftPath {
 interface PathToolStore {
   // Drawing a new path (null when not drawing)
   drawingPoints: PathPoint[] | null;
-  startDrawing: () => void;
+  // The units the march being drawn is for: they are put on it when it's finished
+  drawingFor: string[];
+  startDrawing: (forUnitIds?: string[]) => void;
   addDrawingPoint: (point: PathPoint) => void;
   removeLastDrawingPoint: () => void;
   finishDrawing: () => void;
@@ -48,16 +50,18 @@ const DUPLICATE_DISTANCE = 0.5; // map units; a repeated click on the same spot 
 
 export const usePathToolStore = create<PathToolStore>((set, get) => ({
   drawingPoints: null,
+  drawingFor: [],
   selectedWaypoint: null,
   draftPath: null,
   preview: null,
   playbackSpeed: 1,
 
-  startDrawing: () => {
+  startDrawing: (forUnitIds = []) => {
     useMapStore.getState().selectPath(null);
     useMapStore.getState().selectUnit(null);
     set({
       drawingPoints: [],
+      drawingFor: forUnitIds,
       selectedWaypoint: null,
       draftPath: null,
       preview: null,
@@ -84,11 +88,19 @@ export const usePathToolStore = create<PathToolStore>((set, get) => ({
   finishDrawing: () => {
     const { drawingPoints } = get();
     if (!drawingPoints || drawingPoints.length < 2) return;
-    useMapStore.getState().addPath(drawingPoints);
-    set({ drawingPoints: null });
+    const map = useMapStore.getState();
+    const id = map.addPath(drawingPoints);
+    const forUnits = get().drawingFor;
+    set({ drawingPoints: null, drawingFor: [] });
+    // A march drawn for some units takes them straight on, and is shown on the card
+    if (forUnits.length > 0) {
+      map.boxSelect(forUnits);
+      useMapStore.getState().attachSelectedUnitsToPath(id);
+      useMapStore.getState().selectPath(id);
+    }
   },
 
-  cancelDrawing: () => set({ drawingPoints: null }),
+  cancelDrawing: () => set({ drawingPoints: null, drawingFor: [] }),
 
   setPreview: (pathId, progress) =>
     set({ preview: { pathId, progress: Math.min(Math.max(progress, 0), 1) } }),

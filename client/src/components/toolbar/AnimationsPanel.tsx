@@ -3,13 +3,14 @@ import { useMapStore } from "../../store/useMapStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
 import { ArmyMember, BlockLoss, Unit } from "../../types";
 import { unitLabel } from "../../utils/units/blocks";
-import { exitSeconds, exitStyleInfo, MARKER_KINDS } from "../../utils/units/exits";
+import {
+  exitSeconds,
+  exitStyleInfo,
+  MARKER_KINDS,
+} from "../../utils/units/exits";
 import { formatHistoryTime } from "../../utils/history/historyTime";
-import ExitSection from "../exits/ExitSection";
-import BlockLosses from "../blocks/BlockLosses";
 import UnitIcon from "../blocks/UnitIcon";
 import CollapsibleSection from "./CollapsibleSection";
-import SelectedUnitsSection from "./SelectedUnitsSection";
 import deleteStyles from "./DeleteButton.module.css";
 import styles from "./PathsPanel.module.css";
 
@@ -39,12 +40,11 @@ export function describeExit(unit: Unit): string {
 }
 
 // Everything that happens over time in the scene being edited (the main map, or the open
-// battle), in one place. At the top, the selected units' turning, their time on the map, how
-// they die and (for one block) its losses. Below, lists of every arrival, death, block loss and
-// army join or leave: click a row to select its unit and go to that moment; × removes it.
+// battle), in one place: lists of every arrival, death, block loss and army join or leave.
+// Click a row to select its unit (its settings show on the card) and go to that moment;
+// × removes it.
 function AnimationsPanel() {
   const placedUnits = useMapStore((state) => state.placedUnits);
-  const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
   const selectUnit = useMapStore((state) => state.selectUnit);
   const bringBackUnits = useMapStore((state) => state.bringBackUnits);
   const updateBlock = useMapStore((state) => state.updateBlock);
@@ -52,10 +52,6 @@ function AnimationsPanel() {
   const eraseMembership = useMapStore((state) => state.eraseMembership);
   const mode = useTimelineStore((state) => state.mode);
   const setNow = useTimelineStore((state) => state.setNow);
-
-  const selected = placedUnits.filter((unit) => selectedUnitIds.has(unit.id));
-  const soleBlock =
-    selected.length === 1 && selected[0].block ? selected[0] : null;
 
   const leaving = placedUnits
     .filter((unit) => unit.leaves !== undefined)
@@ -100,25 +96,11 @@ function AnimationsPanel() {
   return (
     <div className={styles.panel}>
       <div className={styles.list}>
-        {selected.length === 0 ? (
-          <p className={styles.hint}>
-            Select units on the map to set how they turn, when they're on the
-            map and how they die, or kill them at the playhead (K).
-          </p>
-        ) : (
-          <>
-            <SelectedUnitsSection />
-            <ExitSection />
-          </>
-        )}
-        {soleBlock && (
-          <CollapsibleSection
-            id="block-losses-edit"
-            title={`${unitLabel(soleBlock)}: losses`}
-          >
-            <BlockLosses unit={soleBlock} />
-          </CollapsibleSection>
-        )}
+        <p className={styles.hint}>
+          Select units on the map to set how they turn, when they arrive and how
+          they leave: their settings are on the card at the map's left. K kills
+          the selected units at the playhead.
+        </p>
 
         <CollapsibleSection id="arrivals" title="Arrivals">
           {arriving.length === 0 && (

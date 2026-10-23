@@ -11,6 +11,10 @@ import AnimationsPanel from "./AnimationsPanel";
 import ShotsPanel from "./ShotsPanel";
 import Toolbar from "./Toolbar";
 import ProjectHeader from "../project/ProjectHeader";
+import SelectionCard from "../card/SelectionCard";
+import { usePathToolStore } from "../../store/usePathToolStore";
+import { useTerrainToolStore } from "../../store/useTerrainToolStore";
+import { Shot } from "../../types";
 import { useSidePanelStore } from "../../store/useSidePanelStore";
 
 // Jest here can't load react-router's newer package layout; the header only needs useNavigate
@@ -141,9 +145,9 @@ test("the Library shows one section at a time; formation blocks are with units",
   expect(text()).toContain("No maps yet");
   expect(text()).not.toContain("Formation blocks");
   click(button("Units"));
-  expect(text()).toContain("Block: Shield wall");
-  act(() => useMapStore.setState({ selectedUnitIds: new Set() }));
+  // A selected block is changed on the card; the Library always sets up a new one
   expect(text()).toContain("Formation blocks");
+  expect(text()).toContain("Place on map");
   click(button("Tools"));
   expect(text()).toContain("PSD editor");
   expect(text()).toContain("Portrait maker");
@@ -214,14 +218,12 @@ test("Escape that something else used leaves the panel open", () => {
   jest.useRealTimers();
 });
 
-test("the Animations tab has the selected units' timing and lists every animation", () => {
+test("the Animations tab lists every animation; a unit's own settings are on the card", () => {
   openBattle();
   show(<AnimationsPanel />);
+  expect(text()).not.toContain("Turning along marches");
+  expect(text()).toContain("on the card");
   for (const title of [
-    "Selected: 1 unit",
-    "Turning along marches",
-    "Death and leaving",
-    "Shield wall: losses",
     "Arrivals",
     "Deaths and leaving",
     "Block losses",
@@ -301,4 +303,125 @@ test("the shots tab lists shots by chapter; picking one selects it", () => {
   )!;
   act(() => heading.dispatchEvent(new MouseEvent("click", { bubbles: true })));
   expect(text()).not.toContain("Ships land");
+});
+
+describe("the selection card", () => {
+  beforeEach(() => {
+    act(() => {
+      useMapStore.setState({
+        selectedUnitIds: new Set(),
+        selectedPathId: null,
+        selectedShotId: null,
+        paths: [],
+        shots: [],
+      });
+      useTerrainToolStore.getState().select(null);
+    });
+  });
+
+  it("shows everything about a selected block, and closes with ×", () => {
+    show(<SelectionCard />);
+    expect(text()).toBe("");
+    act(() => openBattle());
+    for (const title of [
+      "Unit",
+      "Shield wall",
+      "Block",
+      "Turning and time on the map",
+      "Turning along marches",
+      "Army",
+      "Not in an army at the playhead",
+      "How it leaves",
+      "Losses",
+      "Marches",
+      "Draw a march for it",
+    ])
+      expect(text()).toContain(title);
+    click(button("×"));
+    expect(useMapStore.getState().selectedUnitIds.size).toBe(0);
+    expect(text()).toBe("");
+  });
+
+  it("follows whatever was selected last, and falls back when it is deselected", () => {
+    openBattle();
+    show(<SelectionCard />);
+    act(() =>
+      useMapStore.getState().addPath([
+        { x: 0, y: 0 },
+        { x: 50, y: 0 },
+      ])
+    );
+    const pathId = useMapStore.getState().paths[0].id;
+    act(() => useMapStore.getState().selectPath(pathId));
+    expect(text()).toContain("March 1");
+    expect(text()).toContain("Put units on this march");
+    expect(text()).toContain("Delete march");
+    act(() => useMapStore.getState().selectPath(null));
+    expect(text()).toContain("Turning and time on the map");
+  });
+
+  it("shows a selected shot's settings", () => {
+    openBattle();
+    act(() =>
+      useMapStore.setState({
+        selectedUnitIds: new Set(),
+        shots: [
+          { id: "s1", name: "Opening", seconds: 5, from: 100, to: 101 } as Shot,
+        ],
+      })
+    );
+    show(<SelectionCard />);
+    act(() => useMapStore.getState().selectShot("s1"));
+    for (const title of ["Shot", "Opening", "Chapter", "Length", "From", "To"])
+      expect(text()).toContain(title);
+  });
+
+  it("draws a march for the selected units, which go straight on it", () => {
+    openBattle();
+    show(<SelectionCard />);
+    click(button("Draw a march for it"));
+    const tool = usePathToolStore.getState();
+    expect(tool.drawingPoints).toEqual([]);
+    act(() => {
+      tool.addDrawingPoint({ x: 0, y: 0 });
+      tool.addDrawingPoint({ x: 100, y: 0 });
+      usePathToolStore.getState().finishDrawing();
+    });
+    const { paths, selectedPathId } = useMapStore.getState();
+    expect(paths).toHaveLength(1);
+    expect(paths[0].assignments.map((a) => a.unitId)).toEqual(["b1"]);
+    expect(selectedPathId).toBe(paths[0].id);
+  });
+
+  it("sits under the terrain hint, and can be dragged and put back", () => {
+    openBattle();
+    show(<SelectionCard />);
+    const card = () => container.querySelector("aside") as HTMLElement;
+    expect(card().style.top).toBe("88px");
+    act(() => useTerrainToolStore.getState().setHintBottom(150));
+    expect(card().style.top).toBe("162px");
+
+    const header = card().querySelector("header") as HTMLElement;
+    const pointer = (type: string, x: number, y: number) =>
+      new MouseEvent(type, {
+        bubbles: true,
+        button: 0,
+        clientX: x,
+        clientY: y,
+      });
+    act(() => {
+      header.dispatchEvent(pointer("pointerdown", 10, 10));
+      window.dispatchEvent(pointer("pointermove", 310, 210));
+      window.dispatchEvent(pointer("pointerup", 310, 210));
+    });
+    expect(card().style.left).toBe("300px");
+    expect(card().style.top).toBe("200px");
+
+    act(() => {
+      header.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+    expect(card().style.left).toBe("16px");
+    expect(card().style.top).toBe("162px");
+    act(() => useTerrainToolStore.getState().setHintBottom(null));
+  });
 });

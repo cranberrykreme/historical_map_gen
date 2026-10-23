@@ -14,8 +14,6 @@ import {
   NO_ARMY,
   RowGroup,
 } from "../../utils/history/timelineRows";
-import MarchEditor from "./MarchEditor";
-import ShotEditor from "./ShotEditor";
 import VideoStrip from "./VideoStrip";
 import Transport from "./Transport";
 import TimelineRows from "./TimelineRows";
@@ -81,7 +79,6 @@ function Timeline() {
           : timeline.timings.get(path.id)!,
     }));
   const hasMarches = rows.length > 0;
-  const selectedRow = rows.find((row) => row.path.id === selectedPathId);
 
   // The rows, grouped by army and filtered. Headers only appear once some march belongs to
   // an army; until then it's a plain list.
@@ -110,7 +107,7 @@ function Timeline() {
 
   const { startResize, resetHeight, fittedHeight } = useRowsHeight();
 
-  // A shot and a march are never both selected: the editor row shows one or the other
+  // A shot and a march are never both selected
   const selectedShot = shots.find((shot) => shot.id === selectedShotId);
   useEffect(() => {
     if (selectedPathId !== null) selectShot(null);
@@ -193,16 +190,6 @@ function Timeline() {
         storyEnd={storyEnd}
         firstMarch={timeline.start}
       />
-
-      {expanded &&
-        (selectedShot ? (
-          <ShotEditor shot={selectedShot} />
-        ) : selectedRow ? (
-          <MarchEditor
-            path={selectedRow.path}
-            timing={timeline.timings.get(selectedRow.path.id)!}
-          />
-        ) : null)}
 
       {expanded && <VideoStrip storyEnd={storyEnd} />}
 

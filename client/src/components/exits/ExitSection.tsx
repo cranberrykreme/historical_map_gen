@@ -139,7 +139,7 @@ function ExitSection() {
     );
 
   return (
-    <CollapsibleSection id="death" title="Death and leaving">
+    <CollapsibleSection id="death" title="How it leaves">
       <div style={WRAP}>
         {(
           ["none", ...EXIT_STYLES.map((s) => s.style)] as (ExitStyle | "none")[]

@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { PathPoint, TerrainKind } from "../types";
-import { BRUSH_DEFAULT, BRUSH_MAX, BRUSH_MIN } from "../utils/terrain/terrainBrush";
+import {
+  BRUSH_DEFAULT,
+  BRUSH_MAX,
+  BRUSH_MIN,
+} from "../utils/terrain/terrainBrush";
 
 // What the brush is doing: painting a kind on, or rubbing terrain out
 export type BrushMode = "paint" | "erase";
@@ -28,6 +32,9 @@ interface TerrainToolStore {
   brushSize: number;
   eraseAll: boolean;
   stroke: PathPoint[] | null;
+  // The bottom edge of the hint at the top left while a tool is in use, in screen pixels, so
+  // the selection card can sit under it (null when no hint is showing)
+  hintBottom: number | null;
 
   startDrawing: (kind: TerrainKind) => void;
   addPoint: (point: PathPoint) => void;
@@ -42,6 +49,7 @@ interface TerrainToolStore {
   setBrushSize: (size: number) => void;
   setEraseAll: (eraseAll: boolean) => void;
   setStroke: (stroke: PathPoint[] | null) => void;
+  setHintBottom: (bottom: number | null) => void;
   reset: () => void;
 }
 
@@ -60,6 +68,7 @@ export const useTerrainToolStore = create<TerrainToolStore>((set) => ({
   brushSize: BRUSH_DEFAULT,
   eraseAll: false,
   stroke: null,
+  hintBottom: null,
 
   startDrawing: (kind) =>
     set({
@@ -101,6 +110,7 @@ export const useTerrainToolStore = create<TerrainToolStore>((set) => ({
   setBrushSize: (size) => set({ brushSize: clampSize(size) }),
   setEraseAll: (eraseAll) => set({ eraseAll }),
   setStroke: (stroke) => set({ stroke }),
+  setHintBottom: (hintBottom) => set({ hintBottom }),
   // Leaving the battle: everything put down. The brush keeps its kind, size and setting.
   reset: () =>
     set({

@@ -5,8 +5,8 @@ import { useMapStore } from "../../store/useMapStore";
 import { useBlockToolStore } from "../../store/useBlockToolStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import { useTerrainToolStore } from "../../store/useTerrainToolStore";
-import { FormationBlock } from "../../types";
-import { BLOCK_COLOURS, BLOCK_KINDS, unitLabel } from "../../utils/units/blocks";
+import { FormationBlock, Unit } from "../../types";
+import { BLOCK_COLOURS, BLOCK_KINDS } from "../../utils/units/blocks";
 import BlockShape from "../map/BlockShape";
 import styles from "../toolbar/PathsPanel.module.css";
 
@@ -146,20 +146,12 @@ function BlockFields({
   );
 }
 
-// Formation blocks: troops drawn as history books draw them. With one block selected, this
-// changes it; otherwise it sets up a new one to place with a click on the map.
+// Formation blocks: troops drawn as history books draw them. This sets up a new one to place
+// with a click on the map; a placed block is changed on the selection card.
 function BlocksSection() {
-  const placedUnits = useMapStore((state) => state.placedUnits);
-  const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
-  const updateBlock = useMapStore((state) => state.updateBlock);
   const draft = useBlockToolStore((state) => state.draft);
   const placing = useBlockToolStore((state) => state.placing);
   const tool = useBlockToolStore.getState;
-
-  const selected =
-    selectedUnitIds.size === 1
-      ? (placedUnits.find((u) => selectedUnitIds.has(u.id) && u.block) ?? null)
-      : null;
 
   const place = () => {
     // one tool at a time
@@ -170,33 +162,6 @@ function BlocksSection() {
     terrain.setEditing(false);
     tool().startPlacing();
   };
-
-  if (selected?.block) {
-    const block = selected.block;
-    return (
-      <CollapsibleSection id="block" title={`Block: ${unitLabel(selected)}`}>
-        <BlockFields
-          key={selected.id}
-          block={block}
-          live={false}
-          onChange={(patch) => updateBlock(selected.id, patch)}
-        />
-        <p className={styles.hint}>
-          On the map, drag the side handles to widen it, the back one to deepen
-          it, and the front diamond to bend it into an arc. Turn it with the
-          round handle above it.
-        </p>
-        {(block.bend ?? 0) !== 0 && (
-          <button
-            className={styles.cancelButton}
-            onClick={() => updateBlock(selected.id, { bend: 0 })}
-          >
-            Straighten
-          </button>
-        )}
-      </CollapsibleSection>
-    );
-  }
 
   return (
     <CollapsibleSection id="blocks" title="Formation blocks">
@@ -228,6 +193,37 @@ function BlocksSection() {
           isExpanded={true}
           onClick={place}
         />
+      )}
+    </CollapsibleSection>
+  );
+}
+
+// A placed block's kind, colour, name and size, for the selection card. Each change is one
+// undo step.
+export function SelectedBlockFields({ unit }: { unit: Unit }) {
+  const updateBlock = useMapStore((state) => state.updateBlock);
+  const block = unit.block;
+  if (!block) return null;
+  return (
+    <CollapsibleSection id="block" title="Block">
+      <BlockFields
+        key={unit.id}
+        block={block}
+        live={false}
+        onChange={(patch) => updateBlock(unit.id, patch)}
+      />
+      <p className={styles.hint}>
+        On the map, drag the side handles to widen it, the back one to deepen
+        it, and the front diamond to bend it into an arc. Turn it with the round
+        handle above it.
+      </p>
+      {(block.bend ?? 0) !== 0 && (
+        <button
+          className={styles.cancelButton}
+          onClick={() => updateBlock(unit.id, { bend: 0 })}
+        >
+          Straighten
+        </button>
       )}
     </CollapsibleSection>
   );

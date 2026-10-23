@@ -10,6 +10,7 @@ import PortraitEditor from "../components/portrait-editor/PortraitEditor";
 import ProjectHeader from "../components/project/ProjectHeader";
 import Timeline from "../components/timeline/Timeline";
 import DateDisplay from "../components/map/DateDisplay";
+import SelectionCard from "../components/card/SelectionCard";
 import { AssetType, ViewportApi } from "../types";
 import { useMapStore } from "../store/useMapStore";
 import { useAssetStore } from "../store/useAssetStore";
@@ -118,6 +119,7 @@ function ProjectView() {
       )}
       {storesReady && <Timeline />}
       {storesReady && <DateDisplay />}
+      {storesReady && <SelectionCard />}
       <Toolbar
         onAddAsset={handleAddAsset}
         selectedMapFilename={selectedMapFilename}

@@ -67,8 +67,8 @@ const STYLE_PICTURE: React.CSSProperties = { width: 64, flexShrink: 0 };
 // of pictures), a button to add a feature (it opens a picker with every kind),
 // a switch to edit what's drawn on the map, the brush and eraser (with the kind they work
 // with, their size, and whether the eraser rubs out every kind), and the features grouped by
-// type. Click one to select it, double-click its name to rename it, × to delete it; the
-// selected one's type can be changed through the same picker.
+// type. Click one to select it (its kind and name are on the selection card), double-click
+// its name to rename it, × to delete it.
 function TerrainSection({ battle }: { battle: Battle }) {
   const drawing = useTerrainToolStore((state) => state.drawing);
   const editing = useTerrainToolStore((state) => state.editing);
@@ -83,14 +83,11 @@ function TerrainSection({ battle }: { battle: Battle }) {
   const brushSize = useTerrainToolStore((state) => state.brushSize);
   const eraseAll = useTerrainToolStore((state) => state.eraseAll);
 
-  const [picker, setPicker] = useState<
-    "add" | "change" | "brush" | "style" | null
-  >(null);
+  const [picker, setPicker] = useState<"add" | "brush" | "style" | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
   const features = battle.terrain ?? [];
-  const selected = features.find((f) => f.id === selectedId) ?? null;
   const labels = featureLabels(features);
 
   const draw = (kind: TerrainKind) => {
@@ -301,20 +298,6 @@ function TerrainSection({ battle }: { battle: Battle }) {
         })
       )}
 
-      {selected && (
-        <div style={TYPE_ROW}>
-          <TerrainSwatch kind={selected.kind} style={battle.style} />
-          <span style={TYPE_NAME}>{kindInfo(selected.kind).label}</span>
-          <button
-            className={styles.cancelButton}
-            title="Change what the selected feature is (areas to areas, lines to lines)"
-            onClick={() => setPicker("change")}
-          >
-            Change type…
-          </button>
-        </div>
-      )}
-
       {picker === "add" && (
         <AddTerrainDialog
           title="Add terrain"
@@ -335,19 +318,6 @@ function TerrainSection({ battle }: { battle: Battle }) {
           onPick={(kind) => {
             setPicker(null);
             tool().setBrushKind(kind);
-          }}
-        />
-      )}
-      {picker === "change" && selected && (
-        <AddTerrainDialog
-          title={`Change ${labels.get(selected.id)} to…`}
-          shape={kindInfo(selected.kind).shape}
-          current={selected.kind}
-          style={battle.style}
-          onClose={() => setPicker(null)}
-          onPick={(kind) => {
-            setPicker(null);
-            updateTerrain(battle.id, selected.id, { kind });
           }}
         />
       )}

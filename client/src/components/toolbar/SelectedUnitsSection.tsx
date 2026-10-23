@@ -55,8 +55,10 @@ const SMALL_BUTTON: React.CSSProperties = {
 // units are selected. `onStopPreview` stops the path preview before the playhead moves.
 function SelectedUnitsSection({
   onStopPreview,
+  title = "Turning and time on the map",
 }: {
   onStopPreview?: () => void;
+  title?: string;
 }) {
   const placedUnits = useMapStore((state) => state.placedUnits);
   const selectedUnitIds = useMapStore((state) => state.selectedUnitIds);
@@ -87,10 +89,7 @@ function SelectedUnitsSection({
   if (selectedUnits.length === 0) return null;
 
   return (
-    <CollapsibleSection
-      id="selected-units"
-      title={`Selected: ${selectedUnits.length} unit${selectedUnits.length === 1 ? "" : "s"}`}
-    >
+    <CollapsibleSection id="selected-units" title={title}>
       <p className={styles.hint}>Turning along marches</p>
       <div className={styles.segment}>
         {TRAVEL_MODES.map(({ mode, label, hint }) => (
@@ -121,7 +120,7 @@ function SelectedUnitsSection({
       {soleUnit && (
         <div style={LIFESPAN}>
           <div style={LIFESPAN_ROW}>
-            <span style={LIFESPAN_LABEL}>Appears</span>
+            <span style={LIFESPAN_LABEL}>Arrives</span>
             <span style={LIFESPAN_VALUE}>
               {soleUnit.appears !== undefined
                 ? formatHistoryTime(soleUnit.appears, "times")
@@ -131,7 +130,7 @@ function SelectedUnitsSection({
               <button
                 className={styles.cancelButton}
                 style={SMALL_BUTTON}
-                title="Move the playhead to when this unit appears, where it can be moved and turned"
+                title="Move the playhead to when this unit arrives, where it can be moved and turned"
                 onClick={() => goTo(soleUnit.appears!)}
               >
                 Go there
@@ -174,9 +173,9 @@ function SelectedUnitsSection({
         </div>
       )}
       <p className={styles.hint}>
-        Units placed with the playhead past the story's start appear then.
+        Units placed with the playhead past the story's start arrive then.
         Deleting a unit there makes it leave at that moment. Each unit can be
-        moved only at the moment it appears.
+        moved only at the moment it arrives.
       </p>
     </CollapsibleSection>
   );
