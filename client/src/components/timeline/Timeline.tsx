@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
 import { currentMoment, useTimelineStore } from "../../store/useTimelineStore";
-import { fitView, getTimeline, HistoryView } from "../../utils/history/timeline";
+import {
+  fitView,
+  getTimeline,
+  HistoryView,
+} from "../../utils/history/timeline";
 import { shotAt, videoLength } from "../../utils/video/shots";
 import {
   groupKeyOf,
@@ -12,10 +16,10 @@ import {
 } from "../../utils/history/timelineRows";
 import MarchEditor from "./MarchEditor";
 import ShotEditor from "./ShotEditor";
-import StoryStartEditor from "./StoryStartEditor";
 import VideoStrip from "./VideoStrip";
 import Transport from "./Transport";
 import TimelineRows from "./TimelineRows";
+import MarchesHeader from "./MarchesHeader";
 import { usePlayback } from "./usePlayback";
 import { useVideoClock } from "./useVideoClock";
 import { useRowsHeight } from "./useRowsHeight";
@@ -187,6 +191,7 @@ function Timeline() {
         current={current}
         hasMarches={hasMarches}
         storyEnd={storyEnd}
+        firstMarch={timeline.start}
       />
 
       {expanded &&
@@ -197,13 +202,12 @@ function Timeline() {
             path={selectedRow.path}
             timing={timeline.timings.get(selectedRow.path.id)!}
           />
-        ) : (
-          <StoryStartEditor firstMarch={timeline.start} />
-        ))}
+        ) : null)}
 
       {expanded && <VideoStrip storyEnd={storyEnd} />}
 
       {/* Video mode is for arranging shots: the marches are tucked away */}
+      {expanded && !inVideo && hasMarches && <MarchesHeader />}
       {expanded && !inVideo && (
         <TimelineRows
           groups={groups}

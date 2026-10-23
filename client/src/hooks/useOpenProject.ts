@@ -11,7 +11,10 @@ import useProject from "./useProject";
 function useOpenProject(
   projectName: string | undefined,
   loadProject: ReturnType<typeof useProject>["loadProject"],
-  viewportApiRef: React.RefObject<ViewportApi | null>
+  viewportApiRef: React.RefObject<ViewportApi | null>,
+  // Autosave stops before the last project is cleared away, and starts once this one is in
+  onUnloading: () => void,
+  onLoaded: () => void
 ) {
   const navigate = useNavigate();
   const setCurrentProject = useAssetStore((state) => state.setCurrentProject);
@@ -34,13 +37,21 @@ function useOpenProject(
       navigate("/");
       return;
     }
+    onUnloading();
     resetMapState();
     useTimelineStore.getState().reset();
     setCurrentProject(projectName);
     fetchAssetList("units");
     fetchAssetList("portraits");
     fetchAssetList("maps");
-  }, [projectName, fetchAssetList, navigate, setCurrentProject, resetMapState]);
+  }, [
+    projectName,
+    fetchAssetList,
+    navigate,
+    setCurrentProject,
+    resetMapState,
+    onUnloading,
+  ]);
 
   useEffect(() => {
     loadProject().then(
@@ -86,6 +97,7 @@ function useOpenProject(
         if (viewport) {
           viewportApiRef.current?.apply(viewport);
         }
+        onLoaded();
       }
     );
   }, [
@@ -102,6 +114,7 @@ function useOpenProject(
     setSavedViewport,
     setSelectedMap,
     setBattles,
+    onLoaded,
   ]);
 }
 

@@ -94,6 +94,16 @@
   color: #e05a5a;
 }
 
+.retryButton {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.retryButton:hover {
+  text-decoration: underline;
+}
+
 /* The open battle, shown at all times while one is open */
 .battleIcon {
   color: var(--color-gold);

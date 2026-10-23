@@ -19,7 +19,7 @@ const STATUS_TEXT: Record<SaveStatus, string> = {
   idle: "",
   saving: "Saving…",
   saved: "Saved",
-  failed: "Save failed",
+  failed: "Couldn't save · Retry",
 };
 
 function ProjectHeader({
@@ -35,7 +35,8 @@ function ProjectHeader({
   const battle = useMapStore(activeBattle);
   const switchScene = useMapStore((state) => state.switchScene);
 
-  // Shown even when collapsed, so saving with ⌘S still gets a confirmation
+  // Shown even when collapsed, so every save (autosave and ⌘S) gets a confirmation, and a
+  // save that failed stays in sight until one works
   const showStatus = !isExpanded && saveStatus !== "idle";
 
   return (
@@ -52,23 +53,28 @@ function ProjectHeader({
         ⌂
       </button>
 
-      {showStatus && (
-        <span
-          className={`${styles.status} ${saveStatus === "failed" ? styles.statusFailed : ""}`}
-        >
-          {STATUS_TEXT[saveStatus]}
-        </span>
-      )}
+      {showStatus &&
+        (saveStatus === "failed" ? (
+          <button
+            className={`${styles.status} ${styles.statusFailed} ${styles.retryButton}`}
+            onClick={onSave}
+            title="The project couldn't be saved (is the server running?). Click to try again."
+          >
+            {STATUS_TEXT[saveStatus]}
+          </button>
+        ) : (
+          <span className={styles.status}>{STATUS_TEXT[saveStatus]}</span>
+        ))}
 
       {isExpanded && (
         <>
           <span className={styles.projectName}>{projectName}</span>
           <div className={styles.divider} />
           <button
-            className={styles.saveButton}
+            className={`${styles.saveButton} ${saveStatus === "failed" ? styles.statusFailed : ""}`}
             onClick={onSave}
             disabled={saveStatus === "saving"}
-            title="Save (⌘S)"
+            title="The project saves itself after each change. Save now (⌘S)"
           >
             {saveStatus === "idle" ? "Save" : STATUS_TEXT[saveStatus]}
           </button>

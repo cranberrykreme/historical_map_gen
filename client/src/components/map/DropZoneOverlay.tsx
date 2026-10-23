@@ -1,8 +1,24 @@
 import React, { useState, useEffect } from "react";
+import { AssetType } from "../../types";
+import { uploadTargetFor } from "../../utils/project/uploads";
 import styles from "./DropZoneOverlay.module.css";
 
 interface DropZoneOverlayProps {
-  onFilesDrop: (files: File[]) => void;
+  // Where the files go: a Library section they were dropped on, or null to ask
+  onFilesDrop: (files: File[], target: AssetType | null) => void;
+}
+
+const SECTION_NAMES: Record<AssetType, string> = {
+  maps: "Maps",
+  units: "Units",
+  portraits: "Portraits",
+};
+
+// The Library section under the pointer, if it takes pictures
+function targetAt(target: EventTarget | null): AssetType | null {
+  if (!(target instanceof Element)) return null;
+  const section = target.closest("[data-library-section]");
+  return uploadTargetFor(section?.getAttribute("data-library-section"));
 }
 
 const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "svg"];
@@ -10,6 +26,7 @@ const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "svg"];
 function DropZoneOverlay({ onFilesDrop }: DropZoneOverlayProps) {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<AssetType | null>(null);
 
   const isAllowedFile = (file: File): boolean => {
     const extension = file.name.split(".").pop()?.toLowerCase();
@@ -32,6 +49,7 @@ function DropZoneOverlay({ onFilesDrop }: DropZoneOverlayProps) {
 
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
+      setHovered(targetAt(e.target));
     };
 
     const handleDrop = (e: DragEvent) => {
@@ -52,7 +70,7 @@ function DropZoneOverlay({ onFilesDrop }: DropZoneOverlayProps) {
         return;
       }
 
-      onFilesDrop(files);
+      onFilesDrop(files, targetAt(e.target));
     };
 
     window.addEventListener("dragenter", handleDragEnter);
@@ -72,7 +90,11 @@ function DropZoneOverlay({ onFilesDrop }: DropZoneOverlayProps) {
     <div className={styles.overlay}>
       {isDragging && (
         <div className={styles.dragOverlay}>
-          <p className={styles.dragMessage}>Drop to add to the Library</p>
+          <p className={styles.dragMessage}>
+            {hovered
+              ? `Drop to add to ${SECTION_NAMES[hovered]}`
+              : "Drop to add to the Library"}
+          </p>
         </div>
       )}
 

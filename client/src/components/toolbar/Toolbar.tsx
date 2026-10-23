@@ -14,7 +14,7 @@ import { activeBattle } from "../../utils/scenes/kinds";
 import styles from "./Toolbar.module.css";
 
 interface ToolbarProps {
-  onAddAsset: () => void;
+  onAddAsset: (type: AssetType | null) => void;
   selectedMapFilename: string | null;
   onSelectMap: (filename: string | null) => void;
   onDeleteAsset: (path: string, assetType: AssetType) => void;

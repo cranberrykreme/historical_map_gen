@@ -9,11 +9,13 @@ import BlocksSection from "../blocks/BlocksSection";
 import { AssetType, LibrarySection } from "../../types";
 import { useAssetStore } from "../../store/useAssetStore";
 import { useSidePanelStore } from "../../store/useSidePanelStore";
+import { uploadTargetFor } from "../../utils/project/uploads";
 import assetStyles from "./AssetsPanel.module.css";
 import styles from "./PathsPanel.module.css";
 
 interface LibraryPanelProps {
-  onAddAsset: () => void;
+  // Opens the file picker; files go straight to the given section, or null asks
+  onAddAsset: (type: AssetType | null) => void;
   selectedMapFilename: string | null;
   onSelectMap: (filename: string | null) => void;
   onDeleteAsset: (path: string, assetType: AssetType) => void;
@@ -91,12 +93,13 @@ function LibraryPanel({
 
   const empty = (what: string) => (
     <p className={styles.emptyMessage}>
-      No {what} yet. Click “Add to Library”, or drop files on the map.
+      No {what} yet. Click the Add button above, or drop files here.
     </p>
   );
 
   return (
-    <div className={styles.panel}>
+    // Files dropped anywhere on the panel go straight into the section on show
+    <div className={styles.panel} data-library-section={section}>
       <div className={styles.segment} style={SEGMENT}>
         {SECTIONS.map(({ id, label, hint }) => (
           <button
@@ -113,9 +116,9 @@ function LibraryPanel({
       {section !== "tools" && (
         <ToolbarButton
           icon="+"
-          label="Add to Library"
-          hint="Add pictures to the project"
-          onClick={onAddAsset}
+          label={`Add ${SECTIONS.find((s) => s.id === section)?.label.toLowerCase()}`}
+          hint="Add pictures to this part of the Library (or drop files here)"
+          onClick={() => onAddAsset(uploadTargetFor(section))}
           isExpanded={true}
         />
       )}

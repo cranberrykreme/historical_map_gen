@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import MapCanvas from "../components/map/MapCanvas";
 import Toolbar from "../components/toolbar/Toolbar";
 import AssetTypePopup from "../components/project/AssetTypePopup";
+import UploadMessage from "../components/project/UploadMessage";
 import DropZoneOverlay from "../components/map/DropZoneOverlay";
 import PsdEditor from "../components/psd-editor/PsdEditor";
 import PortraitEditor from "../components/portrait-editor/PortraitEditor";
@@ -41,10 +42,19 @@ function ProjectView() {
   const [editingPsd, setEditingPsd] = useState<string | null>(null);
   const [portraitSource, setPortraitSource] = useState<string | null>(null);
 
-  useOpenProject(projectName, loadProject, viewportApiRef);
-  const { saveStatus, handleSave, autoSaveFromStore } = useSaveProject(
-    saveProject,
-    viewportApiRef
+  const {
+    saveStatus,
+    handleSave,
+    autoSaveFromStore,
+    markLoaded,
+    markUnloaded,
+  } = useSaveProject(saveProject, viewportApiRef);
+  useOpenProject(
+    projectName,
+    loadProject,
+    viewportApiRef,
+    markUnloaded,
+    markLoaded
   );
 
   useProjectShortcuts({
@@ -53,14 +63,6 @@ function ProjectView() {
     isDrawingPath,
     handleSave,
   });
-
-  const {
-    pendingFiles,
-    handleFilesSelected,
-    handleAddAsset,
-    handleConfirm,
-    handleCancel,
-  } = useAssetUploads(projectName);
 
   // Renaming or deleting an asset reaches units in every scene, battles included
   const handleAssetRenamed = (
@@ -80,6 +82,19 @@ function ProjectView() {
       .inEveryScene(() => cleanupDeletedAsset(path, assetType));
     autoSaveFromStore();
   };
+
+  const {
+    pendingFiles,
+    changingType,
+    recentUpload,
+    handleFilesSelected,
+    handleAddAsset,
+    handleConfirm,
+    handleCancel,
+    changeRecentType,
+    undoRecent,
+    dismissRecent,
+  } = useAssetUploads(projectName, handleAssetDeleted);
 
   if (!projectName) return null;
 
@@ -119,6 +134,13 @@ function ProjectView() {
         files={pendingFiles}
         onConfirm={handleConfirm}
         onCancel={handleCancel}
+        title={changingType ? "Change type" : undefined}
+      />
+      <UploadMessage
+        upload={changingType ? null : recentUpload}
+        onChangeType={changeRecentType}
+        onUndo={undoRecent}
+        onClose={dismissRecent}
       />
       {editingPsd && (
         <PsdEditor psdName={editingPsd} onClose={() => setEditingPsd(null)} />

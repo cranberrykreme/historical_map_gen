@@ -1,34 +1,21 @@
 import React, { useState } from "react";
 import FramePreview from "../render/FramePreview";
-import RenderButton from "../render/RenderButton";
+import VideoSettings from "./VideoSettings";
 import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
+import { useSidePanelStore } from "../../store/useSidePanelStore";
 import {
   isPastStart,
   TimelineMode,
   useTimelineStore,
 } from "../../store/useTimelineStore";
-import { formatHistoryTime, HistoryTime, HOUR } from "../../utils/history/historyTime";
-import { RowFilter } from "../../utils/history/timelineRows";
+import {
+  formatHistoryTime,
+  HistoryTime,
+} from "../../utils/history/historyTime";
+import { PACES, paceIndex } from "../../utils/history/paces";
 import { formatSeconds, videoLength } from "../../utils/video/shots";
-import { HistoryDisplay, VideoFrame } from "../../types";
 import styles from "./Timeline.module.css";
-
-// How much history plays per second of preview
-const PACES: { days: number; label: string }[] = [
-  { days: HOUR, label: "1 hr" },
-  { days: 6 * HOUR, label: "6 hr" },
-  { days: 1, label: "1 day" },
-  { days: 7, label: "1 wk" },
-  { days: 365.2425 / 12, label: "1 mo" },
-  { days: 365.2425, label: "1 yr" },
-];
-
-const DISPLAYS: { mode: HistoryDisplay; label: string }[] = [
-  { mode: "months", label: "Months" },
-  { mode: "days", label: "Days" },
-  { mode: "times", label: "Times" },
-];
 
 const MODES: { mode: TimelineMode; label: string; hint: string }[] = [
   {
@@ -43,65 +30,32 @@ const MODES: { mode: TimelineMode; label: string; hint: string }[] = [
   },
 ];
 
-const FRAMES: { frame: VideoFrame; label: string; hint: string }[] = [
-  {
-    frame: "landscape",
-    label: "16:9",
-    hint: "Landscape video (1920×1080), for YouTube",
-  },
-  {
-    frame: "portrait",
-    label: "9:16",
-    hint: "Portrait video (1080×1920), for shorts",
-  },
-];
-
-const FILTERS: { filter: RowFilter; label: string; hint: string }[] = [
-  { filter: "all", label: "All", hint: "List every march" },
-  {
-    filter: "now",
-    label: "Now",
-    hint: "List only the marches under way at the playhead",
-  },
-  {
-    filter: "view",
-    label: "In view",
-    hint: "List the marches in the stretch of history on show",
-  },
-];
-
-// The timeline's control strip: play and rewind, history or video, the video's shape, the
-// pace, how dates are shown, Fit, which marches are listed, and the button that folds the
-// timeline away
+// The timeline's control bar. Left: rewind, play and the date (and in Video mode the video's
+// clock and Preview frame). Middle: History or Video. Right: the pace (History mode), Render,
+// the video settings and the button that folds the timeline away.
 function Transport({
   current,
   hasMarches,
   storyEnd,
+  firstMarch,
 }: {
   current: HistoryTime;
   hasMarches: boolean;
   storyEnd: HistoryTime | null;
+  firstMarch: HistoryTime | null;
 }) {
   const storyStart = useMapStore((state) => state.storyStart);
-  const displayMode = useMapStore((state) => state.displayMode);
-  const setDisplayMode = useMapStore((state) => state.setDisplayMode);
   const shots = useMapStore((state) => state.shots);
-  const videoFrame = useMapStore((state) => state.videoFrame);
-  const setVideoFrame = useMapStore((state) => state.setVideoFrame);
 
   const now = useTimelineStore((state) => state.now);
   const playing = useTimelineStore((state) => state.playing);
   const pace = useTimelineStore((state) => state.pace);
   const expanded = useTimelineStore((state) => state.expanded);
-  const view = useTimelineStore((state) => state.view);
   const setNow = useTimelineStore((state) => state.setNow);
   const play = useTimelineStore((state) => state.play);
   const pause = useTimelineStore((state) => state.pause);
   const setPace = useTimelineStore((state) => state.setPace);
   const setExpanded = useTimelineStore((state) => state.setExpanded);
-  const setView = useTimelineStore((state) => state.setView);
-  const rowFilter = useTimelineStore((state) => state.rowFilter);
-  const setRowFilter = useTimelineStore((state) => state.setRowFilter);
   const mode = useTimelineStore((state) => state.mode);
   const setMode = useTimelineStore((state) => state.setMode);
   const videoTime = useTimelineStore((state) => state.videoTime);
@@ -110,6 +64,7 @@ function Transport({
   const videoEnd = videoLength(shots);
   const inVideo = mode === "video";
   const [previewAt, setPreviewAt] = useState<number | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handlePlay = () => {
     if (playing) {
@@ -133,50 +88,56 @@ function Transport({
 
   return (
     <div className={styles.transport}>
-      <button
-        className={styles.iconButton}
-        onClick={handleRewind}
-        title={
-          inVideo
-            ? "Back to the start of the video"
-            : "Back to the start of the story (units can be edited there)"
-        }
-      >
-        {"⏮︎"}
-      </button>
-      <button
-        className={styles.playButton}
-        onClick={handlePlay}
-        disabled={inVideo ? videoEnd <= 0 : !hasMarches}
-        title={playing ? "Pause" : "Play"}
-      >
-        {playing ? "❚❚" : "▶︎"}
-      </button>
-      {inVideo && (
-        <span
-          className={styles.videoClock}
-          title="Video playhead / video length"
-        >
-          {formatSeconds(videoTime)} / {formatSeconds(videoEnd)}
-        </span>
-      )}
-      {inVideo && (
+      <div className={styles.transportSide}>
         <button
-          className={styles.textButton}
-          onClick={() => {
-            pause();
-            setPreviewAt(useTimelineStore.getState().videoTime);
-          }}
-          title="Draw this moment exactly as the finished video will show it, at full size"
+          className={styles.iconButton}
+          onClick={handleRewind}
+          title={
+            inVideo
+              ? "Back to the start of the video"
+              : "Back to the start of the story (units can be edited there)"
+          }
         >
-          Preview frame
+          {"⏮︎"}
         </button>
-      )}
-      <RenderButton inVideo={inVideo} />
-      {previewAt !== null && (
-        <FramePreview seconds={previewAt} onClose={() => setPreviewAt(null)} />
-      )}
-      <span className={styles.time}>{formatHistoryTime(current, "times")}</span>
+        <button
+          className={styles.playButton}
+          onClick={handlePlay}
+          disabled={inVideo ? videoEnd <= 0 : !hasMarches}
+          title={playing ? "Pause" : "Play"}
+        >
+          {playing ? "❚❚" : "▶︎"}
+        </button>
+        <span className={styles.time}>
+          {formatHistoryTime(current, "times")}
+        </span>
+        {inVideo && (
+          <span
+            className={styles.videoClock}
+            title="Video playhead / video length"
+          >
+            {formatSeconds(videoTime)} / {formatSeconds(videoEnd)}
+          </span>
+        )}
+        {inVideo && (
+          <button
+            className={styles.textButton}
+            onClick={() => {
+              pause();
+              setPreviewAt(useTimelineStore.getState().videoTime);
+            }}
+            title="Draw this moment exactly as the finished video will show it, at full size"
+          >
+            Preview frame
+          </button>
+        )}
+        {!inVideo && isPastStart(now, storyStart) && !playing && (
+          <span className={styles.note}>
+            Units can only be moved at the moment they appear
+          </span>
+        )}
+      </div>
+
       <div className={styles.speed} title="What the playhead follows">
         {MODES.map(({ mode: option, label, hint }) => (
           <button
@@ -192,82 +153,64 @@ function Transport({
           </button>
         ))}
       </div>
-      {shots.length > 0 && (
-        <div className={styles.speed} title="The video's shape">
-          {FRAMES.map(({ frame, label, hint }) => (
-            <button
-              key={frame}
-              title={hint}
-              className={`${styles.speedButton} ${videoFrame === frame ? styles.speedActive : ""}`}
-              onClick={() => setVideoFrame(frame)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-      {!inVideo && (
-        <>
-          <span className={styles.modeLabel}>Per second</span>
-          <div className={styles.speed}>
-            {PACES.map(({ days, label }) => (
-              <button
-                key={label}
-                className={`${styles.speedButton} ${pace === days ? styles.speedActive : ""}`}
-                onClick={() => setPace(days)}
-              >
-                {label}
-              </button>
+
+      <div className={`${styles.transportSide} ${styles.transportRight}`}>
+        {!inVideo && (
+          <select
+            className={styles.paceSelect}
+            value={paceIndex(pace)}
+            onChange={(e) => setPace(PACES[Number(e.target.value)].days)}
+            title="How much history plays in each second"
+          >
+            {PACES.map(({ label }, index) => (
+              <option key={label} value={index}>
+                {label} / sec
+              </option>
             ))}
-          </div>
-        </>
-      )}
-      <span className={styles.modeLabel}>Date</span>
-      <div className={styles.speed} title="How the date is shown on screen">
-        {DISPLAYS.map(({ mode, label }) => (
+          </select>
+        )}
+        <button
+          className={styles.textButton}
+          disabled={shots.length === 0}
+          onClick={() => {
+            pause();
+            useSidePanelStore.getState().open("publish");
+          }}
+          title={
+            shots.length === 0
+              ? "Add shots first: the video is made of them"
+              : "Open Publish, to render the video"
+          }
+        >
+          Render ▸
+        </button>
+        <span className={styles.settingsAnchor}>
           <button
-            key={mode}
-            className={`${styles.speedButton} ${displayMode === mode ? styles.speedActive : ""}`}
-            onClick={() => setDisplayMode(mode)}
+            className={`${styles.iconButton} ${settingsOpen ? styles.iconButtonActive : ""}`}
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            title="Video settings: its shape, how the date shows, when the story starts"
           >
-            {label}
+            ⚙
           </button>
-        ))}
-      </div>
-      <button
-        className={styles.textButton}
-        onClick={() => setView(null)}
-        disabled={view === null}
-        title="Show the whole story (pinch or ⌘-scroll on the bars to zoom, swipe sideways or Shift-scroll to pan)"
-      >
-        Fit
-      </button>
-      <span className={styles.modeLabel}>Show</span>
-      <div className={styles.speed} title="Which marches are listed">
-        {FILTERS.map(({ filter, label, hint }) => (
-          <button
-            key={filter}
-            title={hint}
-            className={`${styles.speedButton} ${rowFilter === filter ? styles.speedActive : ""}`}
-            onClick={() => setRowFilter(filter)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {isPastStart(now, storyStart) && !playing && (
-        <span className={styles.note}>
-          Units can only be moved at the moment they appear
+          {settingsOpen && (
+            <VideoSettings
+              firstMarch={firstMarch}
+              onClose={() => setSettingsOpen(false)}
+            />
+          )}
         </span>
+        <button
+          className={styles.iconButton}
+          onClick={() => setExpanded(!expanded)}
+          title={expanded ? "Collapse the timeline" : "Expand the timeline"}
+        >
+          {expanded ? "▾" : "▴"}
+        </button>
+      </div>
+
+      {previewAt !== null && (
+        <FramePreview seconds={previewAt} onClose={() => setPreviewAt(null)} />
       )}
-      <div className={styles.spacer} />
-      <button
-        className={styles.iconButton}
-        onClick={() => setExpanded(!expanded)}
-        title={expanded ? "Collapse the timeline" : "Expand the timeline"}
-      >
-        {expanded ? "▾" : "▴"}
-      </button>
     </div>
   );
 }

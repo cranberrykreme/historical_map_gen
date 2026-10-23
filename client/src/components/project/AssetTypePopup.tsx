@@ -7,6 +7,7 @@ interface AssetTypePopupProps {
   onConfirm: (files: File[], type: AssetType) => void;
   onCancel: () => void;
   zIndex?: number;
+  title?: string;
 }
 
 function AssetTypePopup({
@@ -14,6 +15,7 @@ function AssetTypePopup({
   onConfirm,
   onCancel,
   zIndex,
+  title = "Add to Library",
 }: AssetTypePopupProps) {
   if (files.length === 0) return null;
 
@@ -24,7 +26,7 @@ function AssetTypePopup({
       onClick={onCancel}
     >
       <div onClick={(e) => e.stopPropagation()} className={styles.modal}>
-        <h2 className={styles.title}>Add to Library</h2>
+        <h2 className={styles.title}>{title}</h2>
         <p className={styles.text}>
           {files.length === 1
             ? files[0].name
