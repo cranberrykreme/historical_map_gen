@@ -6,36 +6,16 @@ import {
   HistoryView,
   keepAfter,
   snapStepFor,
-  viewShowing,
 } from "../../utils/history/timeline";
 import { dragMarch, MarchDragMode } from "../../utils/marches/marches";
 import { MapPath, MarchTiming } from "../../types";
 import { describe } from "./describe";
 import styles from "./Timeline.module.css";
 
-// The arrow at a row's edge when its bar is outside the stretch of history on show. Click it
-// to bring the bar into view.
-const OFFSCREEN: React.CSSProperties = {
-  position: "absolute",
-  top: 4,
-  bottom: 4,
-  width: 18,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "var(--color-gold-subtle)",
-  border: "1px solid var(--color-gold-dim)",
-  borderRadius: "var(--radius-sm)",
-  color: "var(--color-gold)",
-  fontSize: 10,
-  cursor: "pointer",
-  zIndex: 2,
-};
-
 export const MIN_BAR_PX = 6; // a very short march still gets a bar you can see and grab
 
-// One march's row of the bars: its bar with the drag handles, or an arrow at the edge when
-// the bar is out of view
+// A march's bar on a unit's row, with its drag handles. A march carrying several units shows
+// on each of their rows; dragging any of them moves the march.
 function MarchBar({
   path,
   timing,
@@ -53,17 +33,9 @@ function MarchBar({
   const setMarchTiming = useMapStore((state) => state.setMarchTiming);
   const storyStart = useMapStore((state) => state.storyStart);
   const setDraftTiming = useTimelineStore((state) => state.setDraftTiming);
-  const setView = useTimelineStore((state) => state.setView);
 
   const span = shown.to - shown.from;
   const percent = (t: number) => ((t - shown.from) / span) * 100;
-
-  const reveal = (e: React.MouseEvent) => {
-    e.stopPropagation(); // not a playhead scrub
-    e.preventDefault();
-    selectPath(path.id);
-    setView(viewShowing(timing, shown));
-  };
 
   // Dragging a bar moves the march; its ends change its dates; the line between the turn
   // and the march changes how long the turn takes
@@ -110,54 +82,34 @@ function MarchBar({
   const turnShare = length > 0 ? (timing.turn / length) * 100 : 0;
   const placement = barPlacement(timing, shown);
 
+  if (placement !== "inside") return null;
   return (
-    <div className={styles.row}>
-      {placement === "before" && (
-        <div
-          style={{ ...OFFSCREEN, left: 2 }}
-          title={`Earlier: ${describe(timing)}\nClick to show it`}
-          onMouseDown={reveal}
-        >
-          {"◂"}
-        </div>
-      )}
-      {placement === "after" && (
-        <div
-          style={{ ...OFFSCREEN, right: 2 }}
-          title={`Later: ${describe(timing)}\nClick to show it`}
-          onMouseDown={reveal}
-        >
-          {"▸"}
-        </div>
-      )}
+    <div
+      className={`${styles.bar} ${active ? styles.barActive : ""}`}
+      style={{
+        left: `${percent(timing.start)}%`,
+        width: `${(length / span) * 100}%`,
+        minWidth: MIN_BAR_PX,
+      }}
+      title={`${path.name}\n${describe(timing)}`}
+      onMouseDown={(e) => startBarDrag(e, "move")}
+    >
+      <div className={styles.barTurn} style={{ width: `${turnShare}%` }} />
+      <div className={styles.barMarch} style={{ left: `${turnShare}%` }} />
       <div
-        className={`${styles.bar} ${active ? styles.barActive : ""}`}
-        style={{
-          left: `${percent(timing.start)}%`,
-          width: `${(length / span) * 100}%`,
-          minWidth: MIN_BAR_PX,
-          display: placement === "inside" ? undefined : "none",
-        }}
-        title={describe(timing)}
-        onMouseDown={(e) => startBarDrag(e, "move")}
-      >
-        <div className={styles.barTurn} style={{ width: `${turnShare}%` }} />
-        <div className={styles.barMarch} style={{ left: `${turnShare}%` }} />
-        <div
-          className={styles.splitHandle}
-          style={{ left: `${turnShare}%` }}
-          title="Drag to change how long the turn takes"
-          onMouseDown={(e) => startBarDrag(e, "split")}
-        />
-        <div
-          className={`${styles.handle} ${styles.handleStart}`}
-          onMouseDown={(e) => startBarDrag(e, "start")}
-        />
-        <div
-          className={`${styles.handle} ${styles.handleEnd}`}
-          onMouseDown={(e) => startBarDrag(e, "end")}
-        />
-      </div>
+        className={styles.splitHandle}
+        style={{ left: `${turnShare}%` }}
+        title="Drag to change how long the turn takes"
+        onMouseDown={(e) => startBarDrag(e, "split")}
+      />
+      <div
+        className={`${styles.handle} ${styles.handleStart}`}
+        onMouseDown={(e) => startBarDrag(e, "start")}
+      />
+      <div
+        className={`${styles.handle} ${styles.handleEnd}`}
+        onMouseDown={(e) => startBarDrag(e, "end")}
+      />
     </div>
   );
 }

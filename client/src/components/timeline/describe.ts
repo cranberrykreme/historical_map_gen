@@ -1,5 +1,8 @@
-import { formatDuration, formatHistoryTime } from "../../utils/history/historyTime";
-import { RowFilter, RowGroup } from "../../utils/history/timelineRows";
+import {
+  formatDuration,
+  formatHistoryTime,
+} from "../../utils/history/historyTime";
+import { RowGroup } from "../../utils/history/timelineRows";
 import { MarchTiming } from "../../types";
 
 // A march's dates, turn and march time, for its tooltips
@@ -10,14 +13,16 @@ export const describe = (timing: MarchTiming) =>
     `Marching: ${formatDuration(timing.end - timing.start - timing.turn)}`,
   ].join("\n");
 
-// An army's name, how many of its marches are listed, and when they happen, for its tooltips
-export const groupTitle = (group: RowGroup, rowFilter: RowFilter) => {
+// An army's name, how many of its units are listed, and when things happen to them, for its
+// tooltips
+export const groupTitle = (group: RowGroup) => {
   const count =
-    rowFilter === "all" || group.rows.length === group.total
-      ? `${group.total} march${group.total === 1 ? "" : "es"}`
-      : `${group.rows.length} of ${group.total} marches listed`;
-  return `${group.army ? group.army.name : "Marches in no army"}\n${count}\n${formatHistoryTime(
-    group.start,
-    "times"
-  )} to ${formatHistoryTime(group.end, "times")}`;
+    group.rows.length === group.total
+      ? `${group.total} unit${group.total === 1 ? "" : "s"}`
+      : `${group.rows.length} of ${group.total} units listed`;
+  const when =
+    group.start !== null && group.end !== null
+      ? `\n${formatHistoryTime(group.start, "times")} to ${formatHistoryTime(group.end, "times")}`
+      : "";
+  return `${group.army ? group.army.name : "Units in no army"}\n${count}${when}`;
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMapStore } from "../../store/useMapStore";
-import { useTimelineStore } from "../../store/useTimelineStore";
+import { useTimelineStore, VIDEO_LANES } from "../../store/useTimelineStore";
 import { Shot } from "../../types";
 import {
   formatDuration,
@@ -21,7 +21,9 @@ import {
 } from "../../utils/history/timeline";
 import { transitionSpans } from "../../utils/video/camera";
 import { chaptersOf } from "../../utils/video/chapters";
+import { secondsTicks } from "../../utils/video/videoRuler";
 import {
+  clampStripView,
   panStripView,
   revealInStrip,
   shotsInView,
@@ -29,13 +31,16 @@ import {
   wholeStrip,
   zoomStripView,
 } from "../../utils/history/stripView";
-import StripOverview from "./StripOverview";
+import StripScrollbar from "./StripScrollbar";
+import { useAddShot } from "./useAddShot";
+import { THUMB_HEIGHT, useShotThumbnails } from "./useShotThumbnails";
 import styles from "./Timeline.module.css";
 import { findBattle } from "../../utils/scenes/kinds";
 
 const SNAP_SECONDS = 0.5; // dragging a shot's end snaps to half seconds
 const DRAG_THRESHOLD = 4; // pixels the pointer moves before a press becomes a drag
 const ZOOM_SPEED = 0.01; // per unit of pinch or ⌘-scroll
+const TICK_SPACING = 70; // pixels between ruler labels, at least
 
 // What a shot shows, for its tooltip
 export function describeShot(shot: Shot, battleName?: string): string {
@@ -64,29 +69,38 @@ type Drag =
   | { kind: "move"; id: string; index: number }
   | { kind: "length"; id: string; seconds: number; view: StripView };
 
-// The video strip: the shots in the order they play, each as wide as its share of the video.
-// Click a shot to select it, drag it sideways to reorder, drag its right edge to change its
-// length. In video mode, grab the playhead to scrub the video. Pinch (or ⌘-scroll) to zoom in
-// on part of a long video and scroll to slide along it; the overview bar above shows the whole
-// video, its chapters and where the strip is looking. Only the shots in view are drawn.
-function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
+// Video mode: one ruler in seconds of video, then the chapters, the shots in the order they
+// play (each with a small picture of its first frame), and lanes for what later weeks add.
+// Click a shot to select it, double-click to open it, drag it sideways to reorder, drag its
+// right edge to change its length. Click or drag on the ruler (or any empty space) to scrub.
+// Pinch (or ⌘-scroll) to zoom in on part of a long video and swipe sideways to slide along it;
+// the thin bar under the lanes shows where you are when zoomed in.
+function VideoStrip({
+  storyEnd,
+  height,
+}: {
+  storyEnd: number | null;
+  height: number;
+}) {
   const shots = useMapStore((state) => state.shots);
   const battles = useMapStore((state) => state.battles);
   const selectedShotId = useMapStore((state) => state.selectedShotId);
   const storyStart = useMapStore((state) => state.storyStart);
   const selectShot = useMapStore((state) => state.selectShot);
   const selectPath = useMapStore((state) => state.selectPath);
-  const addShot = useMapStore((state) => state.addShot);
   const updateShot = useMapStore((state) => state.updateShot);
   const moveShotTo = useMapStore((state) => state.moveShotTo);
 
-  const inVideo = useTimelineStore((state) => state.mode === "video");
   const videoTime = useTimelineStore((state) => state.videoTime);
   const playing = useTimelineStore((state) => state.playing);
   const stripView = useTimelineStore((state) => state.stripView);
   const setStripView = useTimelineStore((state) => state.setStripView);
+  const foldedLanes = useTimelineStore((state) => state.foldedLanes);
+  const toggleLane = useTimelineStore((state) => state.toggleLane);
+  const setOpenShot = useTimelineStore((state) => state.setOpenShot);
 
   const trackRef = useRef<HTMLDivElement>(null);
+  const [trackWidth, setTrackWidth] = useState(0);
   const [drag, setDrag] = useState<Drag | null>(null);
 
   // A shot whose length is being dragged shows its draft length
@@ -105,26 +119,53 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
   const starts = useMemo(() => shotStarts(shown), [shown]);
   const lengths = useMemo(() => shown.map((shot) => shot.seconds), [shown]);
   const chapters = useMemo(() => chaptersOf(shots), [shots]);
-  // Where a moment of the video sits across the strip, and how wide a stretch of it is
+  // Where a moment of the video sits across the lanes, and how wide a stretch of it is
   const percent = (seconds: number) => ((seconds - view.from) / span) * 100;
   const widthOf = (seconds: number) => (seconds / span) * 100;
   const [firstShown, endShown] = shotsInView(starts, lengths, view);
+  const thumbnails = useShotThumbnails(shots, [firstShown, endShown]);
+  const addShot = useAddShot(storyEnd);
+
+  const ticks = secondsTicks(
+    view.from,
+    view.to,
+    Math.max(Math.floor(trackWidth / TICK_SPACING), 2)
+  );
+
+  // Keep track of the lanes' width, for spacing the ruler's labels (on the next frame, so
+  // the layout isn't changed from inside the observer)
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || typeof ResizeObserver === "undefined") return;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setTrackWidth(track.clientWidth));
+    });
+    observer.observe(track);
+    setTrackWidth(track.clientWidth);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
 
   // The latest view and length, for the wheel handler (attached once)
   const viewRef = useRef({ view, total });
   viewRef.current = { view, total };
 
-  // Pinching (or ⌘/Ctrl-scrolling) zooms about the pointer; any other scrolling slides along
+  // Pinching (or ⌘/Ctrl-scrolling) zooms about the pointer; swiping sideways (or
+  // Shift-scrolling) slides along. Plain scrolling is left to scroll the lanes.
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
     const handleWheel = (e: WheelEvent) => {
       const rect = track.getBoundingClientRect();
       if (rect.width === 0) return;
-      e.preventDefault();
       const { view: base, total: length } = viewRef.current;
       const baseSpan = base.to - base.from;
       if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
         const anchor =
           base.from + ((e.clientX - rect.left) / rect.width) * baseSpan;
         setStripView(
@@ -132,17 +173,19 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
         );
         return;
       }
-      const pixels =
-        Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      setStripView(
-        panStripView(base, (pixels / rect.width) * baseSpan, length)
-      );
+      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        e.preventDefault();
+        const pixels = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+        setStripView(
+          panStripView(base, (pixels / rect.width) * baseSpan, length)
+        );
+      }
     };
     track.addEventListener("wheel", handleWheel, { passive: false });
     return () => track.removeEventListener("wheel", handleWheel);
   }, [setStripView]);
 
-  // A shot selected anywhere (the shot list, the overview) slides into view
+  // A shot selected anywhere (the shot list, the card) slides into view
   useEffect(() => {
     if (!stripView) return;
     const index = shots.findIndex((shot) => shot.id === selectedShotId);
@@ -159,17 +202,17 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedShotId]);
 
-  // While the video plays, the strip turns the page to keep the playhead in view
+  // While the video plays, the lanes turn the page to keep the playhead in view
   useEffect(() => {
-    if (!inVideo || !playing || !stripView) return;
+    if (!playing || !stripView) return;
     if (videoTime >= stripView.from && videoTime <= stripView.to) return;
     const width = stripView.to - stripView.from;
     setStripView(
       panStripView(stripView, videoTime - width * 0.05 - stripView.from, total)
     );
-  }, [inVideo, playing, videoTime, stripView, total, setStripView]);
+  }, [playing, videoTime, stripView, total, setStripView]);
 
-  // Selecting a shot shows its stretch of history on the timeline below
+  // Selecting a shot also brings its stretch of history into view, for History mode
   const select = (shot: Shot) => {
     selectPath(null);
     selectShot(shot.id);
@@ -191,6 +234,7 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
   const startMove = (e: React.MouseEvent, shot: Shot) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation(); // not a scrub
     select(shot);
     const startX = e.clientX;
     let moving = false;
@@ -212,17 +256,17 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
     window.addEventListener("mouseup", onUp);
   };
 
-  // Video mode: grab the playhead and drag it along the strip to scrub the video
+  // Press on the ruler, the playhead or any empty space: scrub the video
   const startScrub = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || shots.length === 0) return;
     e.preventDefault();
-    e.stopPropagation();
     useTimelineStore.getState().pause();
     const end = videoLength(shots);
     const scrubTo = (clientX: number) =>
       useTimelineStore
         .getState()
         .setVideoTime(Math.min(Math.max(secondsAt(clientX), 0), end));
+    scrubTo(e.clientX);
 
     const onMove = (ev: MouseEvent) => scrubTo(ev.clientX);
     const onUp = () => {
@@ -264,22 +308,6 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
     window.addEventListener("mouseup", onUp);
   };
 
-  // A new shot goes after the selected one. The very first covers the whole story.
-  const handleAdd = () => {
-    if (shots.length === 0) {
-      addShot({
-        from: storyStart,
-        to:
-          storyEnd !== null && storyEnd > storyStart
-            ? storyEnd
-            : storyStart + 7,
-      });
-    } else {
-      addShot();
-    }
-    selectPath(null);
-  };
-
   // Where a dragged shot would land, as a line between shots
   const insertAt = (() => {
     if (drag?.kind !== "move") return null;
@@ -291,127 +319,228 @@ function VideoStrip({ storyEnd }: { storyEnd: number | null }) {
   })();
 
   const visibleShots = shown.slice(firstShown, endShown);
+  const playhead = Math.min(videoTime, total);
 
   return (
     <>
-      <StripOverview
-        shots={shots}
-        starts={starts}
-        total={total}
-        chapters={chapters}
-        view={stripView}
-        selectedIndex={shots.findIndex((shot) => shot.id === selectedShotId)}
-        playhead={inVideo ? Math.min(videoTime, total) : null}
-        onView={setStripView}
-      />
-      <div className={styles.videoStrip}>
-        <div className={styles.videoLabel}>
-          <span className={styles.videoTitle} title="How long the video is">
+      <div className={styles.body} style={{ maxHeight: height }}>
+        <div className={styles.labels}>
+          <div className={`${styles.labelSpacer} ${styles.videoLength}`}>
             Video {formatSeconds(total)}
-          </span>
-          <button
-            className={styles.addShot}
-            onClick={handleAdd}
-            title="Add a shot after the selected one"
-          >
-            + Shot
-          </button>
-        </div>
-        <div className={styles.videoTrack} ref={trackRef}>
-          {shots.length === 0 && (
-            <div className={styles.videoEmpty}>
-              No shots yet. A shot is a stretch of video showing a stretch of
-              history; click + Shot to add one.
-            </div>
-          )}
-          {visibleShots.map((shot, k) => {
-            const i = firstShown + k;
+          </div>
+          <div className={`${styles.videoLaneLabel} ${styles.chaptersLane}`}>
+            Chapters
+          </div>
+          <div className={`${styles.videoLaneLabel} ${styles.shotsLane}`}>
+            <span className={styles.laneName}>Shots</span>
+            <button
+              className={styles.laneAdd}
+              onClick={addShot}
+              title="Add a shot after the selected one"
+            >
+              +
+            </button>
+          </div>
+          {VIDEO_LANES.map((lane) => {
+            const folded = foldedLanes.includes(lane.key);
             return (
               <div
-                key={shot.id}
-                className={[
-                  styles.shotBlock,
-                  shot.id === selectedShotId ? styles.shotActive : "",
-                  isHeld(shot) ? styles.shotHeld : "",
-                  drag?.kind === "move" && drag.id === shot.id
-                    ? styles.shotDragging
-                    : "",
-                ].join(" ")}
-                style={{
-                  left: `${percent(starts[i])}%`,
-                  width: `${widthOf(shot.seconds)}%`,
-                }}
-                title={describeShot(
-                  shot,
-                  findBattle(battles, shot.scene)?.name
-                )}
-                onMouseDown={(e) => startMove(e, shot)}
+                key={lane.key}
+                className={`${styles.videoLaneLabel} ${
+                  folded ? styles.laneFolded : styles.laneOpen
+                }`}
               >
-                <span className={styles.shotName}>
-                  {shot.scene ? "⚔ " : ""}
-                  {shot.name}
-                </span>
-                <span className={styles.shotSeconds}>
-                  {formatSeconds(shot.seconds)}
-                  {shot.ease ? " ~" : ""}
-                </span>
-                <div
-                  className={styles.shotHandle}
-                  title="Drag to make this shot longer or shorter"
-                  onMouseDown={(e) => startLength(e, shot)}
-                />
+                <button
+                  className={styles.groupToggle}
+                  onClick={() => toggleLane(lane.key)}
+                  title={folded ? "Show this lane" : "Fold this lane away"}
+                >
+                  {folded ? "▸" : "▾"}
+                </button>
+                <span className={styles.laneDim}>{lane.label}</span>
               </div>
             );
           })}
-          {/* Where each chapter starts, as a gold line between shots */}
-          {chapters
-            .filter(
-              (chapter) =>
-                chapter.name !== null &&
-                chapter.from > view.from &&
-                chapter.from < view.to
-            )
-            .map((chapter) => (
+        </div>
+
+        <div className={styles.tracks} ref={trackRef} onMouseDown={startScrub}>
+          <div className={styles.ruler}>
+            {ticks.map((tick) => (
               <div
-                key={`chapter-${chapter.first}`}
-                className={styles.chapterLine}
-                style={{ left: `${percent(chapter.from)}%` }}
-                title={`${chapter.name} starts here`}
-              />
+                key={tick.seconds}
+                className={styles.tick}
+                style={{ left: `${percent(tick.seconds)}%` }}
+              >
+                <span className={styles.tickLabel}>{tick.label}</span>
+              </div>
             ))}
-          {transitionSpans(shown)
-            .filter((fade) => fade.to > view.from && fade.from < view.to)
-            .map((fade, i) => (
+          </div>
+
+          <div className={`${styles.videoLane} ${styles.chaptersLane}`}>
+            {chapters
+              .filter(
+                (chapter) => chapter.to > view.from && chapter.from < view.to
+              )
+              .map((chapter) => (
+                <div
+                  key={`chapter-${chapter.first}`}
+                  className={`${styles.chapterBar} ${
+                    chapter.name === null ? styles.chapterUnnamed : ""
+                  }`}
+                  style={{
+                    left: `${percent(chapter.from)}%`,
+                    width: `${widthOf(chapter.to - chapter.from)}%`,
+                  }}
+                  title={`${chapter.name ?? "Before the first chapter"}: ${formatSeconds(
+                    chapter.from
+                  )} to ${formatSeconds(chapter.to)}\nClick to select its first shot, double-click to zoom to it`}
+                  onMouseDown={(e) => {
+                    if (e.button !== 0) return;
+                    e.stopPropagation();
+                    select(shots[chapter.first]);
+                  }}
+                  onDoubleClick={() =>
+                    setStripView(
+                      clampStripView(
+                        { from: chapter.from, to: chapter.to },
+                        total
+                      )
+                    )
+                  }
+                >
+                  <span className={styles.chapterName}>
+                    {chapter.name ?? ""}
+                  </span>
+                </div>
+              ))}
+          </div>
+
+          <div className={`${styles.videoLane} ${styles.shotsLane}`}>
+            {shots.length === 0 && (
+              <div className={styles.videoEmpty}>
+                No shots yet. A shot is a stretch of video showing a stretch of
+                history; click + beside Shots to add one.
+              </div>
+            )}
+            {visibleShots.map((shot, k) => {
+              const i = firstShown + k;
+              const picture = thumbnails.get(shot.id);
+              return (
+                <div
+                  key={shot.id}
+                  className={[
+                    styles.shotBlock,
+                    shot.id === selectedShotId ? styles.shotActive : "",
+                    isHeld(shot) ? styles.shotHeld : "",
+                    drag?.kind === "move" && drag.id === shot.id
+                      ? styles.shotDragging
+                      : "",
+                  ].join(" ")}
+                  style={{
+                    left: `${percent(starts[i])}%`,
+                    width: `${widthOf(shot.seconds)}%`,
+                  }}
+                  title={`${describeShot(
+                    shot,
+                    findBattle(battles, shot.scene)?.name
+                  )}\nDouble-click to open it`}
+                  onMouseDown={(e) => startMove(e, shot)}
+                  onDoubleClick={() => setOpenShot(shot.id)}
+                >
+                  {picture && (
+                    <img
+                      className={styles.shotThumb}
+                      src={picture}
+                      alt=""
+                      style={{ height: THUMB_HEIGHT }}
+                      draggable={false}
+                    />
+                  )}
+                  <span className={styles.shotText}>
+                    <span className={styles.shotName}>
+                      {shot.scene ? "⚔ " : ""}
+                      {shot.name}
+                    </span>
+                    <span className={styles.shotSeconds}>
+                      {formatSeconds(shot.seconds)}
+                      {shot.ease ? " ~" : ""}
+                    </span>
+                  </span>
+                  <div
+                    className={styles.shotHandle}
+                    title="Drag to make this shot longer or shorter"
+                    onMouseDown={(e) => startLength(e, shot)}
+                  />
+                </div>
+              );
+            })}
+            {/* Where each chapter starts, as a gold line between shots */}
+            {chapters
+              .filter(
+                (chapter) =>
+                  chapter.name !== null &&
+                  chapter.from > view.from &&
+                  chapter.from < view.to
+              )
+              .map((chapter) => (
+                <div
+                  key={`chapter-${chapter.first}`}
+                  className={styles.chapterLine}
+                  style={{ left: `${percent(chapter.from)}%` }}
+                />
+              ))}
+            {transitionSpans(shown)
+              .filter((fade) => fade.to > view.from && fade.from < view.to)
+              .map((fade, i) => (
+                <div
+                  key={i}
+                  className={`${styles.shotTransition} ${
+                    fade.kind === "fadeOut" ? styles.shotFadeOut : ""
+                  }`}
+                  style={{
+                    left: `${percent(fade.from)}%`,
+                    width: `${widthOf(fade.to - fade.from)}%`,
+                  }}
+                />
+              ))}
+            {insertAt !== null && (
               <div
-                key={i}
-                className={`${styles.shotTransition} ${
-                  fade.kind === "fadeOut" ? styles.shotFadeOut : ""
-                }`}
-                style={{
-                  left: `${percent(fade.from)}%`,
-                  width: `${widthOf(fade.to - fade.from)}%`,
-                }}
-              />
-            ))}
-          {inVideo &&
-            shots.length > 0 &&
-            videoTime >= view.from &&
-            videoTime <= view.to && (
-              <div
-                className={styles.videoPlayhead}
-                style={{ left: `${percent(Math.min(videoTime, total))}%` }}
-                onMouseDown={startScrub}
-                title="Drag to scrub the video"
+                className={styles.shotInsert}
+                style={{ left: `${percent(insertAt)}%` }}
               />
             )}
-          {insertAt !== null && (
+          </div>
+
+          {VIDEO_LANES.map((lane) => {
+            const folded = foldedLanes.includes(lane.key);
+            return (
+              <div
+                key={lane.key}
+                className={`${styles.videoLane} ${
+                  folded ? styles.laneFolded : styles.laneOpen
+                }`}
+              >
+                {!folded && (
+                  <span className={styles.laneComing}>
+                    {lane.label} arrive in week {lane.week}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+
+          {shots.length > 0 && playhead >= view.from && playhead <= view.to && (
             <div
-              className={styles.shotInsert}
-              style={{ left: `${percent(insertAt)}%` }}
+              className={styles.videoPlayhead}
+              style={{ left: `${percent(playhead)}%` }}
+              title="Drag to scrub the video"
             />
           )}
         </div>
       </div>
+      {stripView && (
+        <StripScrollbar view={stripView} total={total} onView={setStripView} />
+      )}
     </>
   );
 }

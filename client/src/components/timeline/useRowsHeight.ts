@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   clampRowsHeight,
-  DEFAULT_ROWS_HEIGHT,
+  toggledRowsHeight,
   useTimelineStore,
 } from "../../store/useTimelineStore";
 
@@ -9,8 +9,8 @@ import {
 export function useRowsHeight() {
   const rowsHeight = useTimelineStore((state) => state.rowsHeight);
 
-  // Drag the timeline's top edge to give the rows more or less room; double-click it to go
-  // back to the usual height
+  // Drag the timeline's top edge to give the rows more or less room; double-click it to switch
+  // between the usual height and tall
   const startResize = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -34,10 +34,13 @@ export function useRowsHeight() {
     window.addEventListener("mouseup", onUp);
   };
 
-  const resetHeight = () => {
+  const toggleTall = () => {
     const state = useTimelineStore.getState();
     state.setRowsHeight(
-      clampRowsHeight(DEFAULT_ROWS_HEIGHT, window.innerHeight)
+      toggledRowsHeight(
+        clampRowsHeight(state.rowsHeight, window.innerHeight),
+        window.innerHeight
+      )
     );
     state.saveRowsHeight();
   };
@@ -54,5 +57,5 @@ export function useRowsHeight() {
   }, []);
   const fittedHeight = clampRowsHeight(rowsHeight, windowHeight);
 
-  return { startResize, resetHeight, fittedHeight };
+  return { startResize, toggleTall, fittedHeight };
 }

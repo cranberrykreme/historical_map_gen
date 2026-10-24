@@ -505,61 +505,6 @@
   opacity: 1;
 }
 
-/* The video strip: the shots in the order they play, above the history rows. Its label
-   column matches the names column below, so the two tracks line up. */
-.videoStrip {
-  flex-shrink: 0;
-  display: flex;
-  height: 30px;
-  border-top: 1px solid var(--color-border-subtle);
-}
-
-.videoLabel {
-  width: 140px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-right: 1px solid var(--color-border-subtle);
-}
-
-.videoTitle {
-  flex: 1;
-  min-width: 0;
-  margin-left: var(--space-sm);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.addShot {
-  flex-shrink: 0;
-  margin-right: var(--space-xs);
-  padding: 1px 6px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-gold);
-  font-family: var(--font-ui);
-  font-size: 11px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.addShot:hover {
-  border-color: var(--color-gold);
-}
-
-.videoTrack {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
 .videoEmpty {
   padding: 7px var(--space-sm);
   color: var(--color-text-dim);
@@ -741,124 +686,6 @@
   pointer-events: none;
 }
 
-/* The overview bar: the whole video above the strip */
-.overviewRow {
-  flex-shrink: 0;
-  display: flex;
-  height: 18px;
-  border-top: 1px solid var(--color-border-subtle);
-}
-
-.overviewLabel {
-  width: 140px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  padding-left: var(--space-sm);
-  box-sizing: border-box;
-  border-right: 1px solid var(--color-border-subtle);
-  font-family: var(--font-ui);
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.overviewLabel .textButton {
-  padding: 0 var(--space-sm);
-  font-size: 11px;
-}
-
-.overviewBar {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  cursor: crosshair;
-  user-select: none;
-}
-
-.overviewChapter {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-  background: rgba(110, 160, 220, 0.1);
-  border-left: 1px solid var(--color-gold-dim);
-}
-
-.overviewChapterAlt {
-  background: rgba(110, 160, 220, 0.2);
-}
-
-.overviewChapterName {
-  display: block;
-  padding: 0 4px;
-  color: var(--color-text-secondary);
-  font-family: var(--font-ui);
-  font-size: 10px;
-  line-height: 18px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
-
-.overviewCuts {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.overviewCuts path {
-  stroke: rgba(110, 160, 220, 0.45);
-  stroke-width: 1;
-  fill: none;
-}
-
-.overviewSelected {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  min-width: 2px;
-  background: var(--color-gold-subtle);
-  border: 1px solid var(--color-gold);
-  box-sizing: border-box;
-  pointer-events: none;
-}
-
-.overviewPlayhead {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--color-text-primary);
-  pointer-events: none;
-}
-
-.overviewWindow {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  min-width: 4px;
-  box-sizing: border-box;
-  border: 2px solid var(--color-gold);
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.06);
-  pointer-events: none;
-}
-
-.overviewRange {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: rgba(200, 168, 75, 0.25);
-  pointer-events: none;
-}
-
 /* The control bar's left and right groups share the spare room, so History | Video sits in
    the middle */
 .transportSide {
@@ -983,4 +810,443 @@
 
 .inCard .field {
   flex-wrap: wrap;
+}
+
+/* ---- History mode: the shots lane ---- */
+
+/* The lane's name beside it; pinned under the ruler with the lane while the rows scroll
+   (unless the lane has so many lines it would crowd them out) */
+.laneLabel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 5px var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+  box-sizing: border-box;
+}
+
+.laneLabel.laneSticky,
+.lane.laneSticky {
+  position: sticky;
+  top: 24px;
+  z-index: 3;
+}
+
+.laneName {
+  color: var(--color-gold);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.laneAdd {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.laneAdd:hover {
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+}
+
+.lane {
+  position: relative;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+  box-sizing: border-box;
+}
+
+/* A shot over the stretch of history it shows */
+.laneShot {
+  position: absolute;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 6px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: grab;
+}
+
+.laneShotName {
+  color: var(--color-text-primary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* The bracket's ends: drag them to change From and To. Gold on the selected shot. */
+.laneEnd {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 6px;
+  z-index: 1;
+  cursor: ew-resize;
+}
+
+.laneEndFrom {
+  left: -1px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.laneEndTo {
+  right: -1px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.laneShot:hover .laneEnd {
+  background: var(--color-gold-dim);
+}
+
+.laneActive.laneShot {
+  background: var(--color-gold-subtle);
+  border-color: var(--color-gold);
+}
+
+.laneActive .laneShotName,
+.laneActive .laneHeldName {
+  color: var(--color-gold);
+}
+
+.laneActive .laneEnd {
+  background: var(--color-gold);
+}
+
+/* A shot holding one moment: a diamond there, with its name beside it */
+.laneHeld {
+  position: absolute;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -6px;
+  cursor: grab;
+  white-space: nowrap;
+}
+
+.laneDiamond {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  transform: rotate(45deg);
+  background: var(--color-text-secondary);
+  border: 1px solid var(--color-surface);
+}
+
+.laneActive .laneDiamond {
+  background: var(--color-gold);
+}
+
+.laneHeldName {
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+/* ---- History mode: a row per unit ---- */
+
+.rowSelected {
+  background: rgba(200, 168, 75, 0.06);
+}
+
+/* While the unit is in history: from when it arrives until it leaves */
+.lifeLine {
+  position: absolute;
+  top: 13px;
+  height: 2px;
+  background: var(--color-border);
+  pointer-events: none;
+}
+
+/* Where it arrives (green) and where it leaves (red) */
+.rowDiamond {
+  position: absolute;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  margin-left: -6px;
+  z-index: 2;
+  transform: rotate(45deg);
+  border: 1px solid var(--color-surface);
+  cursor: pointer;
+}
+
+.rowArrives {
+  background: #7fb37a;
+}
+
+.rowLeaves {
+  background: #c0584a;
+}
+
+/* A block losing men: a red strip along the row's bottom */
+.rowLoss {
+  position: absolute;
+  bottom: 2px;
+  height: 4px;
+  min-width: 3px;
+  z-index: 1;
+  background: rgba(192, 88, 74, 0.85);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+/* ---- Video mode: lanes in seconds of video ---- */
+
+/* The video's length, beside the ruler */
+.videoLength {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.videoLaneLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 0 var(--space-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+  box-sizing: border-box;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.videoLaneLabel .groupToggle {
+  margin-left: -6px;
+}
+
+.videoLane {
+  position: relative;
+  border-bottom: 1px solid var(--color-border-subtle);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.chaptersLane {
+  height: 24px;
+}
+
+.shotsLane {
+  height: 54px;
+}
+
+.videoLaneLabel.shotsLane {
+  align-items: flex-start;
+  padding-top: 5px;
+}
+
+/* A lane waiting for a later week: a thin line folded, or a hint of what's coming open */
+.laneFolded {
+  height: 18px;
+}
+
+.laneOpen {
+  height: 28px;
+}
+
+.videoLaneLabel.laneFolded,
+.videoLaneLabel.laneOpen {
+  justify-content: flex-start;
+}
+
+.laneFolded.videoLaneLabel {
+  font-size: 11px;
+}
+
+.laneDim {
+  color: var(--color-text-dim);
+}
+
+.laneComing {
+  position: absolute;
+  left: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-dim);
+  font-size: 11px;
+  font-style: italic;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* A chapter across the stretch of video it covers */
+.chapterBar {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.chapterUnnamed {
+  background: transparent;
+  border-style: dashed;
+}
+
+.chapterName {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A shot's picture of its first frame, and its name and length beside it */
+.shotThumb {
+  flex-shrink: 0;
+  margin-left: -3px;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.shotText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* The thin scrollbar under the lanes while they're zoomed in */
+.stripScroll {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 2px var(--space-sm);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.stripScrollBar {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.stripScrollThumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 12px;
+  background: var(--color-gold-dim);
+  border-radius: 4px;
+  cursor: grab;
+}
+
+/* ---- Video mode: a shot opened up ---- */
+
+.crumbs {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 3px var(--space-sm);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  min-width: 0;
+  position: relative;
+  z-index: 5; /* the + Row menu opens over the rows below */
+}
+
+.crumbs > span:not(.addRowAnchor) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.crumbDim {
+  color: var(--color-text-dim);
+  font-size: 11px;
+}
+
+.crumbName {
+  color: var(--color-gold);
+}
+
+.addRowAnchor {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.addRowMenu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 6;
+  min-width: 300px;
+  padding: 4px 0;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.addRowItem {
+  display: flex;
+  white-space: nowrap;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 3px var(--space-sm);
+  color: var(--color-text-dim);
+  font-size: var(--font-size-sm);
+  cursor: default;
+}
+
+/* Something that happens in the opened shot, along its row */
+.shotRowBar {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: rgba(110, 160, 220, 0.18);
+  border: 1px solid rgba(110, 160, 220, 0.5);
+  border-radius: var(--radius-sm);
+}
+
+.shotRowCamera {
+  background: rgba(200, 168, 75, 0.14);
+  border-color: var(--color-gold-dim);
+}
+
+.shotRowLabel {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

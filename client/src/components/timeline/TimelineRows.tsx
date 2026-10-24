@@ -3,41 +3,45 @@ import { useMapStore } from "../../store/useMapStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import { useTimelineStore } from "../../store/useTimelineStore";
 import { HistoryView } from "../../utils/history/timeline";
-import {
-  formatHistoryTime,
-  historyTicks,
-  HistoryTime,
-} from "../../utils/history/historyTime";
-import { RowGroup } from "../../utils/history/timelineRows";
-import { describe, groupTitle } from "./describe";
-import MarchBar, { MIN_BAR_PX } from "./MarchBar";
+import { historyTicks, HistoryTime } from "../../utils/history/historyTime";
+import { COMING_LATER, RowGroup } from "../../utils/history/timelineRows";
+import { ShotsLane } from "../../utils/history/shotsLane";
+import { groupTitle } from "./describe";
+import { MIN_BAR_PX } from "./MarchBar";
+import { UnitRowLabel, UnitRowTrack } from "./UnitRow";
+import { ShotDraft, ShotsLaneLabel, ShotsLaneTrack } from "./ShotsLane";
 import styles from "./Timeline.module.css";
 
 const TICK_SPACING = 90; // pixels between ruler labels, at least
 const START_SNAP = 4; // pixels: a playhead this close to the story's start counts as at it
 
-// The body of the timeline: the names column on the left, and the ruler, the bars and the
-// playhead on the right, grouped by army
+// The body of the timeline in History mode: the names column on the left, and on the right
+// the date ruler, the shots lane, then a row per unit, grouped by army, with the playhead
+// running down through them
 function TimelineRows({
   groups,
   grouped,
   isOpen,
   shown,
   current,
-  hasMarches,
+  hasUnits,
   height,
   trackRef,
   trackWidth,
   rowRefs,
   headerRefs,
   band,
+  lane,
+  shotDraft,
+  setShotDraft,
+  storyEnd,
 }: {
   groups: RowGroup[];
   grouped: boolean;
   isOpen: (group: RowGroup) => boolean;
   shown: HistoryView;
   current: HistoryTime;
-  hasMarches: boolean;
+  hasUnits: boolean;
   height: number;
   trackRef: React.RefObject<HTMLDivElement | null>;
   trackWidth: number;
@@ -45,9 +49,11 @@ function TimelineRows({
   headerRefs: React.RefObject<Map<string, HTMLDivElement>>;
   // The selected shot's stretch of history, shaded across the rows
   band: { from: HistoryTime; to: HistoryTime } | null;
+  lane: ShotsLane;
+  shotDraft: ShotDraft | null;
+  setShotDraft: (draft: ShotDraft | null) => void;
+  storyEnd: HistoryTime | null;
 }) {
-  const selectedPathId = useMapStore((state) => state.selectedPathId);
-  const selectPath = useMapStore((state) => state.selectPath);
   const storyStart = useMapStore((state) => state.storyStart);
   const selectedArmyId = useMapStore((state) => state.selectedArmyId);
   const selectArmy = useMapStore((state) => state.selectArmy);
@@ -98,10 +104,12 @@ function TimelineRows({
 
   const startShare = percent(storyStart);
 
-  const emptyMessage =
-    rowFilter === "now"
-      ? `No marches under way on ${formatHistoryTime(current, "days")}`
-      : "No marches in this stretch of history. Pan or zoom out, or click Fit.";
+  const later = COMING_LATER[rowFilter];
+  const emptyMessage = !hasUnits
+    ? "Place units on the map and they appear here, one row each."
+    : later
+      ? `Nothing here yet: these arrive in ${later}.`
+      : "No units march yet. Select units and draw a march for them.";
 
   // The rows a group shows: none while it's folded away
   const shownRows = (group: RowGroup) => (isOpen(group) ? group.rows : []);
@@ -110,6 +118,7 @@ function TimelineRows({
     <div className={styles.body} style={{ maxHeight: height }}>
       <div className={styles.labels}>
         <div className={styles.labelSpacer} />
+        <ShotsLaneLabel lines={lane.lines} storyEnd={storyEnd} />
         {groups.map((group) => (
           <React.Fragment key={group.key}>
             {grouped && (
@@ -123,15 +132,13 @@ function TimelineRows({
                     ? styles.labelActive
                     : ""
                 }`}
-                title={groupTitle(group, rowFilter)}
+                title={groupTitle(group)}
               >
                 <button
                   className={styles.groupToggle}
                   onClick={() => toggleGroup(group.key)}
                   title={
-                    isOpen(group)
-                      ? "Fold these marches away"
-                      : "Show these marches"
+                    isOpen(group) ? "Fold these units away" : "Show these units"
                   }
                 >
                   {isOpen(group) ? "▾" : "▸"}
@@ -151,29 +158,22 @@ function TimelineRows({
                   {group.army ? group.army.name : "No army"}
                 </span>
                 <span className={styles.groupCount}>
-                  {rowFilter === "all" || group.rows.length === group.total
+                  {group.rows.length === group.total
                     ? group.total
                     : `${group.rows.length}/${group.total}`}
                 </span>
               </div>
             )}
-            {shownRows(group).map(({ path, timing }) => (
-              <div
-                key={path.id}
-                ref={(el) => {
-                  if (el) rowRefs.current.set(path.id, el);
-                  else rowRefs.current.delete(path.id);
+            {shownRows(group).map((row) => (
+              <UnitRowLabel
+                key={row.unit.id}
+                row={row}
+                grouped={grouped}
+                rowRef={(el) => {
+                  if (el) rowRefs.current.set(row.unit.id, el);
+                  else rowRefs.current.delete(row.unit.id);
                 }}
-                className={`${styles.label} ${grouped ? styles.labelIndented : ""} ${
-                  path.id === selectedPathId ? styles.labelActive : ""
-                }`}
-                title={`${path.name}\n${describe(timing)}`}
-                onClick={() =>
-                  selectPath(path.id === selectedPathId ? null : path.id)
-                }
-              >
-                {path.name}
-              </div>
+              />
             ))}
           </React.Fragment>
         ))}
@@ -210,35 +210,41 @@ function TimelineRows({
           ))}
         </div>
 
+        <ShotsLaneTrack
+          lane={lane}
+          shown={shown}
+          trackRef={trackRef}
+          draft={shotDraft}
+          setDraft={setShotDraft}
+        />
+
         {groups.map((group) => (
           <React.Fragment key={group.key}>
             {grouped && (
-              <div
-                className={styles.groupRow}
-                title={groupTitle(group, rowFilter)}
-              >
-                {group.end >= shown.from && group.start <= shown.to && (
-                  <div
-                    className={`${styles.groupBar} ${
-                      group.army && group.army.id === selectedArmyId
-                        ? styles.groupBarActive
-                        : ""
-                    }`}
-                    style={{
-                      left: `${Math.max(percent(group.start), 0)}%`,
-                      right: `${Math.max(100 - percent(group.end), 0)}%`,
-                      minWidth: MIN_BAR_PX,
-                    }}
-                  />
-                )}
+              <div className={styles.groupRow} title={groupTitle(group)}>
+                {group.start !== null &&
+                  group.end !== null &&
+                  group.end >= shown.from &&
+                  group.start <= shown.to && (
+                    <div
+                      className={`${styles.groupBar} ${
+                        group.army && group.army.id === selectedArmyId
+                          ? styles.groupBarActive
+                          : ""
+                      }`}
+                      style={{
+                        left: `${Math.max(percent(group.start), 0)}%`,
+                        right: `${Math.max(100 - percent(group.end), 0)}%`,
+                        minWidth: MIN_BAR_PX,
+                      }}
+                    />
+                  )}
               </div>
             )}
-            {shownRows(group).map(({ path, timing }) => (
-              <MarchBar
-                key={path.id}
-                path={path}
-                timing={timing}
-                active={path.id === selectedPathId}
+            {shownRows(group).map((row) => (
+              <UnitRowTrack
+                key={row.unit.id}
+                row={row}
                 shown={shown}
                 trackRef={trackRef}
               />
@@ -246,12 +252,7 @@ function TimelineRows({
           </React.Fragment>
         ))}
 
-        {!hasMarches && (
-          <div className={styles.empty}>
-            Attach units to a march and it appears here.
-          </div>
-        )}
-        {hasMarches && groups.length === 0 && (
+        {groups.length === 0 && (
           <div className={styles.empty}>{emptyMessage}</div>
         )}
 

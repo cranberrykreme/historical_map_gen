@@ -35,3 +35,19 @@ export function readDateStyle(): DateStyle {
   probe.remove();
   return style;
 }
+
+// The date box for a smaller frame than the video's (a shot's picture in the timeline): every
+// size shrunk by the same factor, so it covers as much of the picture as of the video
+export function scaledDateStyle(style: DateStyle, factor: number): DateStyle {
+  const fontSize = style.fontSize * factor;
+  return {
+    ...style,
+    font: style.font.replace(/[\d.]+px/, `${fontSize}px`),
+    fontSize,
+    letterSpacing: style.letterSpacing * factor,
+    radius: style.radius * factor,
+    padX: style.padX * factor,
+    padY: style.padY * factor,
+    margin: style.margin * factor,
+  };
+}

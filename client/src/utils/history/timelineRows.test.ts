@@ -1,137 +1,133 @@
 import {
+  groupKeyOfUnit,
   groupRows,
-  groupKeyOf,
+  itemSpan,
   MarchRow,
   NO_ARMY,
-  overlapsView,
-  underWay,
+  rowItems,
 } from "./timelineRows";
-import { Army, MapPath } from "../../types";
+import { Army, MapPath, Unit } from "../../types";
 
-const S = 0;
+const S = 100; // the story's start
 
-const row = (
+const unit = (id: string, extra: Partial<Unit> = {}): Unit => ({
+  id,
+  filename: `${id}.png`,
+  path: "",
+  assetType: "units",
+  x: 0,
+  y: 0,
+  rotation: 0,
+  scale: 1,
+  ...extra,
+});
+
+const march = (
   id: string,
   start: number,
   end: number,
-  armyId?: string
+  unitIds: string[]
 ): MarchRow => ({
-  path: { id, name: id, points: [], assignments: [], armyId } as MapPath,
+  path: {
+    id,
+    name: id,
+    points: [],
+    assignments: unitIds.map((unitId) => ({ unitId, forward: 0, right: 0 })),
+  } as MapPath,
   timing: { start: S + start, end: S + end, turn: 0 },
 });
 
-const army = (id: string): Army => ({ id, name: id, members: [] });
+const army = (id: string, unitIds: string[]): Army => ({
+  id,
+  name: id,
+  members: unitIds.map((unitId) => ({ unitId })),
+});
 
-const everything = { from: S - 100, to: S + 100 };
+const kinds = (u: Unit, marches: MarchRow[] = []) =>
+  rowItems(u, marches, S).map((item) => item.kind);
+
 const ids = (groups: ReturnType<typeof groupRows>) =>
-  groups.map((group) => [group.key, group.rows.map((r) => r.path.id)]);
+  groups.map((group) => [group.key, group.rows.map((r) => r.unit.id)]);
 
-test("a march is under way from setting off to arriving, ends included", () => {
-  const { timing } = row("p", 2, 5);
-  expect(underWay(timing, S + 1.9)).toBe(false);
-  expect(underWay(timing, S + 2)).toBe(true);
-  expect(underWay(timing, S + 5)).toBe(true);
-  expect(underWay(timing, S + 5.1)).toBe(false);
+test("a row holds everything that happens to its unit, earliest first", () => {
+  const knights = unit("k", {
+    appears: S + 1,
+    leaves: S + 9,
+    exit: { style: "fall" },
+    block: {
+      kind: "horse",
+      colour: "red",
+      width: 10,
+      depth: 4,
+      losses: [{ start: S + 6, end: S + 7, share: 0.3 }],
+    },
+  });
+  const marches = [march("m2", 4, 5, ["k"]), march("m1", 2, 3, ["k", "x"])];
+  expect(kinds(knights, marches)).toEqual([
+    "arrives",
+    "march",
+    "march",
+    "loss",
+    "leaves",
+  ]);
+  const items = rowItems(knights, marches, S);
+  expect(items[1]).toMatchObject({ kind: "march", path: { id: "m1" } });
+  expect(items[4]).toEqual({ kind: "leaves", at: S + 9, style: "fall" });
+  expect(itemSpan(items[3])).toEqual([S + 6, S + 7]);
 });
 
-test("a march overlaps the view if any part of it is on show", () => {
-  const { timing } = row("p", 2, 5);
-  expect(overlapsView(timing, { from: S + 4, to: S + 10 })).toBe(true);
-  expect(overlapsView(timing, { from: S - 10, to: S + 3 })).toBe(true);
-  expect(overlapsView(timing, { from: S + 3, to: S + 4 })).toBe(true);
-  expect(overlapsView(timing, { from: S + 6, to: S + 10 })).toBe(false);
+test("a unit there from the start has no arrival, and one that never leaves has no leaving", () => {
+  expect(kinds(unit("a"))).toEqual([]);
+  expect(kinds(unit("a", { appears: S }))).toEqual([]);
+  expect(kinds(unit("a", { leaves: S + 2 }))).toEqual(["leaves"]);
+  expect(rowItems(unit("a", { leaves: S + 2 }), [], S)[0]).toMatchObject({
+    style: null,
+  });
 });
 
-test("groups follow the armies' order, with marches in no army last, earliest first", () => {
-  const rows = [
-    row("loose", 0, 1),
-    row("b2", 8, 9, "B"),
-    row("a1", 1, 2, "A"),
-    row("b1", 3, 4, "B"),
-    row("lost", 5, 6, "gone"), // its army no longer exists
+test("a unit is grouped under the first army it is ever in", () => {
+  const armies = [army("A", ["a"]), army("B", ["a", "b"])];
+  expect(groupKeyOfUnit("a", armies)).toBe("A");
+  expect(groupKeyOfUnit("b", armies)).toBe("B");
+  expect(groupKeyOfUnit("c", armies)).toBe(NO_ARMY);
+});
+
+test("groups follow the armies' order, then units in no army; rows go earliest first", () => {
+  const units = [
+    unit("loose"),
+    unit("late", { appears: S + 8 }),
+    unit("early", { appears: S + 2 }),
+    unit("still"),
+    unit("a1"),
   ];
-  const groups = groupRows(
-    rows,
-    [army("A"), army("B")],
-    "all",
-    S,
-    everything,
-    null
-  );
+  const armies = [army("A", ["a1"]), army("B", ["late", "early", "still"])];
+  const groups = groupRows(units, [], armies, "everything", S, new Set());
   expect(ids(groups)).toEqual([
     ["A", ["a1"]],
-    ["B", ["b1", "b2"]],
-    [NO_ARMY, ["loose", "lost"]],
-  ]);
-  expect(groups[1].start).toBe(S + 3);
-  expect(groups[1].end).toBe(S + 9);
-});
-
-test("armies with no marches get no group", () => {
-  const groups = groupRows(
-    [row("a1", 0, 1, "A")],
-    [army("A"), army("B")],
-    "all",
-    S,
-    everything,
-    null
-  );
-  expect(ids(groups)).toEqual([["A", ["a1"]]]);
-});
-
-test("Now lists only the marches under way at the playhead", () => {
-  const rows = [row("a1", 0, 4, "A"), row("a2", 4, 8, "A"), row("loose", 6, 9)];
-  const groups = groupRows(rows, [army("A")], "now", S + 5, everything, null);
-  expect(ids(groups)).toEqual([["A", ["a2"]]]);
-  expect(groups[0].total).toBe(2);
-});
-
-test("In view lists the marches overlapping the stretch on show", () => {
-  const rows = [
-    row("a1", 0, 4, "A"),
-    row("a2", 4, 8, "A"),
-    row("loose", 20, 30),
-  ];
-  const groups = groupRows(
-    rows,
-    [army("A")],
-    "view",
-    S,
-    { from: S + 5, to: S + 25 },
-    null
-  );
-  expect(ids(groups)).toEqual([
-    ["A", ["a2"]],
+    ["B", ["early", "late", "still"]],
     [NO_ARMY, ["loose"]],
   ]);
+  expect(groups[1]).toMatchObject({ total: 3, start: S + 2, end: S + 8 });
+  expect(groups[0]).toMatchObject({ start: null, end: null });
 });
 
-test("the selected march is always listed", () => {
-  const rows = [row("a1", 0, 4, "A"), row("loose", 20, 30)];
-  const groups = groupRows(
-    rows,
-    [army("A")],
-    "now",
-    S + 1,
-    everything,
-    "loose"
-  );
-  expect(ids(groups)).toEqual([
-    ["A", ["a1"]],
-    [NO_ARMY, ["loose"]],
-  ]);
+test("Marches lists only the units that march, with just their marches", () => {
+  const units = [unit("a", { appears: S + 1 }), unit("b"), unit("c")];
+  const marches = [march("m", 2, 3, ["a"])];
+  const groups = groupRows(units, marches, [], "marches", S, new Set());
+  expect(ids(groups)).toEqual([[NO_ARMY, ["a"]]]);
+  expect(groups[0].rows[0].items.map((item) => item.kind)).toEqual(["march"]);
+  expect(groups[0].total).toBe(3);
 });
 
-test("nothing under way lists nothing", () => {
-  const rows = [row("a1", 0, 4, "A")];
-  expect(groupRows(rows, [army("A")], "now", S + 10, everything, null)).toEqual(
-    []
-  );
+test("selected units are always listed", () => {
+  const units = [unit("a"), unit("b")];
+  const groups = groupRows(units, [], [], "marches", S, new Set(["b"]));
+  expect(ids(groups)).toEqual([[NO_ARMY, ["b"]]]);
 });
 
-test("a march's group is its army's, or no army's", () => {
-  const armies = [army("A")];
-  expect(groupKeyOf(row("x", 0, 1, "A").path, armies)).toBe("A");
-  expect(groupKeyOf(row("y", 0, 1, "gone").path, armies)).toBe(NO_ARMY);
-  expect(groupKeyOf(row("z", 0, 1).path, armies)).toBe(NO_ARMY);
+test("Battle and Map have nothing to list yet", () => {
+  const units = [unit("a")];
+  expect(groupRows(units, [], [], "battle", S, new Set())).toEqual([]);
+  expect(groupRows(units, [], [], "map", S, new Set())).toEqual([]);
 });

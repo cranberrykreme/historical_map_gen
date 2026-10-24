@@ -3,7 +3,7 @@ import { MarchTiming } from "../types";
 import { HistoryTime } from "../utils/history/historyTime";
 import { HistoryView } from "../utils/history/timeline";
 import { StripView } from "../utils/history/stripView";
-import { ROW_FILTERS, RowFilter } from "../utils/history/timelineRows";
+import { SHOW_FILTERS, ShowFilter } from "../utils/history/timelineRows";
 
 // The rows area's height, in pixels: the ruler and about seven rows to begin with
 export const DEFAULT_ROWS_HEIGHT = 228;
@@ -19,9 +19,24 @@ export const clampRowsHeight = (height: number, windowHeight: number): number =>
     )
   );
 
+// Tall: most of the window, for working on the rows. Double-clicking the timeline's top edge
+// switches between this and the usual height.
+export const tallRowsHeight = (windowHeight: number): number =>
+  clampRowsHeight(windowHeight * MAX_ROWS_SHARE, windowHeight);
+
+export function toggledRowsHeight(
+  current: number,
+  windowHeight: number
+): number {
+  const tall = tallRowsHeight(windowHeight);
+  const usual = clampRowsHeight(DEFAULT_ROWS_HEIGHT, windowHeight);
+  // Anything closer to tall than to the usual height counts as tall
+  return Math.abs(current - tall) < Math.abs(current - usual) ? usual : tall;
+}
+
 // The row filter and the height are remembered in this browser. Storage can be missing or
 // refuse (private windows, blocked site data), so every read and write is guarded.
-const FILTER_KEY = "historyMap.timeline.rowFilter";
+const FILTER_KEY = "historyMap.timeline.show";
 const HEIGHT_KEY = "historyMap.timeline.rowsHeight";
 
 function remembered(key: string): string | null {
@@ -40,11 +55,11 @@ function remember(key: string, value: string): void {
   }
 }
 
-function rememberedFilter(): RowFilter {
+function rememberedFilter(): ShowFilter {
   const saved = remembered(FILTER_KEY);
-  return ROW_FILTERS.includes(saved as RowFilter)
-    ? (saved as RowFilter)
-    : "all";
+  return SHOW_FILTERS.includes(saved as ShowFilter)
+    ? (saved as ShowFilter)
+    : "everything";
 }
 
 function rememberedHeight(): number {
@@ -53,6 +68,15 @@ function rememberedHeight(): number {
     ? saved
     : DEFAULT_ROWS_HEIGHT;
 }
+
+// Video mode's lanes under the shots, waiting for what later weeks put on them. Each folds
+// away to a thin line, and starts folded while it's empty.
+export const VIDEO_LANES: { key: string; label: string; week: string }[] = [
+  { key: "overlays", label: "Overlays", week: "10.5" },
+  { key: "narration", label: "Narration", week: "10" },
+  { key: "music", label: "Music", week: "10" },
+  { key: "effects", label: "Sound effects", week: "10" },
+];
 
 // What the playhead follows: history directly, or the video, whose shots say which moment
 // of history is on screen
@@ -72,7 +96,7 @@ interface TimelineStore {
   expanded: boolean;
   draftTiming: DraftTiming | null; // a bar being dragged, shown before it is saved
   view: HistoryView | null; // the stretch of history the bar shows; null fits the whole story
-  rowFilter: RowFilter; // which marches are listed
+  rowFilter: ShowFilter; // what the rows show
   collapsedGroups: string[]; // the army groups folded away (keys from utils/history/timelineRows)
   rowsHeight: number; // the rows area's height in pixels; drag the timeline's top edge
   mode: TimelineMode;
@@ -82,6 +106,10 @@ interface TimelineStore {
   timelineTop: number | null;
   // The stretch of the video the video strip shows; null shows the whole video
   stripView: StripView | null;
+  // The shot opened up in Video mode, showing its own rows in its own seconds
+  openShotId: string | null;
+  // Video mode's extra lanes folded away to a thin line (see VIDEO_LANES)
+  foldedLanes: string[];
 
   setNow: (now: HistoryTime | null) => void;
   play: () => void;
@@ -90,7 +118,7 @@ interface TimelineStore {
   setExpanded: (expanded: boolean) => void;
   setDraftTiming: (draft: DraftTiming | null) => void;
   setView: (view: HistoryView | null) => void;
-  setRowFilter: (filter: RowFilter) => void;
+  setRowFilter: (filter: ShowFilter) => void;
   toggleGroup: (key: string) => void;
   expandGroup: (key: string) => void;
   setRowsHeight: (height: number) => void; // while dragging; not remembered yet
@@ -99,6 +127,8 @@ interface TimelineStore {
   setVideoTime: (seconds: number) => void;
   setTimelineTop: (top: number | null) => void;
   setStripView: (view: StripView | null) => void;
+  setOpenShot: (id: string | null) => void;
+  toggleLane: (key: string) => void;
   reset: () => void; // for a newly opened project: keeps the filter, the height and where the timeline is
 }
 
@@ -116,6 +146,8 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
   videoTime: 0,
   timelineTop: null,
   stripView: null,
+  openShotId: null,
+  foldedLanes: VIDEO_LANES.map((lane) => lane.key),
 
   setNow: (now) => set({ now }),
   play: () => set({ playing: true }),
@@ -152,9 +184,19 @@ export const useTimelineStore = create<TimelineStore>((set, get) => ({
     if (timelineTop !== get().timelineTop) set({ timelineTop });
   },
   setStripView: (stripView) => set({ stripView }),
+  setOpenShot: (openShotId) => set({ openShotId }),
+  toggleLane: (key) => {
+    const folded = get().foldedLanes;
+    set({
+      foldedLanes: folded.includes(key)
+        ? folded.filter((k) => k !== key)
+        : [...folded, key],
+    });
+  },
   reset: () =>
     set({
       stripView: null,
+      openShotId: null,
       now: null,
       playing: false,
       draftTiming: null,
