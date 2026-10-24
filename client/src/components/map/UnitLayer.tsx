@@ -1,17 +1,18 @@
-import React from "react";
-import API_BASE_URL from "../../config/api";
+import React, { useMemo } from "react";
 import { Unit } from "../../types";
-import { useAssetStore } from "../../store/useAssetStore";
 import { usePathToolStore } from "../../store/usePathToolStore";
 import { effectiveForward, unitFacing } from "../../utils/marches/unitFacing";
-import { ExitFrame } from "../../utils/units/exits";
+import { DrawMarker, ExitFrame } from "../../utils/units/exits";
+import { UNIT_WIDTH, unitImageKey } from "../../render/drawFrame";
+import { drawUnit } from "../../render/scene";
 import BlockShape from "./BlockShape";
 import BlockHandles from "./BlockHandles";
 import ForwardArrow from "./ForwardArrow";
-import LeavingUnit from "./LeavingUnit";
+import SceneCanvas from "./SceneCanvas";
 import TurnAndSizeHandles from "./TurnAndSizeHandles";
 import { UNIT_TILT } from "./unitLook";
 import { useUnitDrags } from "./useUnitDrags";
+import { useUnitImages } from "./useUnitImages";
 
 interface UnitLayerProps {
   units: Unit[];
@@ -26,6 +27,12 @@ interface UnitLayerProps {
   // Units part way through leaving (dying), drawn under the rest in pieces. They can't be
   // selected or moved.
   leaving: { unit: Unit; frame: ExitFrame }[];
+  // The markers where units fell, drawn under everything else
+  markers: DrawMarker[];
+  // The map's moving layer and the area it's seen through, for the canvas the units are
+  // drawn on
+  mapRef: React.RefObject<HTMLDivElement | null>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const FADED_OPACITY = 0.35; // while a path is being drawn or a point dragged
@@ -38,8 +45,10 @@ function UnitLayer({
   setCursor,
   lockedIds,
   leaving,
+  markers,
+  mapRef,
+  containerRef,
 }: UnitLayerProps) {
-  const currentProjectName = useAssetStore((state) => state.currentProjectName);
   const {
     selectedUnitIds,
     blockDraft,
@@ -57,6 +66,21 @@ function UnitLayer({
     (state) => state.drawingPoints !== null || state.draftPath !== null
   );
 
+  // The units as they're drawn, with a block being reshaped drawn as it is mid-drag: the
+  // leaving ones at the bottom, then the rest, with the selected ones on top
+  const drawn = useMemo(() => {
+    const shaped = (unit: Unit) =>
+      unit.block && blockDraft?.id === unit.id
+        ? drawUnit({ ...unit, block: blockDraft.block })
+        : drawUnit(unit);
+    return [
+      ...leaving.map(({ unit, frame }) => drawUnit(unit, frame)),
+      ...units.filter((unit) => !selectedUnitIds.has(unit.id)).map(shaped),
+      ...units.filter((unit) => selectedUnitIds.has(unit.id)).map(shaped),
+    ];
+  }, [leaving, units, selectedUnitIds, blockDraft]);
+  const images = useUnitImages(drawn);
+
   return (
     <div
       style={{
@@ -70,14 +94,15 @@ function UnitLayer({
         transition: "opacity 120ms ease",
       }}
     >
-      {leaving.map(({ unit, frame }) => (
-        <LeavingUnit
-          key={`leaving-${unit.id}`}
-          unit={unit}
-          frame={frame}
-          projectName={currentProjectName}
-        />
-      ))}
+      <SceneCanvas
+        mapRef={mapRef}
+        containerRef={containerRef}
+        markers={markers}
+        units={drawn}
+        images={images}
+      />
+      {/* Over the drawing, each unit's own invisible shape takes the clicks and drags, with its
+          selection outline and handles */}
       {units.map((unit) => {
         const isSelected = selectedUnitIds.has(unit.id);
         const locked = lockedIds.has(unit.id);
@@ -109,11 +134,12 @@ function UnitLayer({
             }}
           >
             {block ? (
-              // A formation block: drawn rather than a picture, and never mirrored
+              // A formation block, never mirrored
               <BlockShape
                 block={block}
                 rotation={unit.rotation}
                 selected={isSelected}
+                hitOnly
                 style={{
                   cursor: isShiftHeld || locked ? "default" : "move",
                   userSelect: "none",
@@ -130,20 +156,23 @@ function UnitLayer({
                 )}
               </BlockShape>
             ) : (
-              <img
-                src={`${API_BASE_URL}/api/projects/${currentProjectName}/assets/${unit.assetType}/${unit.path ?? unit.filename}`}
-                alt={unit.filename}
+              <div
                 style={{
-                  width: "48px",
-                  height: "auto",
+                  width: UNIT_WIDTH,
+                  // as tall as its picture, once that's loaded
+                  height:
+                    UNIT_WIDTH *
+                    (images.get(
+                      unitImageKey({
+                        assetType: unit.assetType,
+                        path: unit.path ?? unit.filename,
+                      })
+                    )?.aspect ?? 0),
                   cursor: isShiftHeld || locked ? "default" : "move",
                   userSelect: "none",
-                  display: "block",
-                  transform: unit.flipped ? "scaleX(-1)" : undefined,
                   outline: isSelected ? "2px solid #c8a84b" : "none",
                 }}
                 onMouseDown={(e) => handleMouseDown(e, unit.id)}
-                draggable={false}
               />
             )}
 

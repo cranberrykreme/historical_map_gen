@@ -4,6 +4,21 @@
 // rather than a frame late, which made them tremble while zooming.
 export const MAP_SCALE_VAR = "--map-scale";
 
+// Where the map is: its top left corner on screen, in pixels from the map area's corner, and
+// its zoom
+export interface MapPlace {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+type PlaceListener = (place: MapPlace) => void;
+
+// The last place set on each map element, and who wants to know when it changes (the canvas
+// the units are drawn on redraws in the same moment the map moves)
+const places = new WeakMap<HTMLElement, MapPlace>();
+const listeners = new WeakMap<HTMLElement, Set<PlaceListener>>();
+
 export function applyMapTransform(
   element: HTMLElement | null,
   x: number,
@@ -13,6 +28,29 @@ export function applyMapTransform(
   if (!element) return;
   element.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
   element.style.setProperty(MAP_SCALE_VAR, String(scale));
+  const place = { x, y, scale };
+  places.set(element, place);
+  listeners.get(element)?.forEach((listener) => listener(place));
+}
+
+// Where the map element was last put (the start, before it's moved at all)
+export const mapPlaceOf = (element: HTMLElement): MapPlace =>
+  places.get(element) ?? { x: 0, y: 0, scale: 1 };
+
+// Calls `listener` each time the map element moves or zooms; returns how to stop
+export function watchMapPlace(
+  element: HTMLElement,
+  listener: PlaceListener
+): () => void {
+  let set = listeners.get(element);
+  if (!set) {
+    set = new Set();
+    listeners.set(element, set);
+  }
+  set.add(listener);
+  return () => {
+    listeners.get(element)?.delete(listener);
+  };
 }
 
 // A length in CSS that stays the same number of screen pixels at any zoom

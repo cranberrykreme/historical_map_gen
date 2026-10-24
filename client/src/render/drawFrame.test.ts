@@ -2,6 +2,7 @@ import {
   DateStyle,
   drawBlend,
   drawFrame,
+  drawMapLayer,
   FrameContext,
   OUTSIDE_MAP,
   UNIT_WIDTH,
@@ -304,4 +305,38 @@ describe("blending two shots", () => {
     );
     expect(calls.some((c) => c.op === "drawImage")).toBe(false);
   });
+});
+
+test("the map layer skips units wholly outside the area in view", () => {
+  const { ctx, calls } = recorder();
+  const image = {} as CanvasImageSource;
+  const unit = (id: string, x: number) => ({
+    id,
+    assetType: "units" as const,
+    path: "a.png",
+    x,
+    y: 0,
+    rotation: 0,
+    scale: 1,
+    flipped: false,
+  });
+  const assets = {
+    map: null,
+    unitImages: new Map([["units/a.png", { image, aspect: 1 }]]),
+  };
+  const area = { x: 0, y: -50, width: 100, height: 100 };
+  // one in view, one just off the edge but reaching in, one far away
+  drawMapLayer(
+    ctx,
+    [],
+    [unit("in", 50), unit("edge", 120), unit("far", 500)],
+    assets,
+    1,
+    area
+  );
+  expect(calls.filter((c) => c.op === "drawImage")).toHaveLength(2);
+  // without an area, everything is drawn
+  const all = recorder();
+  drawMapLayer(all.ctx, [], [unit("far", 500)], assets, 1);
+  expect(all.calls.filter((c) => c.op === "drawImage")).toHaveLength(1);
 });

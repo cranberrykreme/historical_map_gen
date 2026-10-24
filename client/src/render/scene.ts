@@ -88,7 +88,8 @@ export function sceneMoment(input: SceneInput, seconds: number): HistoryTime {
   );
 }
 
-const drawUnit = (unit: Unit, exit?: ExitFrame): DrawUnit => ({
+// A unit as it's drawn, with its leaving animation's frame if it's part way through leaving
+export const drawUnit = (unit: Unit, exit?: ExitFrame): DrawUnit => ({
   id: unit.id,
   assetType: unit.assetType,
   path: unit.path ?? unit.filename,

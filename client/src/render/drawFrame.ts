@@ -236,7 +236,7 @@ function followSteps(ctx: FrameContext, steps: BlockStep[]): void {
   }
 }
 
-// A formation block, exactly as the editor draws it (see BlockShape): filled in its colour with
+// A formation block, as the panel previews draw it (see BlockShape): filled in its colour with
 // a darker edge, its symbol, a thick front edge, and its name kept the right way up
 function drawBlockBody(
   ctx: FrameContext,
@@ -362,6 +362,50 @@ function drawMarker(ctx: FrameContext, marker: DrawMarker): void {
   ctx.restore();
 }
 
+// How far from its centre a unit's drawing can reach, in map units: further while it's
+// breaking up, as its pieces fly apart
+function unitReach(unit: DrawUnit, assets: FrameAssets): number {
+  let width = UNIT_WIDTH;
+  let height = UNIT_WIDTH;
+  if (unit.block) ({ width, height } = blockBox(unit.block));
+  else {
+    const picture = assets.unitImages.get(unitImageKey(unit));
+    if (picture) height = UNIT_WIDTH * picture.aspect;
+  }
+  return (Math.hypot(width, height) / 2) * unit.scale * (unit.exit ? 3 : 1);
+}
+
+const reaches = (area: MapRect, x: number, y: number, reach: number) =>
+  x + reach >= area.x &&
+  x - reach <= area.x + area.width &&
+  y + reach >= area.y &&
+  y - reach <= area.y + area.height;
+
+// What's drawn on the map itself, in map units: the markers where units fell, then the units,
+// bottom to top. The video and the editor both draw it this way. `pixel` is one pixel of the
+// picture in map units. With `area`, anything wholly outside it is skipped.
+export function drawMapLayer(
+  ctx: FrameContext,
+  markers: DrawMarker[],
+  units: DrawUnit[],
+  assets: FrameAssets,
+  pixel: number,
+  area?: MapRect
+): void {
+  for (const marker of markers)
+    if (
+      !area ||
+      reaches(area, marker.x, marker.y, Math.max(marker.width, marker.depth))
+    )
+      drawMarker(ctx, marker);
+  for (const unit of units) {
+    if (area && !reaches(area, unit.x, unit.y, unitReach(unit, assets)))
+      continue;
+    if (unit.block) drawBlock(ctx, unit, pixel);
+    else drawUnit(ctx, unit, assets, pixel);
+  }
+}
+
 // A rectangle with rounded corners, as a path ready to fill and stroke
 function roundedBox(
   ctx: FrameContext,
@@ -451,11 +495,7 @@ export function drawFrame(
       ctx.fillStyle = OUTSIDE_MAP;
       ctx.fill("evenodd");
     }
-    for (const marker of scene.markers ?? []) drawMarker(ctx, marker);
-    const pixel = 1 / scale;
-    for (const unit of scene.units)
-      if (unit.block) drawBlock(ctx, unit, pixel);
-      else drawUnit(ctx, unit, assets, pixel);
+    drawMapLayer(ctx, scene.markers ?? [], scene.units, assets, 1 / scale);
     ctx.restore();
   }
 

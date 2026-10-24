@@ -1,7 +1,9 @@
 import {
   applyMapTransform,
   MAP_SCALE_VAR,
+  mapPlaceOf,
   screenPx,
+  watchMapPlace,
   zoomLevel,
 } from "./mapTransform";
 
@@ -24,4 +26,17 @@ test("the zoom level only changes when the zoom doubles or halves", () => {
   expect(zoomLevel(2.7)).toBe(2);
   expect(zoomLevel(0.4)).toBe(0.5);
   expect(zoomLevel(0)).toBe(1);
+});
+
+test("watchers hear each move of the map, and where it is can be asked", () => {
+  const map = document.createElement("div");
+  expect(mapPlaceOf(map)).toEqual({ x: 0, y: 0, scale: 1 });
+  const heard: unknown[] = [];
+  const stop = watchMapPlace(map, (place) => heard.push(place));
+  applyMapTransform(map, 5, 6, 2);
+  expect(heard).toEqual([{ x: 5, y: 6, scale: 2 }]);
+  expect(mapPlaceOf(map)).toEqual({ x: 5, y: 6, scale: 2 });
+  stop();
+  applyMapTransform(map, 1, 1, 1);
+  expect(heard).toHaveLength(1);
 });

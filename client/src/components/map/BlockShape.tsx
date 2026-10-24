@@ -20,22 +20,47 @@ const polyline = (points: { x: number; y: number }[]) =>
     )
     .join("");
 
+// The dashed outline round a selected block, the same width on screen at any zoom
+function SelectedOutline({ outline }: { outline: string }) {
+  return (
+    <path
+      d={outline}
+      fill="none"
+      stroke="#c8a84b"
+      strokeWidth={2}
+      strokeDasharray="6 4"
+      vectorEffect="non-scaling-stroke"
+    />
+  );
+}
+
 // The parts of a block, drawn in its own space (centred on 0, 0, facing up): for use inside
 // another SVG. `rotation` is how far it's turned on screen, so the label can stay upright.
+// With `hitOnly`, only an invisible shape to take clicks (and the selection outline): the map
+// draws the block itself on its canvas.
 export function BlockDrawing({
   block,
   rotation = 0,
   selected = false,
+  hitOnly = false,
 }: {
   block: FormationBlock;
   rotation?: number;
   selected?: boolean;
+  hitOnly?: boolean;
 }) {
+  const outline = stepsPath(blockOutline(block), true);
+  if (hitOnly)
+    return (
+      <g>
+        <path d={outline} fill="transparent" stroke="none" />
+        {selected && <SelectedOutline outline={outline} />}
+      </g>
+    );
   const { fill, edge } = blockColours(block.colour);
   const widths = blockLineWidths(block);
   const symbol = blockSymbol(block);
   const label = blockLabel(block, rotation);
-  const outline = stepsPath(blockOutline(block), true);
   return (
     <g>
       <path
@@ -99,16 +124,7 @@ export function BlockDrawing({
           ))}
         </g>
       )}
-      {selected && (
-        <path
-          d={outline}
-          fill="none"
-          stroke="#c8a84b"
-          strokeWidth={2}
-          strokeDasharray="6 4"
-          vectorEffect="non-scaling-stroke"
-        />
-      )}
+      {selected && <SelectedOutline outline={outline} />}
     </g>
   );
 }
@@ -119,6 +135,7 @@ function BlockShape({
   block,
   rotation = 0,
   selected = false,
+  hitOnly = false,
   fit,
   style,
   onMouseDown,
@@ -127,6 +144,7 @@ function BlockShape({
   block: FormationBlock;
   rotation?: number;
   selected?: boolean;
+  hitOnly?: boolean;
   fit?: { width: number; height: number };
   style?: React.CSSProperties;
   onMouseDown?: (e: React.MouseEvent) => void;
@@ -142,7 +160,12 @@ function BlockShape({
       style={{ display: "block", overflow: "visible", ...style }}
       onMouseDown={onMouseDown}
     >
-      <BlockDrawing block={block} rotation={rotation} selected={selected} />
+      <BlockDrawing
+        block={block}
+        rotation={rotation}
+        selected={selected}
+        hitOnly={hitOnly}
+      />
       {children}
     </svg>
   );

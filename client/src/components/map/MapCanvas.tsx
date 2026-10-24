@@ -13,7 +13,6 @@ import TerrainDrawOverlay from "../terrain/TerrainDrawOverlay";
 import TerrainBrushOverlay from "../terrain/TerrainBrushOverlay";
 import TerrainHint from "../terrain/TerrainHint";
 import BlockPlaceOverlay from "../blocks/BlockPlaceOverlay";
-import MarkerLayer from "../exits/MarkerLayer";
 import useCamera from "../../hooks/useCamera";
 import useVideoCamera from "../../hooks/useVideoCamera";
 import useFullscreenKeys from "../../hooks/useFullscreenKeys";
@@ -411,7 +410,6 @@ function MapCanvas({
       >
         {battle && <BattleGround battle={battle} />}
         <div ref={svgRef} />
-        <MarkerLayer markers={markers} />
         <PathLayer
           mode="lines"
           scaleRef={scaleRef}
@@ -427,6 +425,9 @@ function MapCanvas({
           setCursor={setCursor}
           lockedIds={lockedIds}
           leaving={leaving}
+          markers={markers}
+          mapRef={mapRef}
+          containerRef={containerRef}
         />
         <PathLayer
           mode="markers"
